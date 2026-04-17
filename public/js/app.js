@@ -378,6 +378,32 @@
         }
     };
 
+    var authCard = document.getElementById('authCard');
+    if (authCard) {
+        var authTabs = authCard.querySelectorAll('[data-auth-tab]');
+        var authForms = authCard.querySelectorAll('[data-auth-form]');
+        var initialTab = authCard.getAttribute('data-initial-tab') || 'signin';
+
+        var setAuthTab = function (tabName) {
+            authTabs.forEach(function (tab) {
+                tab.classList.toggle('active', tab.getAttribute('data-auth-tab') === tabName);
+            });
+
+            authForms.forEach(function (form) {
+                form.classList.toggle('active', form.getAttribute('data-auth-form') === tabName);
+            });
+        };
+
+        authTabs.forEach(function (tab) {
+            tab.addEventListener('click', function () {
+                if (tab.disabled) return;
+                setAuthTab(tab.getAttribute('data-auth-tab'));
+            });
+        });
+
+        setAuthTab(initialTab);
+    }
+
     var flashToast = document.getElementById('flashToast');
     if (flashToast) {
         setTimeout(function () {

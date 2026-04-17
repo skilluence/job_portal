@@ -14,6 +14,7 @@ class ExampleTest extends TestCase
     {
         $this->assertTrue(Route::has('login'));
         $this->assertTrue(Route::has('login.post'));
+        $this->assertTrue(Route::has('register.post'));
         $this->assertTrue(Route::has('student.login'));
     }
 }
