@@ -17,14 +17,9 @@ class LoginController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        $canSelfRegister = !User::query()->exists();
         $initialTab = old('auth_mode', $request->query('mode') === 'signup' ? 'signup' : 'signin');
-        if (!$canSelfRegister && $initialTab === 'signup') {
-            $initialTab = 'signin';
-        }
 
         return view('auth.login', [
-            'canSelfRegister' => $canSelfRegister,
             'initialAuthTab' => $initialTab,
         ]);
     }
@@ -57,28 +52,31 @@ class LoginController extends Controller
 
     public function register(Request $request)
     {
-        if (User::query()->exists()) {
-            return back()
-                ->withErrors(['signup' => 'Sign up is disabled after first account setup. Please sign in.'])
-                ->withInput(['auth_mode' => 'signup']);
-        }
-
         $data = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
+        $isFirstUser = !User::query()->exists();
+        $defaultTeamManagerId = $isFirstUser
+            ? null
+            : User::whereIn('role', ['admin', 'manager'])->orderBy('id')->value('id');
+
         $user = User::create([
             'name' => $data['name'],
             'email' => strtolower($data['email']),
             'password' => Hash::make($data['password']),
-            'role' => 'admin',
+            'role' => $isFirstUser ? 'admin' : 'recruiter',
             'status' => 'active',
-            'team_manager_id' => null,
+            'team_manager_id' => $defaultTeamManagerId,
         ]);
 
-        AuditLog::log('created', 'users', "Self-signup created initial admin: {$user->name}");
+        $description = $isFirstUser
+            ? "Self-signup created initial admin: {$user->name}"
+            : "Self-signup created team member: {$user->name}";
+
+        AuditLog::log('created', 'users', $description);
 
         Auth::login($user);
         $request->session()->regenerate();
