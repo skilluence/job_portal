@@ -31,7 +31,10 @@ class DashboardController extends Controller
         // Base query closure — filters by recruiter or manager team when needed
         $base = fn () => Candidate::query()
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds));
+            ->when($isManager,   fn ($q) => $q->where(function ($q2) use ($user, $teamMemberIds) {
+                $q2->where('team_manager_id', $user->id)
+                   ->orWhereIn('recruiter_id', $teamMemberIds);
+            }));
 
         $activeCandidateStatuses = ['active', 'enrolled', 'interview', 'offer', 'placed', 'onhold'];
 
@@ -155,6 +158,10 @@ class DashboardController extends Controller
             ->groupBy('status')
             ->pluck('total', 'status');
 
+        // Manager-specific: direct vs through-recruiter candidates
+        $managerMyCandidatesCount  = $isManager ? Candidate::where('team_manager_id', $user->id)->count() : 0;
+        $managerAllCandidatesCount = $isManager ? Candidate::whereIn('recruiter_id', $teamMemberIds)->count() : 0;
+
         return view('admin.dashboard', [
             'stats'               => $stats,
             'topPerformers'       => $topPerformers,
@@ -165,11 +172,15 @@ class DashboardController extends Controller
             'statusChartLabels'   => $statusDistribution->keys()->map(fn ($s) => ucfirst($s))->values(),
             'statusChartData'     => $statusDistribution->values(),
             'isAdmin'             => $isAdmin || $isManager,
+            'isRealAdmin'         => $isAdmin,
+            'isManager'           => $isManager,
             'isRecruiter'         => $isRecruiter,
             'activeRange'         => $range,
             'customStart'         => $customStart,
             'customEnd'           => $customEnd,
             'rangeLabel'          => $rangeLabel,
+            'managerMyCandidatesCount'  => $managerMyCandidatesCount,
+            'managerAllCandidatesCount' => $managerAllCandidatesCount,
         ]);
     }
 

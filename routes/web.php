@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogsController;
+use App\Http\Controllers\Admin\CandidateResumeController;
 use App\Http\Controllers\Admin\CandidatesController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ImportExportController;
@@ -9,6 +10,7 @@ use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\StudentAuthController;
 use App\Http\Controllers\Student\DashboardController as StudentDashboardController;
+use App\Http\Controllers\Student\ResumeController as StudentResumeController;
 use App\Http\Controllers\Student\StudentInfoController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,6 +38,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
     Route::get('/candidates/{candidate}/files/{file}', [CandidatesController::class, 'downloadFile'])
         ->whereIn('file', ['cv', 'details', 'speedy'])
         ->name('candidates.files');
+    Route::get('/candidates/{candidate}/resumes/{resume}', [CandidateResumeController::class, 'download'])
+        ->name('candidates.resumes.download');
 
     // Profile — accessible to all roles
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
@@ -77,4 +81,6 @@ Route::prefix('student')->name('student.')->middleware('student.auth')->group(fu
     Route::get('/files/{file}', [StudentInfoController::class, 'downloadFile'])
         ->whereIn('file', ['cv', 'details'])
         ->name('files');
+    Route::post('/resumes', [StudentResumeController::class, 'store'])->name('resumes.store');
+    Route::get('/resumes/{resume}/file', [StudentResumeController::class, 'download'])->name('resumes.download');
 });

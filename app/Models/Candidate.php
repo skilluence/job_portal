@@ -75,6 +75,7 @@ class Candidate extends Model
         'interviews_count',
         'status',
         'recruiter_id',
+        'team_manager_id',
         'created_by',
         'login_password',
         'login_password_plain',
@@ -112,9 +113,19 @@ class Candidate extends Model
         return $this->belongsTo(User::class, 'recruiter_id');
     }
 
+    public function teamManager()
+    {
+        return $this->belongsTo(User::class, 'team_manager_id');
+    }
+
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function resumes()
+    {
+        return $this->hasMany(CandidateResume::class)->latest();
     }
 
     public function getStatusBadgeAttribute(): string

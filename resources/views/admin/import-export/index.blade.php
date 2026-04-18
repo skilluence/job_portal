@@ -79,7 +79,7 @@
                 <i class="bi bi-people-fill"></i> Candidates
             </button>
             <button class="ie-subtab" id="subtab-import-recruiters" onclick="switchIESubTab('import','recruiters')">
-                <i class="bi bi-person-badge-fill"></i> Recruiters &amp; Managers
+                <i class="bi bi-person-badge-fill"></i> Recruiters
             </button>
         </div>
 
@@ -169,7 +169,7 @@
                 <i class="bi bi-people-fill"></i> Candidates
             </button>
             <button class="ie-subtab" id="subtab-export-recruiters" onclick="switchIESubTab('export','recruiters')">
-                <i class="bi bi-person-badge-fill"></i> Recruiters &amp; Managers
+                <i class="bi bi-person-badge-fill"></i> Recruiters
             </button>
         </div>
 
@@ -254,7 +254,6 @@
                                 <option value="">All Roles</option>
                                 <option value="admin">Admin</option>
                                 <option value="recruiter">Recruiter</option>
-                                <option value="manager">Team Manager</option>
                             </select>
                         </div>
                         <div class="form-group mb-0" style="flex:1;min-width:140px;">
@@ -279,7 +278,7 @@
             <a href="{{ route('admin.import-export.export-recruiters') }}" class="ie-export-all-link">
                 <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters &amp; Managers</div>
+                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters</div>
                     <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete recruiter list without any filters</div>
                 </div>
                 <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>

@@ -24,17 +24,37 @@ class CandidatesController extends Controller
 
     public function index(Request $request)
     {
-        $user    = $request->user();
-        $search  = trim((string) $request->get('search'));
-        $status  = $request->get('status');
-        $isAdmin = $user->isAdmin();
+        $user      = $request->user();
+        $search    = trim((string) $request->get('search'));
+        $status    = $request->get('status');
+        $scope     = $request->get('scope'); // 'mine' | 'team' | null (all)
+        $isAdmin   = $user->isAdmin();
+        $isManager = $user->isManager();
 
-        $isManager     = $user->isManager();
         $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
-        $candidates = Candidate::with('recruiter')
+        // Manager-specific counts for the two scope cards
+        $managerMyCount   = 0;
+        $managerTeamCount = 0;
+        if ($isManager) {
+            $managerMyCount   = Candidate::where('team_manager_id', $user->id)->count();
+            $managerTeamCount = Candidate::whereIn('recruiter_id', $teamMemberIds)->count();
+        }
+
+        $candidates = Candidate::with(['recruiter', 'teamManager', 'resumes'])
             ->when($user->isRecruiter(), fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
+            ->when($isManager, function ($q) use ($user, $teamMemberIds, $scope) {
+                if ($scope === 'mine') {
+                    $q->where('team_manager_id', $user->id);
+                } elseif ($scope === 'team') {
+                    $q->whereIn('recruiter_id', $teamMemberIds);
+                } else {
+                    $q->where(function ($q2) use ($user, $teamMemberIds) {
+                        $q2->where('team_manager_id', $user->id)
+                           ->orWhereIn('recruiter_id', $teamMemberIds);
+                    });
+                }
+            })
             ->when($search, fn ($q) => $q->search($search))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->latest()
@@ -43,18 +63,26 @@ class CandidatesController extends Controller
 
         $recruiters = $isAdmin
             ? User::recruiters()->active()->orderBy('name')->get(['id', 'name'])
-            : ($isManager
-                ? User::where('team_manager_id', $user->id)->active()->orderBy('name')->get(['id', 'name'])
-                : collect());
+            : collect();
+
+        $managers = $isAdmin
+            ? User::managers()->active()->orderBy('name')->get(['id', 'name'])
+            : collect();
 
         return view('admin.candidates.index', [
-            'candidates'    => $candidates,
-            'recruiters'    => $recruiters,
-            'search'        => $search,
-            'status'        => $status,
-            'statusOptions' => self::STATUSES,
-            'isAdmin'       => $isAdmin || $isManager,
-            'currentUser'   => $user,
+            'candidates'       => $candidates,
+            'recruiters'       => $recruiters,
+            'managers'         => $managers,
+            'search'           => $search,
+            'status'           => $status,
+            'scope'            => $scope,
+            'statusOptions'    => self::STATUSES,
+            'isAdmin'          => $isAdmin || $isManager,
+            'isRealAdmin'      => $isAdmin,
+            'isManager'        => $isManager,
+            'currentUser'      => $user,
+            'managerMyCount'   => $managerMyCount,
+            'managerTeamCount' => $managerTeamCount,
         ]);
     }
 
@@ -64,7 +92,7 @@ class CandidatesController extends Controller
         $isAdmin   = $user->isAdmin();
         $isManager = $user->isManager();
 
-        $data = $request->validate($this->validationRules($isAdmin || $isManager, null));
+        $data = $request->validate($this->validationRules($isAdmin, $isManager, null));
 
         $data['email_id'] = strtolower($data['email_id']);
         $data['full_name'] = $this->buildFullName($data);
@@ -72,22 +100,27 @@ class CandidatesController extends Controller
         $plainPassword = $data['login_password'];
         $data['login_password']       = Hash::make($plainPassword);
         $data['login_password_plain'] = $plainPassword;
-        $data['created_by']    = $user->id;
-
-        if ($isAdmin) {
-            $data['recruiter_id'] = (int) $data['recruiter_id'];
-        } elseif ($isManager) {
-            // Validate recruiter is in manager's team
-            if (!in_array((int) $data['recruiter_id'], $user->teamMemberIds(), true)) {
-                abort(403, 'You can only assign candidates to your team members.');
-            }
-            $data['recruiter_id'] = (int) $data['recruiter_id'];
-        } else {
-            $data['recruiter_id'] = $user->id;
-        }
+        $data['created_by'] = $user->id;
         $data['interviews_count'] = 0;
 
-        // Handle sensitive nullable fields — store null when blank
+        // Assign recruiter / manager
+        if ($isAdmin) {
+            $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
+            $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
+        } elseif ($isManager) {
+            $data['team_manager_id'] = $user->id;
+            $recruiter = !empty($data['recruiter_id']) ? (int) $data['recruiter_id'] : 0;
+            if ($recruiter && in_array($recruiter, $user->teamMemberIds(), true)) {
+                $data['recruiter_id'] = $recruiter;
+            } else {
+                $data['recruiter_id'] = null;
+            }
+        } else {
+            $data['recruiter_id']    = $user->id;
+            $data['team_manager_id'] = null;
+        }
+
+        // Sensitive nullable fields — store null when blank
         foreach (['ssn', 'marketing_email_password', 'marketing_linkedin_password'] as $field) {
             if (empty($data[$field])) {
                 $data[$field] = null;
@@ -98,6 +131,7 @@ class CandidatesController extends Controller
 
         // Handle file uploads
         $this->handleFileUploads($request, $candidate);
+        $this->handleResumeUploads($request, $candidate);
 
         AuditLog::log(
             'created',
@@ -113,34 +147,47 @@ class CandidatesController extends Controller
 
     public function update(Request $request, Candidate $candidate)
     {
-        $user    = $request->user();
-        $isAdmin = $user->isAdmin();
-
+        $user      = $request->user();
+        $isAdmin   = $user->isAdmin();
         $isManager = $user->isManager();
 
+        // Access control
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
             abort(403, 'You are not authorized to edit this candidate.');
         }
-        if ($isManager && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
+        if ($isManager
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
             abort(403, 'You are not authorized to edit this candidate.');
         }
 
-        $data = $request->validate($this->validationRules($isAdmin || $isManager, $candidate->id));
+        $data = $request->validate($this->validationRules($isAdmin, $isManager, $candidate->id));
 
         $old = $candidate->toArray();
 
-        $data['email_id']   = strtolower($data['email_id']);
-        $data['full_name']  = $this->buildFullName($data);
+        $data['email_id']  = strtolower($data['email_id']);
+        $data['full_name'] = $this->buildFullName($data);
 
+        // no_of_applications: only admin can change; others keep existing value
+        if (!$isAdmin) {
+            $data['no_of_applications'] = $candidate->no_of_applications;
+        }
+
+        // Recruiter / manager assignment
         if ($isAdmin) {
-            $data['recruiter_id'] = (int) $data['recruiter_id'];
+            $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
+            $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
         } elseif ($isManager) {
-            if (!in_array((int) $data['recruiter_id'], $user->teamMemberIds(), true)) {
-                abort(403, 'You can only assign candidates to your team members.');
+            $data['team_manager_id'] = $candidate->team_manager_id; // keep existing
+            $recruiter = !empty($data['recruiter_id']) ? (int) $data['recruiter_id'] : 0;
+            if ($recruiter && in_array($recruiter, $user->teamMemberIds(), true)) {
+                $data['recruiter_id'] = $recruiter;
+            } else {
+                $data['recruiter_id'] = $candidate->recruiter_id;
             }
-            $data['recruiter_id'] = (int) $data['recruiter_id'];
         } else {
-            $data['recruiter_id'] = $candidate->recruiter_id;
+            $data['recruiter_id']    = $candidate->recruiter_id;
+            $data['team_manager_id'] = $candidate->team_manager_id;
         }
 
         // Password: only update if provided
@@ -161,6 +208,7 @@ class CandidatesController extends Controller
 
         // File uploads
         $this->handleFileUploads($request, $candidate, $data);
+        $this->handleResumeUploads($request, $candidate);
 
         $candidate->update($data);
 
@@ -178,19 +226,29 @@ class CandidatesController extends Controller
 
     public function destroy(Request $request, Candidate $candidate)
     {
-        $authUser = $request->user();
+        $authUser  = $request->user();
+        $isManager = $authUser->isManager();
+
         if ($authUser->isRecruiter() && $candidate->recruiter_id !== $authUser->id) {
             abort(403, 'You are not authorized to delete this candidate.');
         }
-        if ($authUser->isManager() && !in_array($candidate->recruiter_id, $authUser->teamMemberIds(), true)) {
+        if ($isManager
+            && $candidate->team_manager_id !== $authUser->id
+            && !in_array($candidate->recruiter_id, $authUser->teamMemberIds(), true)) {
             abort(403, 'You are not authorized to delete this candidate.');
         }
 
-        foreach (['cv_file_path', 'candidate_details_file_path', 'speedy_apply_json_path'] as $field) {
+        foreach (['cv_file_path', 'speedy_apply_json_path'] as $field) {
             if ($candidate->$field) {
                 Storage::disk('local')->delete($candidate->$field);
             }
         }
+
+        // Delete all resumes
+        foreach ($candidate->resumes as $resume) {
+            Storage::disk('local')->delete($resume->file_path);
+        }
+        $candidate->resumes()->delete();
 
         $name  = $candidate->full_name;
         $email = $candidate->email_id;
@@ -315,15 +373,15 @@ class CandidatesController extends Controller
     private function buildFullName(array $data): string
     {
         $parts = array_filter([
-            $data['first_name'] ?? '',
+            $data['first_name']  ?? '',
             $data['middle_name'] ?? '',
-            $data['last_name'] ?? '',
+            $data['last_name']   ?? '',
         ]);
 
         return trim(implode(' ', $parts)) ?: ($data['full_name'] ?? '');
     }
 
-    private function validationRules(bool $isAdmin, ?int $ignoreId): array
+    private function validationRules(bool $isAdmin, bool $isManager, ?int $ignoreId): array
     {
         return [
             // Personal Info
@@ -340,7 +398,7 @@ class CandidatesController extends Controller
             ],
             'phone_number'         => ['nullable', 'string', 'max:30'],
             'domain'               => ['nullable', 'string', 'max:150'],
-            'sub_domain'           => ['nullable', 'string', 'max:150'],
+            'sub_domain'           => ['nullable', 'string', 'max:500'],
             'ssn'                  => ['nullable', 'string', 'max:20'],
             'date_of_arrival_usa'  => ['nullable', 'date'],
             'current_salary'       => ['nullable', 'numeric', 'min:0'],
@@ -362,43 +420,44 @@ class CandidatesController extends Controller
             'visa_expiry_date'        => ['nullable', 'date'],
 
             // Marketing
-            'marketing_phone'          => ['nullable', 'string', 'max:30'],
-            'marketing_email'          => ['nullable', 'email', 'max:255'],
-            'marketing_email_password' => ['nullable', 'string', 'max:255'],
-            'marketing_linkedin_id'    => ['nullable', 'string', 'max:255'],
+            'marketing_phone'             => ['nullable', 'string', 'max:30'],
+            'marketing_email'             => ['nullable', 'email', 'max:255'],
+            'marketing_email_password'    => ['nullable', 'string', 'max:255'],
+            'marketing_linkedin_id'       => ['nullable', 'string', 'max:255'],
             'marketing_linkedin_password' => ['nullable', 'string', 'max:255'],
+            'github_url'                  => ['nullable', 'url', 'max:255'],
+            'linkedin_url'                => ['nullable', 'url', 'max:255'],
+            'speedy_apply_json'           => ['nullable', 'file', 'mimes:json,txt', 'max:2048'],
 
             // Education
-            'masters_university'  => ['nullable', 'string', 'max:255'],
-            'masters_program'     => ['nullable', 'string', 'max:200'],
-            'masters_start'       => ['nullable', 'date'],
-            'masters_end'         => ['nullable', 'date'],
-            'masters_country'     => ['nullable', 'string', 'max:100'],
-            'bachelors_university'=> ['nullable', 'string', 'max:255'],
-            'bachelors_program'   => ['nullable', 'string', 'max:200'],
-            'bachelors_start'     => ['nullable', 'date'],
-            'bachelors_end'       => ['nullable', 'date'],
-            'bachelors_country'   => ['nullable', 'string', 'max:100'],
+            'masters_university'   => ['nullable', 'string', 'max:255'],
+            'masters_program'      => ['nullable', 'string', 'max:200'],
+            'masters_start'        => ['nullable', 'date'],
+            'masters_end'          => ['nullable', 'date'],
+            'masters_country'      => ['nullable', 'string', 'max:100'],
+            'bachelors_university' => ['nullable', 'string', 'max:255'],
+            'bachelors_program'    => ['nullable', 'string', 'max:200'],
+            'bachelors_start'      => ['nullable', 'date'],
+            'bachelors_end'        => ['nullable', 'date'],
+            'bachelors_country'    => ['nullable', 'string', 'max:100'],
 
-            // Professional
-            'github_url'       => ['nullable', 'url', 'max:255'],
-            'linkedin_url'     => ['nullable', 'url', 'max:255'],
-            'recruiter_notes'  => ['nullable', 'string'],
+            // Professional / Notes
+            'recruiter_notes' => ['nullable', 'string'],
 
             // Portal access
             'no_of_applications' => ['required', 'integer', 'min:0'],
             'status'             => ['required', Rule::in(self::STATUSES)],
-            'recruiter_id'       => $isAdmin
-                ? ['required', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'recruiter'))]
-                : ['nullable'],
+            'recruiter_id'       => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->whereIn('role', ['recruiter']))],
+            'team_manager_id'    => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'manager'))],
             'login_password'     => $ignoreId
                 ? ['nullable', 'string', 'min:8', 'max:255']
                 : ['required', 'string', 'min:8', 'max:255'],
 
             // Files
-            'cv_file'                   => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
-            'candidate_details_file'    => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
-            'speedy_apply_json'         => ['nullable', 'file', 'mimes:json,txt', 'max:2048'],
+            'cv_file'               => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'resumes'               => ['nullable', 'array'],
+            'resumes.*.designation' => ['nullable', 'string', 'max:255'],
+            'resumes.*.file'        => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
         ];
     }
 
@@ -412,14 +471,6 @@ class CandidatesController extends Controller
             $candidate->update(['cv_file_path' => $path]);
         }
 
-        if ($request->hasFile('candidate_details_file')) {
-            if ($candidate->candidate_details_file_path) {
-                Storage::disk('local')->delete($candidate->candidate_details_file_path);
-            }
-            $path = $request->file('candidate_details_file')->store("candidates/{$candidate->id}/details", 'local');
-            $candidate->update(['candidate_details_file_path' => $path]);
-        }
-
         if ($request->hasFile('speedy_apply_json')) {
             if ($candidate->speedy_apply_json_path) {
                 Storage::disk('local')->delete($candidate->speedy_apply_json_path);
@@ -428,8 +479,27 @@ class CandidatesController extends Controller
             $candidate->update(['speedy_apply_json_path' => $path]);
         }
 
-        // Remove file fields from $data so they don't cause mass-assign issues
-        unset($data['cv_file'], $data['candidate_details_file'], $data['speedy_apply_json']);
+        unset($data['cv_file'], $data['speedy_apply_json']);
+    }
+
+    private function handleResumeUploads(Request $request, Candidate $candidate): void
+    {
+        $resumeInputs = $request->input('resumes', []);
+        $resumeFiles  = $request->file('resumes', []);
+
+        foreach ($resumeInputs as $idx => $entry) {
+            $designation = trim($entry['designation'] ?? '');
+            $file = $resumeFiles[$idx]['file'] ?? null;
+            if (!$designation || !$file) {
+                continue;
+            }
+            $path = $file->store("candidates/{$candidate->id}/resumes", 'local');
+            $candidate->resumes()->create([
+                'designation'       => $designation,
+                'file_path'         => $path,
+                'original_filename' => $file->getClientOriginalName(),
+            ]);
+        }
     }
 
     private function sanitizeAuditValues(array $values): array

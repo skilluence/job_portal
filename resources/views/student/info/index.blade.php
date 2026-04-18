@@ -194,35 +194,103 @@
 
             <form method="POST" action="{{ route('student.info.documents') }}" enctype="multipart/form-data">
                 @csrf
-                <div class="stp-form-grid">
-                    <div class="stp-form-group">
-                        <label class="stp-label">
-                            Upload / Replace CV
-                            @if ($candidate->cv_file_path)
-                                <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
-                            @endif
-                        </label>
-                        <input type="file" name="cv_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                    </div>
-                    <div class="stp-form-group">
-                        <label class="stp-label">
-                            Upload / Replace Candidate Details
-                            @if ($candidate->candidate_details_file_path)
-                                <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
-                            @endif
-                        </label>
-                        <input type="file" name="candidate_details_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                    </div>
+                <div class="stp-form-group">
+                    <label class="stp-label">
+                        Upload / Replace CV
+                        @if ($candidate->cv_file_path)
+                            <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
+                        @endif
+                    </label>
+                    <input type="file" name="cv_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
                 </div>
                 <div class="stp-file-hint">Allowed: PDF, DOC, DOCX, JPG, PNG (max 5 MB each)</div>
                 <div style="margin-top:12px;">
                     <button type="submit" class="stp-btn-primary">
-                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload Documents
+                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload CV
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        {{-- ── Resumes Section ── --}}
+        <div class="stp-card" style="margin-top:16px;">
+            <div class="stp-card-head">
+                <div class="stp-card-title"><i class="bi bi-file-earmark-person-fill"></i> My Resumes</div>
+                <div class="stp-card-hint">Upload multiple resumes with designation</div>
+            </div>
+
+            @if ($candidate->resumes->count() > 0)
+                <div style="margin-bottom:16px;overflow-x:auto;">
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                        <thead>
+                            <tr style="background:var(--stp-bg,#f8fafc);">
+                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Designation</th>
+                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">File</th>
+                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Uploaded At</th>
+                                <th style="padding:8px 12px;text-align:center;font-weight:600;border-bottom:1px solid #e2e8f0;">View</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($candidate->resumes as $resume)
+                            <tr style="border-bottom:1px solid #e2e8f0;">
+                                <td style="padding:8px 12px;font-weight:500;">{{ $resume->designation }}</td>
+                                <td style="padding:8px 12px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                                    {{ $resume->original_filename }}
+                                </td>
+                                <td style="padding:8px 12px;color:#64748b;">{{ $resume->created_at->format('M d, Y') }}</td>
+                                <td style="padding:8px 12px;text-align:center;">
+                                    <a href="{{ route('student.resumes.download', $resume) }}" target="_blank"
+                                        class="stp-btn-secondary" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
+                                        <i class="bi bi-box-arrow-up-right"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('student.resumes.store') }}" enctype="multipart/form-data">
+                @csrf
+                <div id="resumeEntriesWrap">
+                    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:160px;">
+                            <input type="text" name="resumes[0][designation]" class="stp-input"
+                                placeholder="Designation (e.g. Java Developer)" required>
+                        </div>
+                        <div style="flex:1;min-width:160px;">
+                            <input type="file" name="resumes[0][file]" class="stp-input stp-file-input"
+                                accept=".pdf,.doc,.docx" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="stp-file-hint" style="margin-bottom:10px;">Allowed: PDF, DOC, DOCX (max 5 MB each)</div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <button type="button" class="stp-btn-secondary" onclick="addResumeEntry()">
+                        <i class="bi bi-plus-lg"></i> Add More
+                    </button>
+                    <button type="submit" class="stp-btn-primary">
+                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload Resumes
                     </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+var resumeCount = 1;
+function addResumeEntry() {
+    var wrap = document.getElementById('resumeEntriesWrap');
+    var idx  = resumeCount++;
+    var div  = document.createElement('div');
+    div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;';
+    div.innerHTML =
+        '<div style="flex:1;min-width:160px;"><input type="text" name="resumes['+idx+'][designation]" class="stp-input" placeholder="Designation" required></div>' +
+        '<div style="flex:1;min-width:160px;"><input type="file" name="resumes['+idx+'][file]" class="stp-input stp-file-input" accept=".pdf,.doc,.docx" required></div>';
+    wrap.appendChild(div);
+}
+</script>
 
 @endsection

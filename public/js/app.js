@@ -157,6 +157,7 @@
         });
     }
     initDropzones();
+    window._initDropzones = initDropzones; // expose for dynamic elements
 
     /* ── Inline status editor (double-click on table status cell) ── */
     var STATUS_BADGES = {
@@ -529,8 +530,222 @@
     /* ── Open candidate modal (add or edit) ─────────────────────── */
     window.openCandidateModal = function (mode) {
         if (mode === 'add') {
+            initSubDomainBadges('add', '');
+            resetResumeEntries('add');
+            setSS('add', 'recruiter', '');
+            setSS('add', 'manager',   '');
             resetModalTabs('addCandidateModal');
             openModal('addCandidateModal');
+        }
+    };
+
+    /* ── Sub-domain badge system ────────────────────────────────── */
+    window.handleSubDomainKey = function (e, prefix) {
+        if (e.key !== 'Enter' && e.key !== ',') return;
+        e.preventDefault();
+        var input  = document.getElementById(prefix + '_subdomain_input');
+        var hidden = document.getElementById(prefix + '_sub_domain');
+        if (!input || !hidden) return;
+        var val = input.value.trim().replace(/,/g, '');
+        if (!val) return;
+        var values = hidden.value ? hidden.value.split(',').map(function(v){ return v.trim(); }).filter(Boolean) : [];
+        if (!values.includes(val)) { values.push(val); hidden.value = values.join(','); }
+        input.value = '';
+        renderSubDomainBadges(prefix);
+    };
+
+    window.removeSubDomainBadge = function (prefix, idx) {
+        var hidden = document.getElementById(prefix + '_sub_domain');
+        if (!hidden) return;
+        var values = hidden.value ? hidden.value.split(',').map(function(v){ return v.trim(); }).filter(Boolean) : [];
+        values.splice(idx, 1);
+        hidden.value = values.join(',');
+        renderSubDomainBadges(prefix);
+    };
+
+    function renderSubDomainBadges(prefix) {
+        var container = document.getElementById(prefix + '_subdomain_badges');
+        var hidden    = document.getElementById(prefix + '_sub_domain');
+        if (!container || !hidden) return;
+        // Remove only badge spans — keep the input element intact
+        container.querySelectorAll('.subdomain-badge').forEach(function(el) { el.remove(); });
+        var input  = document.getElementById(prefix + '_subdomain_input');
+        var values = hidden.value ? hidden.value.split(',').map(function(v){ return v.trim(); }).filter(Boolean) : [];
+        values.forEach(function(val, i) {
+            var span = document.createElement('span');
+            span.className = 'subdomain-badge';
+            span.innerHTML = val + '<button type="button" class="subdomain-badge-x" onclick="removeSubDomainBadge(\'' + prefix + '\',' + i + ')">&times;</button>';
+            container.insertBefore(span, input);
+        });
+    }
+
+    function initSubDomainBadges(prefix, value) {
+        var hidden = document.getElementById(prefix + '_sub_domain');
+        if (hidden) hidden.value = value || '';
+        renderSubDomainBadges(prefix);
+    }
+
+    /* ── Resume list in edit modal ──────────────────────────────── */
+    function renderCandidateResumes(prefix, resumes) {
+        var emptyEl = document.getElementById(prefix + '_resume_empty');
+        var tableWrap = document.getElementById(prefix + '_resume_table_wrap');
+        var tbody = document.getElementById(prefix + '_resume_tbody');
+        if (!emptyEl || !tableWrap || !tbody) return;
+
+        if (!resumes || resumes.length === 0) {
+            emptyEl.style.display = '';
+            tableWrap.style.display = 'none';
+            return;
+        }
+
+        emptyEl.style.display = 'none';
+        tableWrap.style.display = '';
+        tbody.innerHTML = '';
+        resumes.forEach(function(r) {
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td style="padding:8px 12px;">' + escHtml(r.designation) + '</td>' +
+                '<td style="padding:8px 12px;color:var(--text-muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + escHtml(r.original_filename) + '</td>' +
+                '<td style="padding:8px 12px;white-space:nowrap;">' + escHtml(r.uploaded_at) + '</td>' +
+                '<td style="padding:8px 12px;text-align:center;"><a href="' + r.url + '" target="_blank" class="btn btn-outline btn-sm" title="View resume"><i class="bi bi-box-arrow-up-right"></i></a></td>';
+            tbody.appendChild(tr);
+        });
+    }
+
+    function escHtml(str) {
+        return String(str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ── Searchable select (ss-wrap) ────────────────────────────── */
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('.ss-wrap')) {
+            document.querySelectorAll('.ss-wrap.ss-open').forEach(function (w) {
+                w.classList.remove('ss-open');
+            });
+        }
+    });
+
+    window.toggleSS = function (wrapId) {
+        var wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        var wasOpen = wrap.classList.contains('ss-open');
+        document.querySelectorAll('.ss-wrap.ss-open').forEach(function (w) { w.classList.remove('ss-open'); });
+        if (!wasOpen) {
+            wrap.classList.add('ss-open');
+            var inp = wrap.querySelector('.ss-search-input');
+            if (inp) { inp.value = ''; filterSS(wrapId, ''); setTimeout(function () { inp.focus(); }, 10); }
+        }
+    };
+
+    window.filterSS = function (wrapId, query) {
+        var wrap = document.getElementById(wrapId);
+        if (!wrap) return;
+        var needle = query.trim().toLowerCase();
+        wrap.querySelectorAll('.ss-option').forEach(function (opt) {
+            if (!opt.dataset.value) { opt.style.display = ''; return; }
+            opt.style.display = (needle && opt.textContent.trim().toLowerCase().indexOf(needle) === -1) ? 'none' : '';
+        });
+    };
+
+    // prefix='add'|'edit', field='recruiter'|'manager'
+    window.pickSS = function (prefix, field, value, label) {
+        var wrapId   = prefix + '_' + field + '_wrap';
+        var hiddenId = prefix + (field === 'recruiter' ? '_recruiter_id' : '_team_manager_id');
+        var labelId  = prefix + '_' + field + '_label';
+        var wrap = document.getElementById(wrapId);
+        var hidden = document.getElementById(hiddenId);
+        var labelEl = document.getElementById(labelId);
+        if (hidden)  hidden.value = value;
+        if (labelEl) labelEl.textContent = label;
+        if (wrap)    wrap.classList.remove('ss-open');
+        // Mutual exclusivity: selecting a non-empty value clears the other field
+        if (value) {
+            var other       = field === 'recruiter' ? 'manager' : 'recruiter';
+            var otherHidden = document.getElementById(prefix + (other === 'recruiter' ? '_recruiter_id' : '_team_manager_id'));
+            var otherLabel  = document.getElementById(prefix + '_' + other + '_label');
+            if (otherHidden) otherHidden.value = '';
+            if (otherLabel)  otherLabel.textContent = '— None —';
+        }
+    };
+
+    function setSS(prefix, field, value) {
+        var wrapId   = prefix + '_' + field + '_wrap';
+        var hiddenId = prefix + (field === 'recruiter' ? '_recruiter_id' : '_team_manager_id');
+        var labelId  = prefix + '_' + field + '_label';
+        var hidden  = document.getElementById(hiddenId);
+        var labelEl = document.getElementById(labelId);
+        if (!hidden || !labelEl) return;
+        hidden.value = value || '';
+        if (!value) { labelEl.textContent = '— None —'; return; }
+        var wrap = document.getElementById(wrapId);
+        var opt  = wrap ? wrap.querySelector('.ss-option[data-value="' + value + '"]') : null;
+        labelEl.textContent = opt ? opt.textContent.trim() : String(value);
+    }
+
+    /* ── Resume entry blocks (add/edit modal) ───────────────────── */
+    function buildResumeEntryBlock(idx, prefix) {
+        var block = document.createElement('div');
+        block.className = 'resume-entry-block';
+        block.innerHTML =
+            '<div class="resume-entry-top">' +
+            '<input type="text" name="resumes[' + idx + '][designation]" class="form-control" placeholder="Designation (e.g. Java Developer)">' +
+            '<button type="button" class="resume-del-btn" onclick="removeOrClearResumeEntry(this,\'' + prefix + '\')"><i class="bi bi-x"></i></button>' +
+            '</div>' +
+            '<div class="form-group" style="margin-bottom:0;">' +
+            '<input type="file" name="resumes[' + idx + '][file]" class="form-control" accept=".pdf,.doc,.docx">' +
+            '</div>';
+        return block;
+    }
+
+    function reindexResumeEntries(prefix) {
+        var wrap = document.getElementById(prefix + '_resume_entries');
+        if (!wrap) return;
+        wrap.querySelectorAll('.resume-entry-block').forEach(function (block, i) {
+            var desig = block.querySelector('input[type="text"]');
+            var file  = block.querySelector('input[type="file"]');
+            if (desig) desig.name = 'resumes[' + i + '][designation]';
+            if (file)  file.name  = 'resumes[' + i + '][file]';
+        });
+    }
+
+    function resetResumeEntries(prefix) {
+        var wrap = document.getElementById(prefix + '_resume_entries');
+        if (!wrap) return;
+        wrap.innerHTML = '';
+        var block = buildResumeEntryBlock(0, prefix);
+        wrap.appendChild(block);
+        if (window._initDropzones) window._initDropzones(block);
+    }
+
+    window.addResumeEntryRow = function (prefix) {
+        var wrap = document.getElementById(prefix + '_resume_entries');
+        if (!wrap) return;
+        var idx   = wrap.querySelectorAll('.resume-entry-block').length;
+        var block = buildResumeEntryBlock(idx, prefix);
+        wrap.appendChild(block);
+        if (window._initDropzones) window._initDropzones(block);
+    };
+
+    window.removeOrClearResumeEntry = function (btn, prefix) {
+        var wrap  = document.getElementById(prefix + '_resume_entries');
+        var block = btn.closest('.resume-entry-block');
+        if (!wrap || !block) return;
+        var allBlocks = wrap.querySelectorAll('.resume-entry-block');
+        if (allBlocks.length > 1) {
+            block.remove();
+            reindexResumeEntries(prefix);
+        } else {
+            // Last block — just clear inputs
+            var desig = block.querySelector('input[type="text"]');
+            var dz    = block.querySelector('.dropzone-wrap');
+            if (desig) desig.value = '';
+            if (dz) {
+                var fileInput = dz.querySelector('input[type="file"]');
+                var fname     = dz.querySelector('.dropzone-fname');
+                if (fileInput) fileInput.value = '';
+                if (fname)     fname.textContent = '';
+                dz.classList.remove('dz-has-file');
+            }
         }
     };
 
@@ -552,12 +767,13 @@
         setVal('edit_email_id',          candidate.email_id || '');
         setVal('edit_phone_number',      candidate.phone_number || '');
         setVal('edit_domain',            candidate.domain || '');
-        setVal('edit_sub_domain',        candidate.sub_domain || '');
         // SSN: not pre-populated for security
         setVal('edit_ssn',               '');
         setVal('edit_date_of_arrival_usa', candidate.date_of_arrival_usa || '');
         setVal('edit_current_salary',    candidate.current_salary || '');
         setVal('edit_expected_salary',   candidate.expected_salary || '');
+        // Sub-domain badge system
+        initSubDomainBadges('edit', candidate.sub_domain || '');
 
         // ── Address
         setVal('edit_street_address',    candidate.street_address || '');
@@ -587,6 +803,9 @@
         setVal('edit_marketing_email_password','');
         setVal('edit_marketing_linkedin_id',   candidate.marketing_linkedin_id || '');
         setVal('edit_marketing_linkedin_password', '');
+        setVal('edit_github_url',              candidate.github_url || '');
+        setVal('edit_linkedin_url',            candidate.linkedin_url || '');
+        setDocReplaceHint('edit_speedy_hint',  candidate.speedy_file_url, 'Speedy Apply JSON');
 
         // ── Education
         setVal('edit_masters_university', candidate.masters_university || '');
@@ -600,26 +819,20 @@
         setVal('edit_bachelors_end',      candidate.bachelors_end || '');
         setVal('edit_bachelors_country',  candidate.bachelors_country || '');
 
-        // ── Professional
-        setVal('edit_github_url',         candidate.github_url || '');
-        setVal('edit_linkedin_url',       candidate.linkedin_url || '');
+        // ── Resume tab
+        renderCandidateResumes('edit', candidate.resumes || []);
+        resetResumeEntries('edit');
         setVal('edit_recruiter_notes',    candidate.recruiter_notes || '');
-
-        // ── Document hints
-        setDocReplaceHint('edit_cv_hint',      candidate.cv_file_url,      'CV');
-        setDocReplaceHint('edit_details_hint', candidate.details_file_url, 'Candidate Details');
-        setDocReplaceHint('edit_speedy_hint',  candidate.speedy_file_url,  'Speedy Apply JSON');
-
-        // Store file existence flags on the form for replace-confirm logic
-        form.dataset.hasCv      = candidate.cv_file_url      ? '1' : '0';
-        form.dataset.hasDetails = candidate.details_file_url ? '1' : '0';
-        form.dataset.hasSpeedy  = candidate.speedy_file_url  ? '1' : '0';
 
         // ── Portal
         setVal('edit_status',             candidate.status || 'active');
         setVal('edit_no_of_applications', candidate.no_of_applications || 0);
-        setVal('edit_recruiter_id',       candidate.recruiter_id || '');
-        setVal('edit_recruiter_search',   '');
+        // Sync hidden field for disabled no_of_applications (non-admin)
+        var hiddenApps = document.getElementById('edit_no_of_applications_hidden');
+        if (hiddenApps) hiddenApps.value = candidate.no_of_applications || 0;
+
+        setSS('edit', 'recruiter', candidate.recruiter_id || '');
+        setSS('edit', 'manager',   candidate.team_manager_id || '');
         setVal('edit_login_password',     '');
         resetCandidatePasswordReveal();
 

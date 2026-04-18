@@ -14,7 +14,7 @@ class StudentInfoController extends Controller
 {
     private function student(): Candidate
     {
-        return Candidate::with('recruiter')->findOrFail(session('student_id'));
+        return Candidate::with(['recruiter', 'resumes'])->findOrFail(session('student_id'));
     }
 
     public function index()

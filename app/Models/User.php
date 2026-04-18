@@ -37,6 +37,11 @@ class User extends Authenticatable
         return $this->hasMany(Candidate::class, 'recruiter_id');
     }
 
+    public function managedCandidates()
+    {
+        return $this->hasMany(Candidate::class, 'team_manager_id');
+    }
+
     public function teamManager()
     {
         return $this->belongsTo(User::class, 'team_manager_id');

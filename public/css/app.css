@@ -1472,3 +1472,194 @@ textarea.form-control { resize: vertical; min-height: 90px; }
 /* Utility */
 .hidden { display: none !important; }
 .align-center { align-items: center; }
+
+/* ── Sub-domain badge system ──────────────────────────────── */
+.subdomain-badge-wrap {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--card-bg);
+    cursor: text;
+    align-items: center;
+    margin-bottom: 6px;
+}
+.subdomain-badge-wrap:focus-within {
+    border-color: var(--blue);
+    box-shadow: 0 0 0 2px rgba(37,99,235,0.12);
+}
+.subdomain-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    background: var(--blue-light);
+    color: var(--blue-text);
+    border-radius: 100px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.subdomain-badge-x {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--blue-text);
+    font-size: 14px;
+    line-height: 1;
+    opacity: 0.7;
+    display: flex;
+    align-items: center;
+}
+.subdomain-badge-x:hover { opacity: 1; }
+.subdomain-text-input {
+    border: none !important;
+    outline: none !important;
+    box-shadow: none !important;
+    padding: 2px 4px !important;
+    min-width: 140px;
+    flex: 1;
+    background: transparent;
+    font-size: 13px;
+}
+
+/* ── Resume read-only note ────────────────────────────────── */
+.resume-readonly-note {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--blue-light);
+    border: 1px solid rgba(37,99,235,0.15);
+    border-radius: var(--radius-sm);
+    font-size: 12.5px;
+    color: var(--blue-text);
+    margin-bottom: 14px;
+}
+
+/* ── Searchable select ────────────────────────────────────── */
+.ss-wrap { position: relative; }
+.ss-trigger {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    text-align: left;
+    cursor: pointer;
+    user-select: none;
+    gap: 8px;
+}
+.ss-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ss-chevron { transition: transform 0.15s; flex-shrink: 0; font-size: 11px; color: var(--text-muted); }
+.ss-wrap.ss-open .ss-chevron { transform: rotate(180deg); }
+.ss-dropdown {
+    display: none;
+    position: absolute;
+    top: calc(100% + 3px);
+    left: 0; right: 0;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.13);
+    z-index: 300;
+}
+.ss-wrap.ss-open .ss-dropdown { display: block; }
+.ss-search { padding: 8px; border-bottom: 1px solid var(--border-color); }
+.ss-search-input {
+    width: 100%; padding: 6px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    background: var(--input-bg, var(--bg-secondary));
+    color: var(--text-primary);
+    font-size: 13px;
+    outline: none;
+    box-sizing: border-box;
+}
+.ss-search-input:focus { border-color: var(--blue); }
+.ss-options { max-height: 200px; overflow-y: auto; }
+.ss-option {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 13.5px;
+    color: var(--text-primary);
+}
+.ss-option:hover { background: var(--blue-light); color: var(--blue-text); }
+
+/* ── Resume entry blocks ──────────────────────────────────── */
+.resume-entry-block {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    padding: 12px 12px 14px;
+    margin-bottom: 10px;
+    background: var(--bg-secondary, var(--card-bg));
+}
+.resume-entry-top {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.resume-entry-top .form-control { flex: 1; margin-bottom: 0; }
+.resume-del-btn {
+    width: 26px; height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-color);
+    background: var(--card-bg);
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    font-size: 15px;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    padding: 0;
+}
+.resume-del-btn:hover {
+    background: #fef2f2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+
+/* ── Manager scope cards (candidates index) ───────────────── */
+.manager-scope-card {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 14px 20px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: var(--card-bg);
+    text-decoration: none;
+    color: var(--text-primary);
+    min-width: 160px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+    cursor: pointer;
+}
+.manager-scope-card:hover {
+    border-color: var(--blue);
+    box-shadow: 0 2px 8px rgba(37,99,235,0.10);
+}
+.manager-scope-card.scope-active {
+    border-color: var(--blue);
+    background: var(--blue-light);
+}
+.scope-num {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.1;
+}
+.scope-lbl {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-top: 2px;
+}
+.scope-sub {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    margin-top: 2px;
+}

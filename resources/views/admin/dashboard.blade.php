@@ -4,6 +4,43 @@
 @section('module-description', 'Real-time analytics for candidates, recruiters, and daily performance.')
 @section('content')
 
+{{-- Manager-specific My vs Team Candidates highlight --}}
+@if ($isManager ?? false)
+<div class="d-flex justify-between align-center mb-16" style="flex-wrap:wrap;gap:10px;">
+    <div>
+        <div style="font-size:16px;font-weight:600;color:var(--text-primary);">Candidate Overview</div>
+        <div class="text-sm text-muted">Your direct candidates and team assignments</div>
+    </div>
+    <a href="{{ route('admin.candidates') }}" class="btn btn-primary btn-sm">
+        <i class="bi bi-plus-lg"></i> Add Candidate
+    </a>
+</div>
+<div class="content-grid mb-24" style="grid-template-columns:repeat(2,1fr);">
+    <div class="card" style="border-left:4px solid var(--blue);">
+        <div class="card-header" style="padding-bottom:8px;">
+            <div>
+                <div class="card-title" style="font-size:15px;"><i class="bi bi-person-fill" style="color:var(--blue);margin-right:6px;"></i> My Candidates</div>
+                <div class="card-subtitle">Directly assigned to you</div>
+            </div>
+            <a href="{{ route('admin.candidates', ['scope' => 'mine']) }}" class="btn btn-outline btn-sm">View</a>
+        </div>
+        <div style="font-size:36px;font-weight:700;color:var(--blue);padding:8px 0 4px;">{{ $managerMyCandidatesCount }}</div>
+        <div class="text-sm text-muted">directly under your management</div>
+    </div>
+    <div class="card" style="border-left:4px solid var(--green);">
+        <div class="card-header" style="padding-bottom:8px;">
+            <div>
+                <div class="card-title" style="font-size:15px;"><i class="bi bi-people-fill" style="color:var(--green);margin-right:6px;"></i> Recruiters' Candidates</div>
+                <div class="card-subtitle">Through your team recruiters</div>
+            </div>
+            <a href="{{ route('admin.candidates', ['scope' => 'team']) }}" class="btn btn-outline btn-sm">View</a>
+        </div>
+        <div style="font-size:36px;font-weight:700;color:var(--green);padding:8px 0 4px;">{{ $managerAllCandidatesCount }}</div>
+        <div class="text-sm text-muted">via your team recruiters</div>
+    </div>
+</div>
+@endif
+
 <div class="stats-grid mb-24">
     <div class="stat-card">
         <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>

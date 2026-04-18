@@ -50,14 +50,50 @@ $workAuthOptions = [
     </div>
 @endif
 
+@if ($isManager ?? false)
+<div class="d-flex gap-12 mb-16" style="flex-wrap:wrap;align-items:stretch;">
+    <a href="{{ route('admin.candidates') }}"
+       class="manager-scope-card {{ !$scope ? 'scope-active' : '' }}">
+        <div class="scope-num">{{ $managerMyCount + $managerTeamCount }}</div>
+        <div class="scope-lbl">All Candidates</div>
+        <div class="scope-sub">Everyone you manage</div>
+    </a>
+    <a href="{{ route('admin.candidates', ['scope' => 'mine']) }}"
+       class="manager-scope-card {{ $scope === 'mine' ? 'scope-active' : '' }}">
+        <div class="scope-num" style="color:var(--blue);">{{ $managerMyCount }}</div>
+        <div class="scope-lbl">My Candidates</div>
+        <div class="scope-sub">Directly assigned to you</div>
+    </a>
+    <a href="{{ route('admin.candidates', ['scope' => 'team']) }}"
+       class="manager-scope-card {{ $scope === 'team' ? 'scope-active' : '' }}">
+        <div class="scope-num" style="color:var(--green);">{{ $managerTeamCount }}</div>
+        <div class="scope-lbl">Recruiters' Candidates</div>
+        <div class="scope-sub">Through your team recruiters</div>
+    </a>
+    <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;min-width:160px;">
+        <button class="btn btn-primary" onclick="openCandidateModal('add')">
+            <i class="bi bi-plus-lg"></i> Add Candidate
+        </button>
+    </div>
+</div>
+@endif
+
 <div class="card">
     <div class="card-header" style="flex-wrap:wrap;gap:12px;">
         <div>
-            <div class="card-title">All Candidates</div>
+            <div class="card-title">
+                @if (($isManager ?? false) && $scope === 'mine') My Candidates
+                @elseif (($isManager ?? false) && $scope === 'team') Recruiters' Candidates
+                @else All Candidates
+                @endif
+            </div>
             <div class="card-subtitle">{{ $candidates->total() }} total records</div>
         </div>
         <div class="d-flex gap-8" style="flex-wrap:wrap;align-items:center;">
             <form method="GET" action="{{ route('admin.candidates') }}" class="d-flex gap-8" style="flex-wrap:wrap;">
+                @if ($scope)
+                    <input type="hidden" name="scope" value="{{ $scope }}">
+                @endif
                 <input type="text" name="search" class="form-control" placeholder="Search name, email, domain, city..."
                     value="{{ $search }}" style="width:260px;">
                 <select name="status" class="form-control" style="width:150px;" onchange="this.form.submit()">
@@ -68,12 +104,15 @@ $workAuthOptions = [
                 </select>
                 <button type="submit" class="btn btn-outline"><i class="bi bi-search"></i></button>
                 @if ($search || $status)
-                    <a href="{{ route('admin.candidates') }}" class="btn btn-outline" title="Clear filters"><i class="bi bi-x-lg"></i></a>
+                    <a href="{{ route('admin.candidates', $scope ? ['scope' => $scope] : []) }}"
+                       class="btn btn-outline" title="Clear filters"><i class="bi bi-x-lg"></i></a>
                 @endif
             </form>
-            <button class="btn btn-primary" onclick="openCandidateModal('add')">
-                <i class="bi bi-plus-lg"></i> Add Candidate
-            </button>
+            @if (!($isManager ?? false))
+                <button class="btn btn-primary" onclick="openCandidateModal('add')">
+                    <i class="bi bi-plus-lg"></i> Add Candidate
+                </button>
+            @endif
         </div>
     </div>
 
@@ -192,10 +231,16 @@ $workAuthOptions = [
                                     'no_of_applications' => $candidate->no_of_applications,
                                     'status'           => $candidate->status,
                                     'recruiter_id'     => $candidate->recruiter_id,
+                                    'team_manager_id'  => $candidate->team_manager_id,
                                     'cv_file_url'      => $candidate->cv_file_path ? route('admin.candidates.files', [$candidate, 'cv']) : null,
-                                    'details_file_url' => $candidate->candidate_details_file_path ? route('admin.candidates.files', [$candidate, 'details']) : null,
                                     'speedy_file_url'  => $candidate->speedy_apply_json_path ? route('admin.candidates.files', [$candidate, 'speedy']) : null,
                                     'reveal_password_url' => route('admin.candidates.reveal-password', $candidate),
+                                    'resumes'          => $candidate->resumes->map(fn($r) => [
+                                        'designation'       => $r->designation,
+                                        'original_filename' => $r->original_filename,
+                                        'url'               => route('admin.candidates.resumes.download', [$candidate, $r]),
+                                        'uploaded_at'       => $r->created_at->format('M d, Y'),
+                                    ])->values(),
                                 ];
                             @endphp
                             <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
@@ -248,7 +293,7 @@ $workAuthOptions = [
         </div>
         <form method="POST" action="{{ route('admin.candidates.store') }}" enctype="multipart/form-data">
             @csrf
-            @include('admin.candidates._form', ['mode' => 'add', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'prefix' => 'add'])
+            @include('admin.candidates._form', ['mode' => 'add', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'managers' => $managers, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'isRealAdmin' => $isRealAdmin, 'prefix' => 'add'])
         </form>
     </div>
 </div>
@@ -266,7 +311,7 @@ $workAuthOptions = [
             enctype="multipart/form-data">
             @csrf
             @method('PUT')
-            @include('admin.candidates._form', ['mode' => 'edit', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'prefix' => 'edit'])
+            @include('admin.candidates._form', ['mode' => 'edit', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'managers' => $managers, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'isRealAdmin' => $isRealAdmin, 'prefix' => 'edit'])
         </form>
     </div>
 </div>

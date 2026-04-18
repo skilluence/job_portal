@@ -262,9 +262,9 @@ class ImportExportController extends Controller
 
         $callback = function () {
             $fh = fopen('php://output', 'w');
-            fputcsv($fh, ['name', 'email', 'password', 'role', 'status', 'team_manager_email']);
-            fputcsv($fh, ['Jane Recruiter', 'jane@company.com', 'password123', 'recruiter', 'active', 'manager@company.com']);
-            fputcsv($fh, ['Tom Manager', 'tom@company.com', 'password123', 'manager', 'active', '']);
+            fputcsv($fh, ['name', 'email', 'password', 'role', 'status']);
+            fputcsv($fh, ['Jane Recruiter', 'jane@company.com', 'password123', 'recruiter', 'active']);
+            fputcsv($fh, ['Tom Admin', 'tom@company.com', 'password123', 'admin', 'active']);
             fclose($fh);
         };
 
@@ -288,7 +288,7 @@ class ImportExportController extends Controller
 
         AuditLog::log('exported', 'recruiters', $desc);
 
-        $allowedRoles = ['recruiter', 'admin', 'manager'];
+        $allowedRoles = ['recruiter', 'admin'];
 
         $headers = [
             'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -374,8 +374,8 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            if (!in_array($role, ['admin', 'manager', 'recruiter'], true)) {
-                $errors[] = "Row {$rowNum}: role must be admin, manager, or recruiter.";
+            if (!in_array($role, ['admin', 'recruiter'], true)) {
+                $errors[] = "Row {$rowNum}: role must be admin or recruiter.";
                 $skipped++;
                 continue;
             }
@@ -390,21 +390,12 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            $teamManagerId = null;
-            if ($role === 'recruiter' && !empty($d['team_manager_email'])) {
-                $mgr = User::where('email', strtolower($d['team_manager_email']))->where('role', 'manager')->first();
-                if ($mgr) {
-                    $teamManagerId = $mgr->id;
-                }
-            }
-
             User::create([
-                'name'            => $name,
-                'email'           => $email,
-                'password'        => Hash::make($pass),
-                'role'            => $role,
-                'status'          => $status,
-                'team_manager_id' => $teamManagerId,
+                'name'     => $name,
+                'email'    => $email,
+                'password' => Hash::make($pass),
+                'role'     => $role,
+                'status'   => $status,
             ]);
 
             $imported++;
