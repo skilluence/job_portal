@@ -66,18 +66,6 @@ return new class extends Migration
             $table->string('speedy_apply_json_path')->nullable();
             $table->text('recruiter_notes')->nullable();
 
-            // Drop old columns
-            $table->dropColumn([
-                'enrollment_date',
-                'sales_agent',
-                'linkedin_id',
-                'linkedin_password',
-                'email_password',
-                'linkedin_updated',
-                'address',
-                'profile',
-                'notes',
-            ]);
         });
     }
 
@@ -98,15 +86,6 @@ return new class extends Migration
                 'github_url', 'linkedin_url', 'speedy_apply_json_path', 'recruiter_notes',
             ]);
 
-            $table->date('enrollment_date')->nullable();
-            $table->string('sales_agent')->nullable();
-            $table->string('linkedin_id')->nullable();
-            $table->string('linkedin_password')->nullable();
-            $table->string('email_password')->nullable();
-            $table->date('linkedin_updated')->nullable();
-            $table->text('address')->nullable();
-            $table->text('profile')->nullable();
-            $table->text('notes')->nullable();
         });
     }
 };
