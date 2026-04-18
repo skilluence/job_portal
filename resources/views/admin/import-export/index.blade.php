@@ -19,9 +19,6 @@
 .ie-export-form-title { font-size:13px; font-weight:700; color:var(--text-primary); margin-bottom:14px; display:flex; align-items:center; gap:6px; }
 .ie-export-all-link { display:flex; align-items:center; gap:12px; padding:13px 16px; border:1.5px dashed var(--border-color); border-radius:var(--radius-sm); text-decoration:none; color:var(--text-secondary); font-size:13px; transition:all var(--transition); }
 .ie-export-all-link:hover { border-color:var(--blue); color:var(--blue-text); background:var(--blue-light); }
-.ie-col-list { display:grid; grid-template-columns:1fr 1fr; gap:3px 10px; }
-.ie-col-tag  { font-size:10.5px; padding:2px 0; color:var(--text-secondary); }
-.ie-col-tag.required { color:var(--blue-text); font-weight:600; }
 </style>
 
 {{-- Flash Toast --}}
@@ -88,198 +85,77 @@
 
         {{-- Import → Candidates --}}
         <div class="ie-tab-panel" id="subpanel-import-candidates">
-            <div class="ie-row">
-
-                {{-- Steps --}}
-                <div>
-                    <div class="ie-section-header">
-                        <div class="ie-section-icon ie-icon-up"><i class="bi bi-upload"></i></div>
-                        <div>
-                            <div class="ie-section-name">Import Candidates</div>
-                            <div class="ie-section-desc">Bulk upload candidates from a CSV spreadsheet</div>
-                        </div>
-                    </div>
-
-                    <div class="ie-step">
-                        <div class="ie-step-num">1</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Download Template</div>
-                            <div class="ie-step-desc">Get the CSV template with all required columns and a sample data row.</div>
-                            <a href="{{ route('admin.import-export.candidate-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
-                                <i class="bi bi-file-earmark-arrow-down"></i> Download Template
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="ie-step">
-                        <div class="ie-step-num">2</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Fill Your Data</div>
-                            <div class="ie-step-desc">Open the template in Excel or Google Sheets. Fill in all required fields and save as <strong>.csv</strong>.</div>
-                        </div>
-                    </div>
-
-                    <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
-                        <div class="ie-step-num">3</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Upload &amp; Import</div>
-                            <div class="ie-step-desc">Select your filled CSV file to import candidates into the system.</div>
-                            <form method="POST" action="{{ route('admin.import-export.import-candidates') }}"
-                                  enctype="multipart/form-data" style="margin-top:12px;">
-                                @csrf
-                                <div class="ie-file-row">
-                                    <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
-                                        <i class="bi bi-cloud-upload"></i> Select File
-                                        <input type="file" name="file" accept=".csv,.txt"
-                                               style="position:absolute;inset:0;opacity:0;cursor:pointer;"
-                                               onchange="document.getElementById('cand-fn').textContent=this.files[0]?.name||''; document.getElementById('cand-sub').style.display='inline-flex';">
-                                    </label>
-                                    <span id="cand-fn" class="text-sm text-muted"></span>
-                                </div>
-                                <button type="submit" id="cand-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
-                                    <i class="bi bi-upload"></i> Start Import
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+            <div class="ie-step">
+                <div class="ie-step-num">1</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Download Template</div>
+                    <div class="ie-step-desc">Get the CSV template with all required columns and a sample data row.</div>
+                    <a href="{{ route('admin.import-export.candidate-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Template
+                    </a>
                 </div>
+            </div>
 
-                {{-- Tips + Column List --}}
-                <div>
-                    <div class="ie-tips">
-                        <div class="ie-tips-title"><i class="bi bi-info-circle-fill"></i> Import Tips — Candidates</div>
-                        <ul>
-                            <li>Column names must match the template exactly</li>
-                            <li>Required: <strong>first_name, last_name, email_id, portal_login_password, recruiter</strong></li>
-                            <li>Status values: <strong>active, enrolled, interview, offer, placed, onhold, inactive</strong></li>
-                            <li>Recruiter name must match an existing recruiter in the system</li>
-                            <li>Visa status: <strong>us_citizen, green_card, h1b, h4_ead, opt_f1, stem_opt, cpt, l1, tn_visa, other</strong></li>
-                            <li>Up to <strong>1,000 candidates</strong> per import; duplicate emails are skipped</li>
-                        </ul>
-                    </div>
-
-                    <div style="margin-top:14px;padding:14px;background:var(--main-bg);border-radius:var(--radius-sm);border:1px solid var(--border-color);">
-                        <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;gap:5px;">
-                            <i class="bi bi-table" style="color:var(--blue);"></i> Template Columns
+            <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                <div class="ie-step-num">2</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Upload &amp; Import</div>
+                    <div class="ie-step-desc">Select your filled CSV file to import candidates into the system.</div>
+                    <form method="POST" action="{{ route('admin.import-export.import-candidates') }}"
+                          enctype="multipart/form-data" style="margin-top:12px;">
+                        @csrf
+                        <div class="ie-file-row">
+                            <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
+                                <i class="bi bi-cloud-upload"></i> Select File
+                                <input type="file" name="file" accept=".csv,.txt"
+                                       style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                       onchange="document.getElementById('cand-fn').textContent=this.files[0]?.name||''; document.getElementById('cand-sub').style.display='inline-flex';">
+                            </label>
+                            <span id="cand-fn" class="text-sm text-muted"></span>
                         </div>
-                        <div class="ie-col-list">
-                            @foreach ([
-                                ['first_name', true], ['last_name', true],
-                                ['email_id', true], ['phone_number', false],
-                                ['domain', false], ['sub_domain', false],
-                                ['city', false], ['state_province', false],
-                                ['zip_code', false], ['visa_immigration_status', false],
-                                ['work_auth_status', false], ['no_of_applications', false],
-                                ['status', false], ['recruiter', true],
-                                ['portal_login_password', true], ['', false],
-                            ] as [$col, $req])
-                            @if($col)
-                            <div class="ie-col-tag {{ $req ? 'required' : '' }}">
-                                <code style="font-size:10px;background:rgba(0,0,0,0.04);padding:1px 4px;border-radius:3px;">{{ $col }}</code>
-                                @if ($req)<span style="color:var(--blue-text);font-size:9px;margin-left:2px;">*</span>@endif
-                            </div>
-                            @endif
-                            @endforeach
-                        </div>
-                        <div style="font-size:10px;color:var(--text-muted);margin-top:8px;"><span style="color:var(--blue-text);">*</span> = required field</div>
-                    </div>
+                        <button type="submit" id="cand-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
+                            <i class="bi bi-upload"></i> Start Import
+                        </button>
+                    </form>
                 </div>
-
             </div>
         </div>
 
         {{-- Import → Recruiters --}}
         <div class="ie-tab-panel" id="subpanel-import-recruiters">
-            <div class="ie-row">
-
-                {{-- Steps --}}
-                <div>
-                    <div class="ie-section-header">
-                        <div class="ie-section-icon ie-icon-up"><i class="bi bi-upload"></i></div>
-                        <div>
-                            <div class="ie-section-name">Import Recruiters &amp; Managers</div>
-                            <div class="ie-section-desc">Bulk upload recruiters and team managers from a CSV spreadsheet</div>
-                        </div>
-                    </div>
-
-                    <div class="ie-step">
-                        <div class="ie-step-num">1</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Download Template</div>
-                            <div class="ie-step-desc">Get the CSV template with all required columns and sample data rows.</div>
-                            <a href="{{ route('admin.import-export.recruiter-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
-                                <i class="bi bi-file-earmark-arrow-down"></i> Download Template
-                            </a>
-                        </div>
-                    </div>
-
-                    <div class="ie-step">
-                        <div class="ie-step-num">2</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Fill Your Data</div>
-                            <div class="ie-step-desc">Open the template in Excel or Google Sheets. Fill in all required fields and save as <strong>.csv</strong>.</div>
-                        </div>
-                    </div>
-
-                    <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
-                        <div class="ie-step-num">3</div>
-                        <div class="ie-step-body">
-                            <div class="ie-step-title">Upload &amp; Import</div>
-                            <div class="ie-step-desc">Select your filled CSV file to import recruiters and team managers.</div>
-                            <form method="POST" action="{{ route('admin.import-export.import-recruiters') }}"
-                                  enctype="multipart/form-data" style="margin-top:12px;">
-                                @csrf
-                                <div class="ie-file-row">
-                                    <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
-                                        <i class="bi bi-cloud-upload"></i> Select File
-                                        <input type="file" name="file" accept=".csv,.txt"
-                                               style="position:absolute;inset:0;opacity:0;cursor:pointer;"
-                                               onchange="document.getElementById('rec-fn').textContent=this.files[0]?.name||''; document.getElementById('rec-sub').style.display='inline-flex';">
-                                    </label>
-                                    <span id="rec-fn" class="text-sm text-muted"></span>
-                                </div>
-                                <button type="submit" id="rec-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
-                                    <i class="bi bi-upload"></i> Start Import
-                                </button>
-                            </form>
-                        </div>
-                    </div>
+            <div class="ie-step">
+                <div class="ie-step-num">1</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Download Template</div>
+                    <div class="ie-step-desc">Get the CSV template with all required columns and sample data rows.</div>
+                    <a href="{{ route('admin.import-export.recruiter-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Template
+                    </a>
                 </div>
+            </div>
 
-                {{-- Tips + Column List --}}
-                <div>
-                    <div class="ie-tips">
-                        <div class="ie-tips-title"><i class="bi bi-info-circle-fill"></i> Import Tips — Recruiters</div>
-                        <ul>
-                            <li>Required: <strong>name, email, password, role</strong></li>
-                            <li>Role must be: <strong>admin</strong>, <strong>recruiter</strong>, or <strong>manager</strong></li>
-                            <li><strong>team_manager_email</strong> links a recruiter to their manager</li>
-                            <li>Status: <strong>active</strong> or <strong>inactive</strong> — defaults to active if blank</li>
-                            <li>Passwords are hashed securely on import</li>
-                            <li>Duplicate emails are skipped with a row error notice</li>
-                        </ul>
-                    </div>
-
-                    <div style="margin-top:14px;padding:14px;background:var(--main-bg);border-radius:var(--radius-sm);border:1px solid var(--border-color);">
-                        <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px;display:flex;align-items:center;gap:5px;">
-                            <i class="bi bi-table" style="color:var(--blue);"></i> Template Columns
+            <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                <div class="ie-step-num">2</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Upload &amp; Import</div>
+                    <div class="ie-step-desc">Select your filled CSV file to import recruiters and team managers.</div>
+                    <form method="POST" action="{{ route('admin.import-export.import-recruiters') }}"
+                          enctype="multipart/form-data" style="margin-top:12px;">
+                        @csrf
+                        <div class="ie-file-row">
+                            <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
+                                <i class="bi bi-cloud-upload"></i> Select File
+                                <input type="file" name="file" accept=".csv,.txt"
+                                       style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                       onchange="document.getElementById('rec-fn').textContent=this.files[0]?.name||''; document.getElementById('rec-sub').style.display='inline-flex';">
+                            </label>
+                            <span id="rec-fn" class="text-sm text-muted"></span>
                         </div>
-                        <div style="display:flex;flex-direction:column;gap:5px;">
-                            @foreach ([
-                                ['name', true], ['email', true],
-                                ['password', true], ['role', true],
-                                ['status', false], ['team_manager_email', false],
-                            ] as [$col, $req])
-                            <div class="ie-col-tag {{ $req ? 'required' : '' }}">
-                                <code style="font-size:10px;background:rgba(0,0,0,0.04);padding:1px 4px;border-radius:3px;">{{ $col }}</code>
-                                @if ($req)<span style="color:var(--blue-text);font-size:9px;margin-left:2px;">*</span>@endif
-                            </div>
-                            @endforeach
-                        </div>
-                        <div style="font-size:10px;color:var(--text-muted);margin-top:8px;"><span style="color:var(--blue-text);">*</span> = required field</div>
-                    </div>
+                        <button type="submit" id="rec-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
+                            <i class="bi bi-upload"></i> Start Import
+                        </button>
+                    </form>
                 </div>
-
             </div>
         </div>
 
@@ -299,142 +175,107 @@
 
         {{-- Export → Candidates --}}
         <div class="ie-tab-panel" id="subpanel-export-candidates">
-            <div class="ie-row">
-
-                <div>
-                    <form method="GET" action="{{ route('admin.import-export.export-candidates') }}">
-                        <div class="ie-export-form">
-                            <div class="ie-export-form-title">
-                                <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
-                            </div>
-                            <div class="form-grid" style="margin-bottom:14px;">
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
-                                    <input type="date" name="date_from" class="form-control">
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
-                                    <input type="date" name="date_to" class="form-control">
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Status</label>
-                                    <select name="status" class="form-control">
-                                        <option value="">All Statuses</option>
-                                        <option value="active">Active</option>
-                                        <option value="enrolled">Enrolled</option>
-                                        <option value="interview">Interview</option>
-                                        <option value="offer">Offer</option>
-                                        <option value="placed">Placed</option>
-                                        <option value="onhold">On Hold</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Recruiter</label>
-                                    <select name="recruiter_id" class="form-control">
-                                        <option value="">All Recruiters</option>
-                                        @foreach ($recruiters as $rec)
-                                            <option value="{{ $rec->id }}">{{ $rec->name }}</option>
-                                        @endforeach
-                                    </select>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-download"></i> Export Filtered Data
-                            </button>
+            <form method="GET" action="{{ route('admin.import-export.export-candidates') }}">
+                <div class="ie-export-form">
+                    <div class="ie-export-form-title">
+                        <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
+                    </div>
+                    <div class="form-grid" style="margin-bottom:14px;">
+                        <div class="form-group mb-0">
+                            <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
+                            <input type="date" name="date_from" class="form-control">
                         </div>
-                    </form>
-
-                    <a href="{{ route('admin.import-export.export-candidates') }}" class="ie-export-all-link">
-                        <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Candidates</div>
-                            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete candidate list without any filters</div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
+                            <input type="date" name="date_to" class="form-control">
                         </div>
-                        <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>
-                    </a>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-control">
+                                <option value="">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="enrolled">Enrolled</option>
+                                <option value="interview">Interview</option>
+                                <option value="offer">Offer</option>
+                                <option value="placed">Placed</option>
+                                <option value="onhold">On Hold</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Recruiter</label>
+                            <select name="recruiter_id" class="form-control">
+                                <option value="">All Recruiters</option>
+                                @foreach ($recruiters as $rec)
+                                    <option value="{{ $rec->id }}">{{ $rec->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-download"></i> Export Filtered Data
+                    </button>
                 </div>
+            </form>
 
-                <div class="ie-tips" style="align-self:start;">
-                    <div class="ie-tips-title"><i class="bi bi-info-circle-fill"></i> Export Info — Candidates</div>
-                    <ul>
-                        <li>All candidate fields are included in the export</li>
-                        <li>Use date filters to export records created within a specific range</li>
-                        <li>Use status filter to export one specific stage of candidates</li>
-                        <li>Use recruiter filter to export one recruiter's candidate list</li>
-                        <li>Combine multiple filters for a precise export</li>
-                        <li>File is compatible with Excel &amp; Google Sheets</li>
-                    </ul>
+            <a href="{{ route('admin.import-export.export-candidates') }}" class="ie-export-all-link">
+                <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Candidates</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete candidate list without any filters</div>
                 </div>
-
-            </div>
+                <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>
+            </a>
         </div>
 
         {{-- Export → Recruiters --}}
         <div class="ie-tab-panel" id="subpanel-export-recruiters">
-            <div class="ie-row">
-
-                <div>
-                    <form method="GET" action="{{ route('admin.import-export.export-recruiters') }}">
-                        <div class="ie-export-form">
-                            <div class="ie-export-form-title">
-                                <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
-                            </div>
-                            <div class="form-grid" style="margin-bottom:14px;">
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
-                                    <input type="date" name="date_from" class="form-control">
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
-                                    <input type="date" name="date_to" class="form-control">
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Role</label>
-                                    <select name="role" class="form-control">
-                                        <option value="">All Roles</option>
-                                        <option value="admin">Admin</option>
-                                        <option value="recruiter">Recruiter</option>
-                                        <option value="manager">Team Manager</option>
-                                    </select>
-                                </div>
-                                <div class="form-group mb-0">
-                                    <label class="form-label">Status</label>
-                                    <select name="status" class="form-control">
-                                        <option value="">All Statuses</option>
-                                        <option value="active">Active</option>
-                                        <option value="inactive">Inactive</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <button type="submit" class="btn btn-primary btn-sm">
-                                <i class="bi bi-download"></i> Export Filtered Data
-                            </button>
+            <form method="GET" action="{{ route('admin.import-export.export-recruiters') }}">
+                <div class="ie-export-form">
+                    <div class="ie-export-form-title">
+                        <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
+                    </div>
+                    <div class="form-grid" style="margin-bottom:14px;">
+                        <div class="form-group mb-0">
+                            <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
+                            <input type="date" name="date_from" class="form-control">
                         </div>
-                    </form>
-
-                    <a href="{{ route('admin.import-export.export-recruiters') }}" class="ie-export-all-link">
-                        <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
-                        <div style="flex:1;min-width:0;">
-                            <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters &amp; Managers</div>
-                            <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete recruiter list without any filters</div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
+                            <input type="date" name="date_to" class="form-control">
                         </div>
-                        <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>
-                    </a>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Role</label>
+                            <select name="role" class="form-control">
+                                <option value="">All Roles</option>
+                                <option value="admin">Admin</option>
+                                <option value="recruiter">Recruiter</option>
+                                <option value="manager">Team Manager</option>
+                            </select>
+                        </div>
+                        <div class="form-group mb-0">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-control">
+                                <option value="">All Statuses</option>
+                                <option value="active">Active</option>
+                                <option value="inactive">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-sm">
+                        <i class="bi bi-download"></i> Export Filtered Data
+                    </button>
                 </div>
+            </form>
 
-                <div class="ie-tips" style="align-self:start;">
-                    <div class="ie-tips-title"><i class="bi bi-info-circle-fill"></i> Export Info — Recruiters</div>
-                    <ul>
-                        <li>All recruiter fields are included in the export</li>
-                        <li>Use date filters to export records created within a specific range</li>
-                        <li>Filter by role to export only recruiters, managers, or admins</li>
-                        <li>Filter by status to export only active or inactive accounts</li>
-                        <li>File is compatible with Excel &amp; Google Sheets</li>
-                    </ul>
+            <a href="{{ route('admin.import-export.export-recruiters') }}" class="ie-export-all-link">
+                <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters &amp; Managers</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete recruiter list without any filters</div>
                 </div>
-
-            </div>
+                <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>
+            </a>
         </div>
 
     </div>{{-- /panel-export --}}

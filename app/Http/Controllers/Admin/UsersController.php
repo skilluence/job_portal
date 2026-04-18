@@ -132,7 +132,7 @@ class UsersController extends Controller
 
         $adminId = User::where('role', 'admin')->orderBy('id')->value('id');
         if ($adminId) {
-            Candidate::where('recruiter_id', $user->id)->update(['recruiter_id' => $adminId]);
+            Candidate::withTrashed()->where('recruiter_id', $user->id)->update(['recruiter_id' => $adminId]);
         }
 
         $name  = $user->name;

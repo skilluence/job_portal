@@ -56,6 +56,7 @@
     /* ── Global form submit-once protection ─────────────────────── */
     // Prevents double-submissions (e.g. Import clicking multiple times)
     document.addEventListener('submit', function (event) {
+        if (event.defaultPrevented) return;
         var form = event.target;
         if (form.dataset.submitting === '1') {
             event.preventDefault();
@@ -70,7 +71,7 @@
             // Replace leading icon with spinner
             btn.innerHTML = originalHTML.replace(/<i class="[^"]*"><\/i>/, '<i class="bi bi-hourglass-split"></i>');
         }
-    }, true);
+    }, false);
 
     /* ── Flatpickr date pickers ─────────────────────────────────── */
     function initDatePickers(scope) {
