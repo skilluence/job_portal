@@ -4,49 +4,23 @@
 @section('module-description', 'Create, assign, and manage all candidates with recruiter ownership and document uploads.')
 @section('content')
 
-@php
-$usStates = ['AL'=>'Alabama','AK'=>'Alaska','AZ'=>'Arizona','AR'=>'Arkansas','CA'=>'California',
-    'CO'=>'Colorado','CT'=>'Connecticut','DE'=>'Delaware','FL'=>'Florida','GA'=>'Georgia',
-    'HI'=>'Hawaii','ID'=>'Idaho','IL'=>'Illinois','IN'=>'Indiana','IA'=>'Iowa','KS'=>'Kansas',
-    'KY'=>'Kentucky','LA'=>'Louisiana','ME'=>'Maine','MD'=>'Maryland','MA'=>'Massachusetts',
-    'MI'=>'Michigan','MN'=>'Minnesota','MS'=>'Mississippi','MO'=>'Missouri','MT'=>'Montana',
-    'NE'=>'Nebraska','NV'=>'Nevada','NH'=>'New Hampshire','NJ'=>'New Jersey','NM'=>'New Mexico',
-    'NY'=>'New York','NC'=>'North Carolina','ND'=>'North Dakota','OH'=>'Ohio','OK'=>'Oklahoma',
-    'OR'=>'Oregon','PA'=>'Pennsylvania','RI'=>'Rhode Island','SC'=>'South Carolina',
-    'SD'=>'South Dakota','TN'=>'Tennessee','TX'=>'Texas','UT'=>'Utah','VT'=>'Vermont',
-    'VA'=>'Virginia','WA'=>'Washington','WV'=>'West Virginia','WI'=>'Wisconsin','WY'=>'Wyoming',
-    'DC'=>'District of Columbia'];
-
-$visaOptions = [
-    'us_citizen'  => 'U.S. Citizen',
-    'green_card'  => 'Green Card',
-    'h1b'         => 'H-1B',
-    'h4_ead'      => 'H-4 EAD',
-    'opt_f1'      => 'Initial OPT F-1',
-    'stem_opt'    => 'STEM OPT',
-    'cpt'         => 'CPT',
-    'l1'          => 'L-1',
-    'tn_visa'     => 'TN Visa',
-    'other'       => 'Other',
-];
-
-$workAuthOptions = [
-    'applied_pending'  => 'Applied — pending approval',
-    'not_applied'      => 'Not Applied yet',
-    'already_obtained' => 'Already obtained / active',
-];
-@endphp
-
 @if (session('success'))
     <div class="toast-container" id="flashToast">
-        <div class="toast toast-success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>
+        <div class="toast toast-success">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>{{ session('success') }}</span>
+        </div>
     </div>
 @endif
 
 @if ($errors->any())
     <div class="alert alert-error mb-16">
         <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;font-size:16px;"></i>
-        <div>@foreach ($errors->all() as $error)<div>{{ $error }}</div>@endforeach</div>
+        <div>
+            @foreach ($errors->all() as $error)
+                <div>{{ $error }}</div>
+            @endforeach
+        </div>
     </div>
 @endif
 
@@ -58,20 +32,22 @@ $workAuthOptions = [
         </div>
         <div class="d-flex gap-8" style="flex-wrap:wrap;align-items:center;">
             <form method="GET" action="{{ route('admin.candidates') }}" class="d-flex gap-8" style="flex-wrap:wrap;">
-                <input type="text" name="search" class="form-control" placeholder="Search name, email, domain, city..."
-                    value="{{ $search }}" style="width:260px;">
-                <select name="status" class="form-control" style="width:150px;" onchange="this.form.submit()">
+                <input type="text" name="search" class="form-control" placeholder="Search name, email, profile..."
+                    value="{{ $search }}" style="width:240px;">
+                <select name="status" class="form-control" style="width:160px;" onchange="this.form.submit()">
                     <option value="">All Status</option>
-                    @foreach ($statusOptions as $s)
-                        <option value="{{ $s }}" @selected($status === $s)>{{ ucfirst($s) }}</option>
+                    @foreach ($statusOptions as $statusItem)
+                        <option value="{{ $statusItem }}" @selected($status === $statusItem)>{{ ucfirst($statusItem) }}</option>
                     @endforeach
                 </select>
                 <button type="submit" class="btn btn-outline"><i class="bi bi-search"></i></button>
                 @if ($search || $status)
-                    <a href="{{ route('admin.candidates') }}" class="btn btn-outline" title="Clear filters"><i class="bi bi-x-lg"></i></a>
+                    <a href="{{ route('admin.candidates') }}" class="btn btn-outline" title="Clear filters">
+                        <i class="bi bi-x-lg"></i>
+                    </a>
                 @endif
             </form>
-            <button class="btn btn-primary" onclick="openCandidateModal('add')">
+            <button class="btn btn-primary" onclick="openModal('addCandidateModal')">
                 <i class="bi bi-plus-lg"></i> Add Candidate
             </button>
         </div>
@@ -81,24 +57,19 @@ $workAuthOptions = [
         <table>
             <thead>
                 <tr>
-                    <th style="width:36px;">#</th>
+                    <th>#</th>
                     <th>Candidate</th>
-                    <th>Domain</th>
-                    <th>Phone</th>
-                    <th>Visa Status</th>
-                    <th>Status</th>
-                    <th style="width:50px;">Apps</th>
                     <th>Recruiter</th>
+                    <th>Status</th>
+                    <th>Applications</th>
+                    <th>Interviews</th>
+                    <th>Email</th>
                     <th>Documents</th>
-                    <th style="width:90px;">Actions</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($candidates as $i => $candidate)
-                    @php
-                        $visaLabel = $visaOptions[$candidate->visa_immigration_status] ?? ucfirst(str_replace('_', ' ', $candidate->visa_immigration_status ?? ''));
-                        $domainText = implode(' / ', array_filter([$candidate->domain, $candidate->sub_domain]));
-                    @endphp
                     <tr>
                         <td class="text-muted text-sm">{{ $candidates->firstItem() + $i }}</td>
                         <td>
@@ -106,114 +77,83 @@ $workAuthOptions = [
                                 <div class="avatar-sm">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
                                 <div>
                                     <div class="avatar-name">{{ $candidate->full_name }}</div>
-                                    <div class="avatar-sub">{{ $candidate->email_id }}</div>
+                                    <div class="avatar-sub">
+                                        Enrolled:
+                                        {{ $candidate->enrollment_date ? $candidate->enrollment_date->format('M d, Y') : '-' }}
+                                    </div>
                                 </div>
                             </div>
                         </td>
-                        <td class="text-sm">{{ $domainText ?: '-' }}</td>
-                        <td class="text-muted text-sm">{{ $candidate->phone_number ?: '-' }}</td>
-                        <td class="text-sm">
-                            @if ($candidate->visa_immigration_status)
-                                <span class="badge badge-neutral" style="font-size:11px;">{{ $visaLabel }}</span>
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
-                        <td class="td-status-cell"
-                            data-inline-status
-                            data-current-status="{{ $candidate->status }}"
-                            data-status-url="{{ route('admin.candidates.status', $candidate) }}"
-                            title="Double-click to change status">
-                            <span class="badge {{ $candidate->status_badge }}">{{ ucfirst($candidate->status) }}</span>
-                            <i class="bi bi-pencil-fill td-status-hint"></i>
-                        </td>
+                        <td>{{ $candidate->recruiter?->name ?? '-' }}</td>
+                        <td><span class="badge {{ $candidate->status_badge }}">{{ ucfirst($candidate->status) }}</span></td>
                         <td>{{ $candidate->no_of_applications }}</td>
-                        <td class="text-muted text-sm">{{ $candidate->recruiter?->name ?? '-' }}</td>
+                        <td>{{ $candidate->interviews_count }}</td>
+                        <td class="text-muted text-sm">{{ $candidate->email_id }}</td>
                         <td>
-                            <div class="d-flex gap-4" style="flex-wrap:wrap;">
+                            <div class="d-flex gap-6" style="flex-wrap:wrap;">
                                 @if ($candidate->cv_file_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'cv']) }}" target="_blank" rel="noopener" title="View CV">CV</a>
+                                    <a class="btn btn-outline btn-sm"
+                                        href="{{ route('admin.candidates.files', [$candidate, 'cv']) }}?view=1"
+                                        target="_blank" title="View CV">
+                                        <i class="bi bi-eye"></i> CV
+                                    </a>
                                 @endif
                                 @if ($candidate->candidate_details_file_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'details']) }}" target="_blank" rel="noopener" title="View Details">Details</a>
+                                    <a class="btn btn-outline btn-sm"
+                                        href="{{ route('admin.candidates.files', [$candidate, 'details']) }}?view=1"
+                                        target="_blank" title="View Details">
+                                        <i class="bi bi-eye"></i> Details
+                                    </a>
                                 @endif
-                                @if ($candidate->speedy_apply_json_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'speedy']) }}" target="_blank" rel="noopener" title="Speedy Apply">JSON</a>
-                                @endif
-                                @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path && !$candidate->speedy_apply_json_path)
+                                @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path)
                                     <span class="text-muted text-sm">-</span>
                                 @endif
                             </div>
                         </td>
                         <td>
                             @php
-                                $p = [
-                                    'id'               => $candidate->id,
-                                    'first_name'       => $candidate->first_name,
-                                    'middle_name'      => $candidate->middle_name,
-                                    'last_name'        => $candidate->last_name,
-                                    'date_of_birth'    => $candidate->date_of_birth?->format('Y-m-d'),
-                                    'gender'           => $candidate->gender,
-                                    'nationality'      => $candidate->nationality,
-                                    'email_id'         => $candidate->email_id,
-                                    'phone_number'     => $candidate->phone_number,
-                                    'domain'           => $candidate->domain,
-                                    'sub_domain'       => $candidate->sub_domain,
-                                    'date_of_arrival_usa' => $candidate->date_of_arrival_usa?->format('Y-m-d'),
-                                    'current_salary'   => $candidate->current_salary,
-                                    'expected_salary'  => $candidate->expected_salary,
-                                    'street_address'   => $candidate->street_address,
-                                    'apartment_unit'   => $candidate->apartment_unit,
-                                    'city'             => $candidate->city,
-                                    'state_province'   => $candidate->state_province,
-                                    'zip_code'         => $candidate->zip_code,
-                                    'country'          => $candidate->country ?? 'United States',
-                                    'visa_immigration_status' => $candidate->visa_immigration_status,
-                                    'work_auth_status' => $candidate->work_auth_status,
-                                    'open_to_relocation' => $candidate->open_to_relocation,
-                                    'preferred_city'   => $candidate->preferred_city,
-                                    'visa_expiry_date' => $candidate->visa_expiry_date?->format('Y-m-d'),
-                                    'marketing_phone'  => $candidate->marketing_phone,
-                                    'marketing_email'  => $candidate->marketing_email,
-                                    'marketing_linkedin_id' => $candidate->marketing_linkedin_id,
-                                    'masters_university' => $candidate->masters_university,
-                                    'masters_program'  => $candidate->masters_program,
-                                    'masters_start'    => $candidate->masters_start?->format('Y-m-d'),
-                                    'masters_end'      => $candidate->masters_end?->format('Y-m-d'),
-                                    'masters_country'  => $candidate->masters_country,
-                                    'bachelors_university' => $candidate->bachelors_university,
-                                    'bachelors_program'=> $candidate->bachelors_program,
-                                    'bachelors_start'  => $candidate->bachelors_start?->format('Y-m-d'),
-                                    'bachelors_end'    => $candidate->bachelors_end?->format('Y-m-d'),
-                                    'bachelors_country'=> $candidate->bachelors_country,
-                                    'github_url'       => $candidate->github_url,
-                                    'linkedin_url'     => $candidate->linkedin_url,
-                                    'recruiter_notes'  => $candidate->recruiter_notes,
+                                $candidatePayload = [
+                                    'id' => $candidate->id,
+                                    'full_name' => $candidate->full_name,
+                                    'enrollment_date' => optional($candidate->enrollment_date)->format('Y-m-d'),
+                                    'sales_agent' => $candidate->sales_agent,
                                     'no_of_applications' => $candidate->no_of_applications,
-                                    'status'           => $candidate->status,
-                                    'recruiter_id'     => $candidate->recruiter_id,
-                                    'cv_file_url'      => $candidate->cv_file_path ? route('admin.candidates.files', [$candidate, 'cv']) : null,
+                                    'interviews_count' => $candidate->interviews_count,
+                                    'status' => $candidate->status,
+                                    'recruiter_id' => $candidate->recruiter_id,
+                                    'linkedin_id' => $candidate->linkedin_id,
+                                    'linkedin_password' => $candidate->linkedin_password,
+                                    'email_id' => $candidate->email_id,
+                                    'email_password' => $candidate->email_password,
+                                    'linkedin_updated' => optional($candidate->linkedin_updated)->format('Y-m-d'),
+                                    'address' => $candidate->address,
+                                    'profile' => $candidate->profile,
+                                    'notes' => $candidate->notes,
+                                    'cv_file_url' => $candidate->cv_file_path ? route('admin.candidates.files', [$candidate, 'cv']) : null,
                                     'details_file_url' => $candidate->candidate_details_file_path ? route('admin.candidates.files', [$candidate, 'details']) : null,
-                                    'speedy_file_url'  => $candidate->speedy_apply_json_path ? route('admin.candidates.files', [$candidate, 'speedy']) : null,
                                     'reveal_password_url' => route('admin.candidates.reveal-password', $candidate),
                                 ];
                             @endphp
-                            <button class="btn btn-outline btn-sm"
-                                data-candidate="{{ base64_encode(json_encode($p, JSON_UNESCAPED_SLASHES)) }}"
-                                onclick="editCandidateFromButton(this)" title="Edit candidate">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;"
-                                onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-danger btn-sm" title="Delete candidate"><i class="bi bi-trash"></i></button>
-                            </form>
+                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
+                                <button class="btn btn-outline btn-sm"
+                                    data-candidate="{{ base64_encode(json_encode($candidatePayload, JSON_UNESCAPED_SLASHES)) }}"
+                                    onclick="editCandidateFromButton(this)" title="Edit candidate">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                                <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;margin:0;"
+                                    onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-danger btn-sm" title="Delete candidate">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10">
+                        <td colspan="9">
                             <div class="page-empty mb-0">
                                 <i class="bi bi-people"></i>
                                 <p>No candidates found{{ ($search || $status) ? ' matching your filters' : '' }}.</p>
@@ -235,27 +175,138 @@ $workAuthOptions = [
     @endif
 </div>
 
-{{-- ============================================================ --}}
-{{-- ADD CANDIDATE MODAL --}}
-{{-- ============================================================ --}}
 <div class="modal-overlay" id="addCandidateModal">
-    <div class="modal modal-xl">
+    <div class="modal modal-lg">
         <div class="modal-header">
             <div class="modal-title"><i class="bi bi-person-plus" style="margin-right:6px;"></i> Add New Candidate</div>
             <button class="modal-close" onclick="closeModal('addCandidateModal')">&times;</button>
         </div>
-        <form method="POST" action="{{ route('admin.candidates.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('admin.candidates.store') }}">
             @csrf
-            @include('admin.candidates._form', ['mode' => 'add', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'prefix' => 'add'])
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
+                        <input type="text" name="full_name" class="form-control" required
+                            value="{{ old('full_name') }}" placeholder="e.g. John Smith">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Enrollment Date</label>
+                        <input type="date" name="enrollment_date" class="form-control" value="{{ old('enrollment_date') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sales Agent</label>
+                        <input type="text" name="sales_agent" class="form-control" value="{{ old('sales_agent') }}"
+                            placeholder="Agent name">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">No. of Applications <span style="color:var(--red-text)">*</span></label>
+                        <input type="number" name="no_of_applications" class="form-control"
+                            value="{{ old('no_of_applications', 0) }}" min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Interviews Count</label>
+                        <input type="number" name="interviews_count" class="form-control"
+                            value="{{ old('interviews_count', 0) }}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status <span style="color:var(--red-text)">*</span></label>
+                        <select name="status" class="form-control" required>
+                            @foreach ($statusOptions as $statusItem)
+                                <option value="{{ $statusItem }}" @selected(old('status', 'active') === $statusItem)>
+                                    {{ ucfirst($statusItem) }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                @if ($isAdmin)
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Search Recruiter</label>
+                            <input type="text" id="add_recruiter_search" class="form-control"
+                                placeholder="Type recruiter name..." oninput="filterSelectOptions('add_recruiter_search','add_recruiter_id')">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Assign to Recruiter <span style="color:var(--red-text)">*</span></label>
+                            <select name="recruiter_id" id="add_recruiter_id" class="form-control" required>
+                                <option value="">Select recruiter</option>
+                                @foreach ($recruiters as $rec)
+                                    <option value="{{ $rec->id }}" @selected(old('recruiter_id') == $rec->id)>{{ $rec->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @else
+                    <div class="alert mb-16" style="background:var(--blue-light);color:var(--blue-text);border:1px solid rgba(37,99,235,0.2);">
+                        <i class="bi bi-info-circle-fill"></i>
+                        <span>Candidates created from your login are automatically assigned to you.</span>
+                    </div>
+                @endif
+
+                <p class="text-sm text-muted mb-8" style="font-weight:600;padding-top:4px;">LinkedIn and Email Details</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn ID</label>
+                        <input type="text" name="linkedin_id" class="form-control" value="{{ old('linkedin_id') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn Password</label>
+                        <input type="text" name="linkedin_password" class="form-control" value="{{ old('linkedin_password') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email ID <span style="color:var(--red-text)">*</span></label>
+                        <input type="email" name="email_id" class="form-control" required value="{{ old('email_id') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Password</label>
+                        <input type="text" name="email_password" class="form-control" value="{{ old('email_password') }}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn Updated At</label>
+                        <input type="date" name="linkedin_updated" class="form-control" value="{{ old('linkedin_updated') }}">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <textarea name="address" class="form-control" rows="2" placeholder="Full address">{{ old('address') }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Profile Description</label>
+                    <textarea name="profile" class="form-control" rows="3"
+                        placeholder="Candidate profile summary / skills">{{ old('profile') }}</textarea>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Internal notes">{{ old('notes') }}</textarea>
+                </div>
+
+                <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border-color);">
+                    <p class="text-sm mb-8" style="font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                        <i class="bi bi-shield-lock-fill" style="color:var(--blue);"></i> Student Portal Login
+                    </p>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Portal Login Password <span style="color:var(--red-text)">*</span></label>
+                        <div class="input-with-icon">
+                            <input type="password" name="login_password" class="form-control"
+                                placeholder="Set student portal password (min 8 chars)" required>
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('addCandidateModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Add Candidate</button>
+            </div>
         </form>
     </div>
 </div>
 
-{{-- ============================================================ --}}
-{{-- EDIT CANDIDATE MODAL --}}
-{{-- ============================================================ --}}
 <div class="modal-overlay" id="editCandidateModal">
-    <div class="modal modal-xl">
+    <div class="modal modal-lg">
         <div class="modal-header">
             <div class="modal-title"><i class="bi bi-pencil-square" style="margin-right:6px;"></i> Edit Candidate</div>
             <button class="modal-close" onclick="closeModal('editCandidateModal')">&times;</button>
@@ -264,9 +315,162 @@ $workAuthOptions = [
             enctype="multipart/form-data">
             @csrf
             @method('PUT')
-            @include('admin.candidates._form', ['mode' => 'edit', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'prefix' => 'edit'])
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
+                        <input type="text" name="full_name" id="edit_full_name" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Enrollment Date</label>
+                        <input type="date" name="enrollment_date" id="edit_enrollment_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Sales Agent</label>
+                        <input type="text" name="sales_agent" id="edit_sales_agent" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">No. of Applications <span style="color:var(--red-text)">*</span></label>
+                        <input type="number" name="no_of_applications" id="edit_no_of_applications" class="form-control"
+                            min="0" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Interviews Count</label>
+                        <input type="number" name="interviews_count" id="edit_interviews_count" class="form-control" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status <span style="color:var(--red-text)">*</span></label>
+                        <select name="status" id="edit_status" class="form-control" required>
+                            @foreach ($statusOptions as $statusItem)
+                                <option value="{{ $statusItem }}">{{ ucfirst($statusItem) }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                </div>
+
+                @if ($isAdmin)
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Search Recruiter</label>
+                            <input type="text" id="edit_recruiter_search" class="form-control"
+                                placeholder="Type recruiter name..." oninput="filterSelectOptions('edit_recruiter_search','edit_recruiter_id')">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Assign to Recruiter <span style="color:var(--red-text)">*</span></label>
+                            <select name="recruiter_id" id="edit_recruiter_id" class="form-control" required>
+                                <option value="">Select recruiter</option>
+                                @foreach ($recruiters as $rec)
+                                    <option value="{{ $rec->id }}">{{ $rec->name }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+                    </div>
+                @endif
+
+                <p class="text-sm text-muted mb-8" style="font-weight:600;padding-top:4px;">LinkedIn and Email Details</p>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn ID</label>
+                        <input type="text" name="linkedin_id" id="edit_linkedin_id" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn Password</label>
+                        <input type="text" name="linkedin_password" id="edit_linkedin_password" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email ID <span style="color:var(--red-text)">*</span></label>
+                        <input type="email" name="email_id" id="edit_email_id" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Email Password</label>
+                        <input type="text" name="email_password" id="edit_email_password" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">LinkedIn Updated At</label>
+                        <input type="date" name="linkedin_updated" id="edit_linkedin_updated" class="form-control">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Address</label>
+                    <textarea name="address" id="edit_address" class="form-control" rows="2"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Profile Description</label>
+                    <textarea name="profile" id="edit_profile" class="form-control" rows="3"></textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" id="edit_notes" class="form-control" rows="2"></textarea>
+                </div>
+
+                <div style="margin-top:8px;padding-top:16px;border-top:1px solid var(--border-color);">
+                    <p class="text-sm mb-8" style="font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                        <i class="bi bi-file-earmark-arrow-up-fill" style="color:var(--blue);"></i> Candidate Documents
+                    </p>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">CV Upload</label>
+                            <input type="file" name="cv_file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                            <div id="edit_cv_current" style="margin-top:6px;"></div>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Candidate Details Upload</label>
+                            <input type="file" name="candidate_details_file" class="form-control"
+                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                            <div id="edit_details_current" style="margin-top:6px;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top:8px;padding-top:16px;border-top:1px solid var(--border-color);">
+                    <p class="text-sm mb-8" style="font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
+                        <i class="bi bi-shield-lock-fill" style="color:var(--blue);"></i> Student Portal Password
+                    </p>
+                    <div class="form-group">
+                        <label class="form-label">Current Login Password</label>
+                        <div class="input-with-icon password-verify-wrap" id="candidate_password_verify_wrap">
+                            <input type="password" id="edit_current_login_password" class="form-control" readonly
+                                value="********" data-unlocked="0">
+                            <button type="button" class="input-eye-btn" id="edit_reveal_password_btn"
+                                onclick="toggleCandidateCurrentPassword()"
+                                title="View current password after verification">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                            <div class="password-verify-tooltip" id="candidate_password_verify_tooltip">
+                                <div class="password-verify-title">Verify your account password</div>
+                                <input type="password" id="candidate_verify_login_password" class="form-control"
+                                    placeholder="Enter your login password"
+                                    onkeydown="handleCandidateRevealPasswordKeydown(event)">
+                                <div class="password-verify-actions">
+                                    <button type="button" class="btn btn-outline btn-sm"
+                                        onclick="cancelCandidatePasswordReveal()">Cancel</button>
+                                    <button type="button" class="btn btn-primary btn-sm" id="candidate_verify_submit"
+                                        onclick="confirmCandidatePasswordReveal()">Verify</button>
+                                </div>
+                                <div class="password-verify-error" id="candidate_verify_error"></div>
+                            </div>
+                        </div>
+                        <div class="portal-pass-hint">
+                            <i class="bi bi-info-circle"></i>
+                            Enter your own login password to reveal the candidate's current portal password.
+                        </div>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">New Login Password <span class="text-muted" style="font-weight:400;">(leave blank to keep current)</span></label>
+                        <div class="input-with-icon">
+                            <input type="password" name="login_password" id="edit_login_password" class="form-control"
+                                placeholder="Enter new password only if you want to change it">
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeModal('editCandidateModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save Changes</button>
+            </div>
         </form>
     </div>
 </div>
-
 @endsection
