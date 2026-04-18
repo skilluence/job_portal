@@ -61,9 +61,16 @@ class CandidatesController extends Controller
             ->paginate(15)
             ->withQueryString();
 
+        // Admin → all recruiters & managers
+        // Manager → only their team's recruiters (managers list not needed, auto-assigned to self)
+        // Recruiter → empty (no assign section shown)
         $recruiters = $isAdmin
             ? User::recruiters()->active()->orderBy('name')->get(['id', 'name'])
-            : collect();
+            : ($isManager
+                ? User::where('role', 'recruiter')->where('status', 'active')
+                    ->whereIn('id', $user->teamMemberIds())
+                    ->orderBy('name')->get(['id', 'name'])
+                : collect());
 
         $managers = $isAdmin
             ? User::managers()->active()->orderBy('name')->get(['id', 'name'])
@@ -178,7 +185,7 @@ class CandidatesController extends Controller
             $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
             $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
         } elseif ($isManager) {
-            $data['team_manager_id'] = $candidate->team_manager_id; // keep existing
+            $data['team_manager_id'] = $user->id; // always the manager themselves
             $recruiter = !empty($data['recruiter_id']) ? (int) $data['recruiter_id'] : 0;
             if ($recruiter && in_array($recruiter, $user->teamMemberIds(), true)) {
                 $data['recruiter_id'] = $recruiter;

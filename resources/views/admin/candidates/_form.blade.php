@@ -408,7 +408,8 @@
         </div>
     </div>
 
-    @if ($isAdmin)
+    @if ($isRealAdmin ?? false)
+        {{-- Real Admin: full recruiter + manager dropdowns (select one) --}}
         <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(select one)</span></div>
         <div class="form-grid">
             <div class="form-group">
@@ -467,16 +468,46 @@
             </div>
         </div>
     @elseif ($isManager ?? false)
-        <div class="alert mb-0" style="background:var(--blue-light);color:var(--blue-text);border:1px solid rgba(37,99,235,0.2);">
-            <i class="bi bi-info-circle-fill" style="flex-shrink:0;"></i>
-            <span>This candidate will be directly assigned to you as Team Manager.</span>
-        </div>
-    @else
-        <div class="alert mb-0" style="background:var(--blue-light);color:var(--blue-text);border:1px solid rgba(37,99,235,0.2);">
-            <i class="bi bi-info-circle-fill" style="flex-shrink:0;"></i>
-            <span>This candidate will be added directly under you.</span>
+        {{-- Manager: assign to one of their team recruiters; team_manager is always themselves --}}
+        <div class="form-section-title" style="margin-top:4px;">Assign Recruiter <span class="text-muted text-sm" style="font-weight:400;">(from your team)</span></div>
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">Recruiter</label>
+                <div class="ss-wrap" id="{{ $prefix }}_recruiter_wrap">
+                    <button type="button" class="form-control ss-trigger"
+                        onclick="toggleSS('{{ $prefix }}_recruiter_wrap')">
+                        <span class="ss-label" id="{{ $prefix }}_recruiter_label">— None —</span>
+                        <i class="bi bi-chevron-down ss-chevron"></i>
+                    </button>
+                    <div class="ss-dropdown">
+                        <div class="ss-search">
+                            <input type="text" class="ss-search-input" placeholder="Search recruiters..."
+                                oninput="filterSS('{{ $prefix }}_recruiter_wrap', this.value)">
+                        </div>
+                        <div class="ss-options">
+                            <div class="ss-option" data-value=""
+                                onclick="pickSS('{{ $prefix }}','recruiter','','— None —')">— None —</div>
+                            @foreach ($recruiters as $rec)
+                                <div class="ss-option" data-value="{{ $rec->id }}"
+                                    onclick="pickSS('{{ $prefix }}','recruiter','{{ $rec->id }}',{{ json_encode($rec->name) }})">
+                                    {{ $rec->name }}
+                                </div>
+                            @endforeach
+                        </div>
+                    </div>
+                    <input type="hidden" name="recruiter_id" id="{{ $prefix }}_recruiter_id">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Team Manager</label>
+                <div class="form-control" style="background:var(--input-bg-disabled,#f3f4f6);color:var(--text-muted,#6b7280);cursor:default;display:flex;align-items:center;gap:6px;">
+                    <i class="bi bi-person-badge" style="color:var(--blue);"></i>
+                    <span>You (auto-assigned)</span>
+                </div>
+            </div>
         </div>
     @endif
+    {{-- Recruiter role: Assign section is hidden — assignment is set automatically --}}
 
     <div style="padding-top:12px;border-top:1px solid var(--border-color);margin-top:8px;">
         <p class="text-sm mb-12" style="font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
