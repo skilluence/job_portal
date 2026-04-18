@@ -221,6 +221,13 @@ class CandidatesController extends Controller
             ['candidate_id' => $candidate->id, 'file_type' => $file]
         );
 
+        if ($request->boolean('view')) {
+            $mime = Storage::disk('local')->mimeType($path) ?: 'application/octet-stream';
+            return response(Storage::disk('local')->get($path), 200)
+                ->header('Content-Type', $mime)
+                ->header('Content-Disposition', 'inline; filename="' . basename($path) . '"');
+        }
+
         return Storage::disk('local')->download($path);
     }
 

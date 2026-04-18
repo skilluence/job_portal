@@ -15,7 +15,15 @@ class ImportExportController extends Controller
 
     public function index()
     {
-        return view('admin.import-export.index');
+        $history = AuditLog::whereIn('action', ['imported', 'exported'])
+            ->whereIn('module', ['candidates', 'recruiters'])
+            ->orderByDesc('created_at')
+            ->limit(50)
+            ->get();
+
+        $recruiters = User::recruiters()->active()->orderBy('name')->get(['id', 'name']);
+
+        return view('admin.import-export.index', compact('history', 'recruiters'));
     }
 
     public function downloadCandidateTemplate()
@@ -72,40 +80,45 @@ class ImportExportController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function exportCandidates()
+    public function exportCandidates(Request $request)
     {
-        AuditLog::log('exported', 'candidates', 'Exported all candidates as CSV');
+        $dateFrom    = $request->input('date_from');
+        $dateTo      = $request->input('date_to');
+        $status      = $request->input('status');
+        $recruiterId = $request->input('recruiter_id');
+
+        $parts = array_filter([
+            $dateFrom    ? "from:{$dateFrom}"         : null,
+            $dateTo      ? "to:{$dateTo}"             : null,
+            $status      ? "status:{$status}"         : null,
+            $recruiterId ? "recruiter:{$recruiterId}" : null,
+        ]);
+        $desc = 'Exported candidates as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
+
+        AuditLog::log('exported', 'candidates', $desc);
 
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="candidates_' . now()->format('Y-m-d') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
         ];
 
-        $callback = function () {
+        $callback = function () use ($dateFrom, $dateTo, $status, $recruiterId) {
             $fh = fopen('php://output', 'w');
             fputcsv($fh, [
-                'full_name',
-                'enrollment_date',
-                'sales_agent',
-                'no_of_applications',
-                'interviews_count',
-                'status',
-                'recruiter',
-                'linkedin_id',
-                'linkedin_password',
-                'email_id',
-                'email_password',
-                'linkedin_updated',
-                'address',
-                'profile',
-                'notes',
-                'created_at',
+                'full_name', 'enrollment_date', 'sales_agent', 'no_of_applications',
+                'interviews_count', 'status', 'recruiter', 'linkedin_id', 'linkedin_password',
+                'email_id', 'email_password', 'linkedin_updated', 'address', 'profile',
+                'notes', 'created_at',
             ]);
 
             Candidate::with('recruiter')
+                ->when($dateFrom,    fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+                ->when($dateTo,      fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
+                ->when($status,      fn ($q) => $q->where('status', $status))
+                ->when($recruiterId, fn ($q) => $q->where('recruiter_id', (int) $recruiterId))
                 ->chunk(300, function ($candidates) use ($fh) {
                     foreach ($candidates as $candidate) {
                         fputcsv($fh, [
@@ -273,25 +286,43 @@ class ImportExportController extends Controller
         return response()->stream($callback, 200, $headers);
     }
 
-    public function exportRecruiters()
+    public function exportRecruiters(Request $request)
     {
-        AuditLog::log('exported', 'recruiters', 'Exported all recruiters and managers as CSV');
+        $dateFrom = $request->input('date_from');
+        $dateTo   = $request->input('date_to');
+        $role     = $request->input('role');
+        $status   = $request->input('status');
+
+        $parts = array_filter([
+            $dateFrom ? "from:{$dateFrom}" : null,
+            $dateTo   ? "to:{$dateTo}"     : null,
+            $role     ? "role:{$role}"     : null,
+            $status   ? "status:{$status}" : null,
+        ]);
+        $desc = 'Exported recruiters as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
+
+        AuditLog::log('exported', 'recruiters', $desc);
 
         $headers = [
-            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="recruiters_' . now()->format('Y-m-d') . '.csv"',
-            'Pragma' => 'no-cache',
-            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
-            'Expires' => '0',
+            'Pragma'              => 'no-cache',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
         ];
 
-        $callback = function () {
+        $allowedRoles = ['recruiter', 'manager', 'admin'];
+
+        $callback = function () use ($dateFrom, $dateTo, $role, $status, $allowedRoles) {
             $fh = fopen('php://output', 'w');
             fputcsv($fh, ['name', 'email', 'role', 'team_manager', 'status', 'candidates_count', 'created_at']);
 
             User::with('teamManager')
                 ->withCount('candidates')
-                ->whereIn('role', ['recruiter', 'manager', 'admin'])
+                ->whereIn('role', $role && in_array($role, $allowedRoles) ? [$role] : $allowedRoles)
+                ->when($status,   fn ($q) => $q->where('status', $status))
+                ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
+                ->when($dateTo,   fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
                 ->chunk(300, function ($users) use ($fh) {
                     foreach ($users as $user) {
                         fputcsv($fh, [

@@ -322,15 +322,15 @@
         var cvCurrent = document.getElementById('edit_cv_current');
         if (cvCurrent) {
             cvCurrent.innerHTML = candidate.cv_file_url
-                ? '<a href="' + candidate.cv_file_url + '">Current CV file</a>'
-                : 'No CV file uploaded yet.';
+                ? '<a href="' + candidate.cv_file_url + '?view=1" target="_blank" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;color:var(--blue-text);"><i class="bi bi-eye"></i> View current CV</a>'
+                : '<span style="font-size:12px;color:var(--text-muted);">No CV uploaded yet.</span>';
         }
 
         var detailsCurrent = document.getElementById('edit_details_current');
         if (detailsCurrent) {
             detailsCurrent.innerHTML = candidate.details_file_url
-                ? '<a href="' + candidate.details_file_url + '">Current candidate details file</a>'
-                : 'No candidate details file uploaded yet.';
+                ? '<a href="' + candidate.details_file_url + '?view=1" target="_blank" style="font-size:12px;display:inline-flex;align-items:center;gap:4px;color:var(--blue-text);"><i class="bi bi-eye"></i> View current details file</a>'
+                : '<span style="font-size:12px;color:var(--text-muted);">No details file uploaded yet.</span>';
         }
 
         openModal('editCandidateModal');

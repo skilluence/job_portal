@@ -93,11 +93,17 @@
                             <div class="d-flex gap-6" style="flex-wrap:wrap;">
                                 @if ($candidate->cv_file_path)
                                     <a class="btn btn-outline btn-sm"
-                                        href="{{ route('admin.candidates.files', [$candidate, 'cv']) }}">CV</a>
+                                        href="{{ route('admin.candidates.files', [$candidate, 'cv']) }}?view=1"
+                                        target="_blank" title="View CV">
+                                        <i class="bi bi-eye"></i> CV
+                                    </a>
                                 @endif
                                 @if ($candidate->candidate_details_file_path)
                                     <a class="btn btn-outline btn-sm"
-                                        href="{{ route('admin.candidates.files', [$candidate, 'details']) }}">Details</a>
+                                        href="{{ route('admin.candidates.files', [$candidate, 'details']) }}?view=1"
+                                        target="_blank" title="View Details">
+                                        <i class="bi bi-eye"></i> Details
+                                    </a>
                                 @endif
                                 @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path)
                                     <span class="text-muted text-sm">-</span>
@@ -128,19 +134,21 @@
                                     'reveal_password_url' => route('admin.candidates.reveal-password', $candidate),
                                 ];
                             @endphp
-                            <button class="btn btn-outline btn-sm"
-                                data-candidate="{{ base64_encode(json_encode($candidatePayload, JSON_UNESCAPED_SLASHES)) }}"
-                                onclick="editCandidateFromButton(this)" title="Edit candidate">
-                                <i class="bi bi-pencil"></i>
-                            </button>
-                            <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;"
-                                onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
-                                @csrf
-                                @method('DELETE')
-                                <button class="btn btn-danger btn-sm" title="Delete candidate">
-                                    <i class="bi bi-trash"></i>
+                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
+                                <button class="btn btn-outline btn-sm"
+                                    data-candidate="{{ base64_encode(json_encode($candidatePayload, JSON_UNESCAPED_SLASHES)) }}"
+                                    onclick="editCandidateFromButton(this)" title="Edit candidate">
+                                    <i class="bi bi-pencil"></i>
                                 </button>
-                            </form>
+                                <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;margin:0;"
+                                    onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button class="btn btn-danger btn-sm" title="Delete candidate">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                 @empty
@@ -404,13 +412,13 @@
                         <div class="form-group">
                             <label class="form-label">CV Upload</label>
                             <input type="file" name="cv_file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                            <div class="text-sm text-muted" id="edit_cv_current" style="margin-top:6px;"></div>
+                            <div id="edit_cv_current" style="margin-top:6px;"></div>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Candidate Details Upload</label>
                             <input type="file" name="candidate_details_file" class="form-control"
                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                            <div class="text-sm text-muted" id="edit_details_current" style="margin-top:6px;"></div>
+                            <div id="edit_details_current" style="margin-top:6px;"></div>
                         </div>
                     </div>
                 </div>
