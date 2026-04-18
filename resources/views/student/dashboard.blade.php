@@ -2,132 +2,194 @@
 @section('title', 'Dashboard')
 @section('content')
 
-<div class="sp-hero">
-    <div class="sp-hero-top">
-        <div class="sp-hero-avatar">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
-        <div class="sp-hero-info">
-            <div class="sp-hero-greeting">Welcome back</div>
-            <div class="sp-hero-name">{{ $candidate->full_name }}</div>
-            <div class="sp-hero-meta">
-                <span><i class="bi bi-envelope"></i> {{ $candidate->email_id }}</span>
+{{-- Hero / Welcome Banner --}}
+<div class="stp-hero">
+    <div class="stp-hero-left">
+        <div class="stp-hero-avatar">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
+        <div>
+            <div class="stp-hero-greeting">Welcome back</div>
+            <div class="stp-hero-name">{{ $candidate->full_name }}</div>
+            <div class="stp-hero-meta">
+                <span><i class="bi bi-envelope-fill"></i> {{ $candidate->email_id }}</span>
+                @if ($candidate->phone_number)
+                    <span><i class="bi bi-telephone-fill"></i> {{ $candidate->phone_number }}</span>
+                @endif
                 @if ($candidate->recruiter)
-                    <span><i class="bi bi-person-badge"></i> Recruiter: {{ $candidate->recruiter->name }}</span>
+                    <span><i class="bi bi-person-badge-fill"></i> {{ $candidate->recruiter->name }}</span>
                 @endif
             </div>
         </div>
-        <div class="sp-hero-status">
-            <span class="sp-status-badge {{ $candidate->status }}">
-                <i class="bi bi-circle-fill" style="font-size:7px;"></i>
-                {{ ucfirst($candidate->status) }}
-            </span>
+    </div>
+    <div class="stp-hero-right">
+        <span class="stp-hero-badge {{ $candidate->status }}">
+            <i class="bi bi-circle-fill" style="font-size:7px;vertical-align:middle;"></i>
+            {{ ucfirst($candidate->status) }}
+        </span>
+    </div>
+</div>
+
+{{-- Stats Row --}}
+<div class="stp-stats-row">
+    <div class="stp-stat-card">
+        <div class="stp-stat-icon" style="background:rgba(37,99,235,0.1);color:#2563eb;">
+            <i class="bi bi-file-earmark-text-fill"></i>
+        </div>
+        <div class="stp-stat-body">
+            <div class="stp-stat-val">{{ $candidate->no_of_applications }}</div>
+            <div class="stp-stat-lbl">Total Applications</div>
         </div>
     </div>
-
-    <div class="sp-hero-stats">
-        <div class="sp-hstat">
-            <div class="sp-hstat-icon"><i class="bi bi-file-earmark-text-fill"></i></div>
-            <div>
-                <div class="sp-hstat-val">{{ $candidate->no_of_applications }}</div>
-                <div class="sp-hstat-lbl">Applications</div>
-            </div>
+    <div class="stp-stat-card">
+        <div class="stp-stat-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">
+            <i class="bi bi-calendar-check-fill"></i>
         </div>
-        <div class="sp-hstat">
-            <div class="sp-hstat-icon" style="background:rgba(16,185,129,0.15);color:#10b981;"><i class="bi bi-calendar-check-fill"></i></div>
-            <div>
-                <div class="sp-hstat-val">{{ $candidate->interviews_count }}</div>
-                <div class="sp-hstat-lbl">Interviews</div>
-            </div>
+        <div class="stp-stat-body">
+            <div class="stp-stat-val">{{ $candidate->interviews_count }}</div>
+            <div class="stp-stat-lbl">Interviews</div>
         </div>
-        <div class="sp-hstat">
-            <div class="sp-hstat-icon" style="background:rgba(245,158,11,0.15);color:#f59e0b;"><i class="bi bi-person-workspace"></i></div>
-            <div>
-                <div class="sp-hstat-val">{{ $candidate->sales_agent ?: '-' }}</div>
-                <div class="sp-hstat-lbl">Sales Agent</div>
-            </div>
+    </div>
+    <div class="stp-stat-card">
+        <div class="stp-stat-icon" style="background:rgba(168,85,247,0.1);color:#a855f7;">
+            <i class="bi bi-bar-chart-fill"></i>
         </div>
-        <div class="sp-hstat">
-            <div class="sp-hstat-icon" style="background:rgba(168,85,247,0.15);color:#a855f7;"><i class="bi bi-check2-circle"></i></div>
-            <div>
-                <div class="sp-hstat-val">{{ $profileCompletion }}%</div>
-                <div class="sp-hstat-lbl">Profile Completion</div>
-            </div>
+        <div class="stp-stat-body">
+            <div class="stp-stat-val">{{ $profileCompletion }}%</div>
+            <div class="stp-stat-lbl">Profile Complete</div>
+        </div>
+    </div>
+    <div class="stp-stat-card">
+        <div class="stp-stat-icon" style="background:rgba(245,158,11,0.1);color:#f59e0b;">
+            <i class="bi bi-cpu-fill"></i>
+        </div>
+        <div class="stp-stat-body">
+            <div class="stp-stat-val">{{ $candidate->domain ?: '—' }}</div>
+            <div class="stp-stat-lbl">Domain</div>
         </div>
     </div>
 </div>
 
-<div class="sp-grid-2">
-    <div class="sp-card">
-        <div class="sp-card-head">
-            <div>
-                <div class="sp-card-title"><i class="bi bi-person-circle"></i> My Details</div>
-                <div class="sp-card-sub">Editable profile information</div>
-            </div>
-            <a href="{{ route('student.info') }}" class="sp-edit-btn"><i class="bi bi-pencil-fill"></i> Edit</a>
-        </div>
+{{-- Two-column content --}}
+<div class="stp-grid-2">
 
-        <div class="sp-info-list">
-            <div class="sp-info-item">
-                <div class="sp-ii-icon"><i class="bi bi-person"></i></div>
+    {{-- Profile Details card --}}
+    <div class="stp-card">
+        <div class="stp-card-head">
+            <div class="stp-card-title"><i class="bi bi-person-circle"></i> My Details</div>
+            <a href="{{ route('student.info') }}" class="stp-card-action">
+                <i class="bi bi-pencil-fill"></i> Edit Profile
+            </a>
+        </div>
+        <div class="stp-info-list">
+            <div class="stp-info-row">
+                <div class="stp-info-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-person"></i></div>
                 <div>
-                    <div class="sp-ii-label">Full Name</div>
-                    <div class="sp-ii-val">{{ $candidate->full_name }}</div>
+                    <div class="stp-info-label">Full Name</div>
+                    <div class="stp-info-val">{{ $candidate->full_name }}</div>
                 </div>
             </div>
-            <div class="sp-info-item">
-                <div class="sp-ii-icon" style="background:#fef3c7;color:#d97706;"><i class="bi bi-envelope"></i></div>
+            <div class="stp-info-row">
+                <div class="stp-info-icon" style="background:#fefce8;color:#ca8a04;"><i class="bi bi-envelope"></i></div>
                 <div>
-                    <div class="sp-ii-label">Email ID</div>
-                    <div class="sp-ii-val">{{ $candidate->email_id ?: '-' }}</div>
+                    <div class="stp-info-label">Email</div>
+                    <div class="stp-info-val">{{ $candidate->email_id }}</div>
                 </div>
             </div>
-            <div class="sp-info-item">
-                <div class="sp-ii-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-linkedin"></i></div>
-                <div>
-                    <div class="sp-ii-label">LinkedIn ID</div>
-                    <div class="sp-ii-val">{{ $candidate->linkedin_id ?: '-' }}</div>
+            @if ($candidate->phone_number)
+                <div class="stp-info-row">
+                    <div class="stp-info-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-telephone"></i></div>
+                    <div>
+                        <div class="stp-info-label">Phone</div>
+                        <div class="stp-info-val">{{ $candidate->phone_number }}</div>
+                    </div>
                 </div>
-            </div>
-            <div class="sp-info-item">
-                <div class="sp-ii-icon" style="background:#fdf2f8;color:#db2777;"><i class="bi bi-geo-alt"></i></div>
-                <div>
-                    <div class="sp-ii-label">Address</div>
-                    <div class="sp-ii-val">{{ $candidate->address ?: '-' }}</div>
+            @endif
+            @if ($candidate->linkedin_url)
+                <div class="stp-info-row">
+                    <div class="stp-info-icon" style="background:#eff6ff;color:#0077b5;"><i class="bi bi-linkedin"></i></div>
+                    <div>
+                        <div class="stp-info-label">LinkedIn</div>
+                        <div class="stp-info-val">
+                            <a href="{{ $candidate->linkedin_url }}" target="_blank" rel="noopener" style="color:var(--blue);">View Profile</a>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            @endif
+            @if ($candidate->city || $candidate->state_province)
+                <div class="stp-info-row">
+                    <div class="stp-info-icon" style="background:#fdf4ff;color:#a21caf;"><i class="bi bi-geo-alt"></i></div>
+                    <div>
+                        <div class="stp-info-label">Location</div>
+                        <div class="stp-info-val">
+                            {{ implode(', ', array_filter([$candidate->city, $candidate->state_province])) }}
+                        </div>
+                    </div>
+                </div>
+            @endif
+            @if ($candidate->visa_immigration_status)
+                <div class="stp-info-row">
+                    <div class="stp-info-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-shield-check"></i></div>
+                    <div>
+                        <div class="stp-info-label">Visa Status</div>
+                        <div class="stp-info-val">{{ ucfirst(str_replace('_', ' ', $candidate->visa_immigration_status)) }}</div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 
-    <div class="sp-card">
-        <div class="sp-card-head">
-            <div>
-                <div class="sp-card-title"><i class="bi bi-folder2-open"></i> Documents and Activity</div>
-                <div class="sp-card-sub">Your files and latest portal actions</div>
-            </div>
+    {{-- Documents & Activity card --}}
+    <div class="stp-card">
+        <div class="stp-card-head">
+            <div class="stp-card-title"><i class="bi bi-folder2-open"></i> Documents &amp; Activity</div>
+            <a href="{{ route('student.info') }}" class="stp-card-action">
+                <i class="bi bi-cloud-arrow-up"></i> Upload
+            </a>
         </div>
 
-        <div class="d-flex gap-8 mb-16" style="flex-wrap:wrap;">
+        <div class="stp-doc-list">
             @if ($candidate->cv_file_path)
-                <a class="sp-edit-btn" href="{{ route('student.files', 'cv') }}"><i class="bi bi-file-earmark-arrow-down"></i> Download CV</a>
+                <a href="{{ route('student.files', 'cv') }}" target="_blank" class="stp-doc-item">
+                    <div class="stp-doc-icon"><i class="bi bi-file-earmark-pdf-fill"></i></div>
+                    <div class="stp-doc-body">
+                        <div class="stp-doc-name">Curriculum Vitae (CV)</div>
+                        <div class="stp-doc-hint">Click to open</div>
+                    </div>
+                    <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
+                </a>
             @endif
             @if ($candidate->candidate_details_file_path)
-                <a class="sp-edit-btn" href="{{ route('student.files', 'details') }}"><i class="bi bi-file-earmark-arrow-down"></i> Candidate Details</a>
+                <a href="{{ route('student.files', 'details') }}" target="_blank" class="stp-doc-item">
+                    <div class="stp-doc-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-file-earmark-text-fill"></i></div>
+                    <div class="stp-doc-body">
+                        <div class="stp-doc-name">Candidate Details</div>
+                        <div class="stp-doc-hint">Click to open</div>
+                    </div>
+                    <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
+                </a>
             @endif
             @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path)
-                <span class="text-sm text-muted">No documents uploaded yet.</span>
+                <div class="stp-empty-docs">
+                    <i class="bi bi-file-earmark-x" style="font-size:28px;color:#cbd5e1;margin-bottom:6px;"></i>
+                    <div>No documents uploaded yet.</div>
+                    <a href="{{ route('student.info') }}" class="stp-card-action" style="margin-top:8px;">Upload Documents</a>
+                </div>
             @endif
-            <a class="sp-edit-btn" href="{{ route('student.info') }}"><i class="bi bi-cloud-arrow-up"></i> Upload Documents</a>
         </div>
 
-        <div style="margin-top:16px;padding-top:12px;border-top:1px solid #e2e8f0;">
-            <div class="sp-card-sub" style="margin-bottom:10px;">Recent Activity</div>
+        <div class="stp-divider"></div>
+
+        <div class="stp-activity-title"><i class="bi bi-clock-history"></i> Recent Activity</div>
+        <div class="stp-activity-list">
             @forelse ($recentStudentLogs as $log)
-                <div class="text-sm mb-8" style="color:#475569;">
-                    <strong>{{ ucfirst(str_replace('_', ' ', $log->action)) }}</strong>:
-                    {{ $log->description }}
-                    <div class="text-muted" style="font-size:11px;">{{ $log->created_at->format('M d, Y h:i A') }}</div>
+                <div class="stp-activity-item">
+                    <div class="stp-activity-dot"></div>
+                    <div>
+                        <div class="stp-activity-action">{{ ucfirst(str_replace('_', ' ', $log->action)) }}: {{ $log->description }}</div>
+                        <div class="stp-activity-time">{{ $log->created_at->format('M d, Y h:i A') }}</div>
+                    </div>
                 </div>
             @empty
-                <div class="text-sm text-muted">No recent student activity found.</div>
+                <div class="stp-activity-empty">No recent activity found.</div>
             @endforelse
         </div>
     </div>

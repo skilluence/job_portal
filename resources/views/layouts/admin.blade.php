@@ -15,6 +15,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 
 <body>
@@ -45,28 +47,20 @@
                 class="nav-item {{ request()->routeIs('admin.candidates*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i><span class="nav-text">Candidates</span>
             </a>
-
-            @if ($isAdmin)
-                <a href="{{ route('admin.users') }}"
-                    class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
-                    <i class="bi bi-person-badge-fill"></i><span class="nav-text">Users</span>
-                </a>
-            @endif
+            <a href="{{ route('admin.users') }}"
+                class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
+                <i class="bi bi-person-badge-fill"></i><span class="nav-text">Users</span>
+            </a>
 
             <span class="nav-section-label">System</span>
+            <a href="{{ route('admin.audit-logs') }}"
+                class="nav-item {{ request()->routeIs('admin.audit-logs*') ? 'active' : '' }}">
+                <i class="bi bi-journal-text"></i><span class="nav-text">Audit Logs</span>
+            </a>
             @if ($isAdmin)
-                <a href="{{ route('admin.audit-logs') }}"
-                    class="nav-item {{ request()->routeIs('admin.audit-logs*') ? 'active' : '' }}">
-                    <i class="bi bi-journal-text"></i><span class="nav-text">Audit Logs</span>
-                </a>
                 <a href="{{ route('admin.import-export') }}"
                     class="nav-item {{ request()->routeIs('admin.import-export*') ? 'active' : '' }}">
                     <i class="bi bi-arrow-left-right"></i><span class="nav-text">Import / Export</span>
-                </a>
-            @else
-                <a href="{{ route('admin.profile') }}"
-                    class="nav-item {{ request()->routeIs('admin.profile*') ? 'active' : '' }}">
-                    <i class="bi bi-person-circle"></i><span class="nav-text">My Profile</span>
                 </a>
             @endif
         </nav>
@@ -121,6 +115,7 @@
         <main class="main-content">@yield('content')</main>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{{ asset('js/app.js') }}"></script>
 </body>
 

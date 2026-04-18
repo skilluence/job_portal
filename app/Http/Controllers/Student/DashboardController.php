@@ -21,7 +21,7 @@ class DashboardController extends Controller
         $profileCompletion = $this->profileCompletion($candidate);
 
         return view('student.dashboard', [
-            'candidate' => $candidate,
+            'candidate'         => $candidate,
             'recentStudentLogs' => $recentStudentLogs,
             'profileCompletion' => $profileCompletion,
         ]);
@@ -32,13 +32,15 @@ class DashboardController extends Controller
         $fields = [
             $candidate->full_name,
             $candidate->email_id,
-            $candidate->linkedin_id,
-            $candidate->address,
-            $candidate->profile,
-            $candidate->notes,
+            $candidate->phone_number,
+            $candidate->domain,
+            $candidate->linkedin_url,
+            $candidate->city,
+            $candidate->visa_immigration_status,
+            $candidate->cv_file_path,
         ];
 
-        $filled = collect($fields)->filter(fn ($value) => !empty($value))->count();
+        $filled = collect($fields)->filter(fn ($v) => !empty($v))->count();
 
         return (int) round(($filled / count($fields)) * 100);
     }

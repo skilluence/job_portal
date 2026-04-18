@@ -25,15 +25,17 @@ class StudentInfoController extends Controller
     public function update(Request $request)
     {
         $candidate = $this->student();
-        $old = $candidate->only(['full_name', 'email_id', 'linkedin_id', 'address', 'profile', 'notes']);
+
+        $old = $candidate->only(['full_name', 'email_id', 'phone_number', 'linkedin_url', 'city', 'state_province', 'zip_code']);
 
         $data = $request->validate([
-            'full_name' => ['required', 'string', 'max:255'],
-            'email_id' => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
-            'linkedin_id' => ['nullable', 'string', 'max:255'],
-            'address' => ['nullable', 'string'],
-            'profile' => ['nullable', 'string'],
-            'notes' => ['nullable', 'string'],
+            'full_name'    => ['required', 'string', 'max:255'],
+            'email_id'     => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
+            'phone_number' => ['nullable', 'string', 'max:30'],
+            'linkedin_url' => ['nullable', 'url', 'max:255'],
+            'city'         => ['nullable', 'string', 'max:100'],
+            'state_province' => ['nullable', 'string', 'max:5'],
+            'zip_code'     => ['nullable', 'string', 'max:20'],
         ]);
 
         $data['email_id'] = strtolower($data['email_id']);
@@ -49,46 +51,36 @@ class StudentInfoController extends Controller
         $candidate = $this->student();
 
         $request->validate([
-            'cv_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
-            'candidate_details_file' => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'cv_file'               => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
+            'candidate_details_file'=> ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
         ]);
 
         if (!$request->hasFile('cv_file') && !$request->hasFile('candidate_details_file')) {
             return back()->withErrors(['documents' => 'Please choose at least one document to upload.']);
         }
 
-        $changes = [];
+        $changes   = [];
         $oldValues = [];
 
         if ($request->hasFile('cv_file')) {
             $oldValues['cv_file_path'] = $candidate->cv_file_path;
-
             if ($candidate->cv_file_path) {
                 Storage::disk('local')->delete($candidate->cv_file_path);
             }
-
             $changes['cv_file_path'] = $request->file('cv_file')->store("candidates/{$candidate->id}/cv", 'local');
         }
 
         if ($request->hasFile('candidate_details_file')) {
             $oldValues['candidate_details_file_path'] = $candidate->candidate_details_file_path;
-
             if ($candidate->candidate_details_file_path) {
                 Storage::disk('local')->delete($candidate->candidate_details_file_path);
             }
-
             $changes['candidate_details_file_path'] = $request->file('candidate_details_file')->store("candidates/{$candidate->id}/details", 'local');
         }
 
         $candidate->update($changes);
 
-        AuditLog::log(
-            'uploaded',
-            'student_documents',
-            "Student uploaded documents: {$candidate->full_name}",
-            $oldValues,
-            $changes
-        );
+        AuditLog::log('uploaded', 'student_documents', "Student uploaded documents: {$candidate->full_name}", $oldValues, $changes);
 
         return back()->with('success', 'Document(s) uploaded successfully.');
     }
@@ -99,7 +91,7 @@ class StudentInfoController extends Controller
 
         $request->validate([
             'current_password' => ['required'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'password'         => ['required', 'string', 'min:8', 'confirmed'],
         ]);
 
         if (!Hash::check($request->current_password, $candidate->login_password)) {
@@ -107,7 +99,7 @@ class StudentInfoController extends Controller
         }
 
         $candidate->update([
-            'login_password' => Hash::make($request->password),
+            'login_password'       => Hash::make($request->password),
             'login_password_plain' => $request->password,
         ]);
 
@@ -125,14 +117,15 @@ class StudentInfoController extends Controller
             return back()->withErrors(['file' => 'Requested file was not found.']);
         }
 
-        AuditLog::log(
-            'downloaded',
-            'student_documents',
-            "Student downloaded {$file} file: {$candidate->full_name}",
-            [],
-            ['candidate_id' => $candidate->id, 'file_type' => $file]
-        );
+        AuditLog::log('downloaded', 'student_documents', "Student viewed {$file} file: {$candidate->full_name}", [], ['candidate_id' => $candidate->id, 'file_type' => $file]);
 
-        return Storage::disk('local')->download($path);
+        $mimeType = Storage::disk('local')->mimeType($path) ?: 'application/octet-stream';
+        $filename = basename($path);
+
+        return response(Storage::disk('local')->get($path), 200, [
+            'Content-Type'        => $mimeType,
+            'Content-Disposition' => 'inline; filename="' . $filename . '"',
+            'Cache-Control'       => 'private, no-store',
+        ]);
     }
 }

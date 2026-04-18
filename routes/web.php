@@ -23,27 +23,36 @@ Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->
 
 Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role:admin,recruiter,manager'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Candidates — accessible to all roles
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates');
     Route::post('/candidates', [CandidatesController::class, 'store'])->name('candidates.store');
     Route::put('/candidates/{candidate}', [CandidatesController::class, 'update'])->name('candidates.update');
     Route::delete('/candidates/{candidate}', [CandidatesController::class, 'destroy'])->name('candidates.destroy');
     Route::post('/candidates/{candidate}/reveal-password', [CandidatesController::class, 'revealPassword'])
         ->name('candidates.reveal-password');
+    Route::patch('/candidates/{candidate}/status', [CandidatesController::class, 'updateStatus'])
+        ->name('candidates.status');
     Route::get('/candidates/{candidate}/files/{file}', [CandidatesController::class, 'downloadFile'])
-        ->whereIn('file', ['cv', 'details'])
+        ->whereIn('file', ['cv', 'details', 'speedy'])
         ->name('candidates.files');
 
+    // Profile — accessible to all roles
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    Route::middleware('role:admin')->group(function () {
-        Route::get('/users', [UsersController::class, 'index'])->name('users');
-        Route::post('/users', [UsersController::class, 'store'])->name('users.store');
-        Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
-        Route::delete('/users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
+    // Users — view + self-edit accessible to all; create/delete restricted to admin
+    Route::get('/users', [UsersController::class, 'index'])->name('users');
+    Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
 
-        Route::get('/audit-logs', [AuditLogsController::class, 'index'])->name('audit-logs');
+    // Audit Logs — accessible to all (controller filters by role)
+    Route::get('/audit-logs', [AuditLogsController::class, 'index'])->name('audit-logs');
+
+    // Admin-only routes
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/users', [UsersController::class, 'store'])->name('users.store');
+        Route::delete('/users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
 
         Route::get('/import-export', [ImportExportController::class, 'index'])->name('import-export');
         Route::get('/import-export/export-candidates', [ImportExportController::class, 'exportCandidates'])->name('import-export.export-candidates');

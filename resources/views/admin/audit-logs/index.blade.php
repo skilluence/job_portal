@@ -75,18 +75,58 @@
                         </td>
                         <td><span class="badge badge-info">{{ ucfirst(str_replace('_', ' ', $log->module)) }}</span></td>
                         <td style="max-width:280px;">{{ $log->description }}</td>
-                        <td style="max-width:220px;">
-                            @if (!empty($log->old_values) || !empty($log->new_values))
-                                <div class="text-sm text-muted">
-                                    @if (!empty($log->old_values))
-                                        <div>Old: {{ implode(', ', array_keys($log->old_values)) }}</div>
-                                    @endif
-                                    @if (!empty($log->new_values))
-                                        <div>New: {{ implode(', ', array_keys($log->new_values)) }}</div>
-                                    @endif
+                        <td style="max-width:260px;">
+                            @php
+                                $oldVals  = is_array($log->old_values) ? $log->old_values : [];
+                                $newVals  = is_array($log->new_values) ? $log->new_values : [];
+                                $skipKeys = ['password','login_password','login_password_plain','email_password','linkedin_password','remember_token','updated_at','created_at'];
+                                $allKeys  = array_diff(
+                                    array_unique(array_merge(array_keys($oldVals), array_keys($newVals))),
+                                    $skipKeys
+                                );
+                                // Helper: convert any value to a display string
+                                $toStr = fn($v) => is_array($v) || is_object($v)
+                                    ? json_encode($v, JSON_UNESCAPED_UNICODE)
+                                    : (string) ($v ?? '');
+                                $diffs = [];
+                                foreach ($allKeys as $key) {
+                                    $old = array_key_exists($key, $oldVals) ? $oldVals[$key] : null;
+                                    $new = array_key_exists($key, $newVals) ? $newVals[$key] : null;
+                                    if ($toStr($old) !== $toStr($new)) {
+                                        $diffs[] = ['key' => $key, 'old' => $toStr($old), 'new' => $toStr($new)];
+                                    }
+                                }
+                            @endphp
+                            @if (!empty($diffs))
+                                <div class="text-sm" style="line-height:1.65;">
+                                    @foreach ($diffs as $diff)
+                                        <div style="margin-bottom:4px;">
+                                            <span style="color:#475569;font-weight:600;font-size:11px;text-transform:capitalize;">{{ str_replace('_', ' ', $diff['key']) }}:</span><br>
+                                            @if ($diff['old'] !== '')
+                                                <span style="color:#dc2626;background:#fef2f2;padding:1px 4px;border-radius:3px;font-size:11px;">{{ Str::limit($diff['old'], 35) }}</span>
+                                                <span style="color:#94a3b8;font-size:11px;"> → </span>
+                                            @endif
+                                            @if ($diff['new'] !== '')
+                                                <span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">{{ Str::limit($diff['new'], 35) }}</span>
+                                            @else
+                                                <span style="color:#94a3b8;font-style:italic;font-size:11px;">cleared</span>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @elseif (!empty($allKeys))
+                                {{-- No diff but values present (e.g. action with no old = create) --}}
+                                @php $showVals = array_intersect_key($newVals ?: $oldVals, array_flip($allKeys)); @endphp
+                                <div class="text-sm" style="line-height:1.65;">
+                                    @foreach ($showVals as $key => $val)
+                                        <div style="margin-bottom:4px;">
+                                            <span style="color:#475569;font-weight:600;font-size:11px;text-transform:capitalize;">{{ str_replace('_', ' ', $key) }}:</span><br>
+                                            <span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">{{ Str::limit($toStr($val), 35) }}</span>
+                                        </div>
+                                    @endforeach
                                 </div>
                             @else
-                                <span class="text-muted text-sm">-</span>
+                                <span class="text-muted text-sm">—</span>
                             @endif
                         </td>
                         <td class="text-muted text-sm" title="{{ $log->created_at->format('Y-m-d H:i:s') }}">

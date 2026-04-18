@@ -9,8 +9,8 @@
 @endif
 
 @if ($errors->any())
-    <div class="alert alert-error mb-16">
-        <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;"></i>
+    <div class="stp-alert-error">
+        <i class="bi bi-exclamation-circle-fill"></i>
         <div>
             @foreach ($errors->all() as $error)
                 <div>{{ $error }}</div>
@@ -19,155 +19,205 @@
     </div>
 @endif
 
-<div class="sp-page-header">
-    <div class="sp-page-icon"><i class="bi bi-person-fill"></i></div>
+<div class="stp-page-header">
+    <div class="stp-page-icon"><i class="bi bi-person-fill"></i></div>
     <div>
-        <div class="sp-page-title">My Profile</div>
-        <div class="sp-page-sub">Update your personal details and portal password</div>
+        <div class="stp-page-title">My Profile</div>
+        <div class="stp-page-sub">Update your personal details, documents, and portal password</div>
     </div>
 </div>
 
-<div class="sp-grid-2">
-    <div class="sp-card">
-        <div class="sp-card-head">
-            <div>
-                <div class="sp-card-title"><i class="bi bi-pencil-square"></i> Personal Details</div>
-                <div class="sp-card-sub">Fields you can edit in the student portal</div>
+<div class="stp-profile-grid">
+
+    {{-- Left column: Personal Details + Change Password --}}
+    <div class="stp-profile-col-left">
+        <div class="stp-card">
+            <div class="stp-card-head">
+                <div class="stp-card-title"><i class="bi bi-pencil-square"></i> Personal Details</div>
+                <div class="stp-card-hint">These fields are editable by you</div>
             </div>
+            <form method="POST" action="{{ route('student.info.update') }}">
+                @csrf
+                <div class="stp-form-grid">
+                    <div class="stp-form-group">
+                        <label class="stp-label">Full Name <span class="stp-required">*</span></label>
+                        <input type="text" name="full_name" class="stp-input" value="{{ old('full_name', $candidate->full_name) }}" required>
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">Email ID <span class="stp-required">*</span></label>
+                        <input type="email" name="email_id" class="stp-input" value="{{ old('email_id', $candidate->email_id) }}" required>
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">Phone Number</label>
+                        <input type="text" name="phone_number" class="stp-input" value="{{ old('phone_number', $candidate->phone_number) }}" placeholder="+1 (555) 000-0000">
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">LinkedIn URL</label>
+                        <input type="url" name="linkedin_url" class="stp-input" value="{{ old('linkedin_url', $candidate->linkedin_url) }}" placeholder="https://linkedin.com/in/username">
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">City</label>
+                        <input type="text" name="city" class="stp-input" value="{{ old('city', $candidate->city) }}" placeholder="Your city">
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">ZIP Code</label>
+                        <input type="text" name="zip_code" class="stp-input" value="{{ old('zip_code', $candidate->zip_code) }}" placeholder="10001" maxlength="10">
+                    </div>
+                </div>
+                <div style="margin-top:16px;">
+                    <button type="submit" class="stp-btn-primary">
+                        <i class="bi bi-check-lg"></i> Save Changes
+                    </button>
+                </div>
+            </form>
         </div>
 
-        <form method="POST" action="{{ route('student.info.update') }}">
-            @csrf
-            <div class="form-group">
-                <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
-                <input type="text" name="full_name" class="form-control" value="{{ old('full_name', $candidate->full_name) }}"
-                    required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Email ID <span style="color:var(--red-text)">*</span></label>
-                <input type="email" name="email_id" class="form-control" value="{{ old('email_id', $candidate->email_id) }}"
-                    required>
-            </div>
-            <div class="form-group">
-                <label class="form-label">LinkedIn ID</label>
-                <input type="text" name="linkedin_id" class="form-control" value="{{ old('linkedin_id', $candidate->linkedin_id) }}">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Address</label>
-                <textarea name="address" class="form-control" rows="2">{{ old('address', $candidate->address) }}</textarea>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Profile Description</label>
-                <textarea name="profile" class="form-control" rows="4">{{ old('profile', $candidate->profile) }}</textarea>
-            </div>
-            <div class="form-group mb-0">
-                <label class="form-label">Notes</label>
-                <textarea name="notes" class="form-control" rows="2">{{ old('notes', $candidate->notes) }}</textarea>
-            </div>
-            <div style="margin-top:16px;">
-                <button type="submit" class="sp-submit-btn">
-                    <i class="bi bi-check-lg"></i> Save Changes
-                </button>
-            </div>
-        </form>
-    </div>
-
-    <div>
-        <div class="sp-card" style="margin-bottom:16px;">
-            <div class="sp-card-head">
-                <div>
-                    <div class="sp-card-title"><i class="bi bi-info-circle-fill"></i> Enrollment and Files</div>
-                    <div class="sp-card-sub">Set by recruiter and admin team</div>
-                </div>
-            </div>
-            <div class="sp-info-list">
-                <div class="sp-info-item">
-                    <div class="sp-ii-icon"><i class="bi bi-calendar3"></i></div>
-                    <div>
-                        <div class="sp-ii-label">Enrollment Date</div>
-                        <div class="sp-ii-val">{{ $candidate->enrollment_date?->format('M d, Y') ?? '-' }}</div>
-                    </div>
-                </div>
-                <div class="sp-info-item">
-                    <div class="sp-ii-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-person-badge"></i></div>
-                    <div>
-                        <div class="sp-ii-label">Recruiter</div>
-                        <div class="sp-ii-val">{{ $candidate->recruiter?->name ?? '-' }}</div>
-                    </div>
-                </div>
-                <div class="sp-info-item">
-                    <div class="sp-ii-icon" style="background:#eef2ff;color:#6366f1;"><i class="bi bi-award"></i></div>
-                    <div>
-                        <div class="sp-ii-label">Status</div>
-                        <div class="sp-ii-val"><span class="sp-status-badge {{ $candidate->status }}">{{ ucfirst($candidate->status) }}</span></div>
-                    </div>
-                </div>
-            </div>
-
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #e2e8f0;">
-                <div class="sp-card-sub mb-8">Documents</div>
-                <div class="d-flex gap-8" style="flex-wrap:wrap;">
-                    @if ($candidate->cv_file_path)
-                        <a class="sp-edit-btn" href="{{ route('student.files', 'cv') }}"><i class="bi bi-file-earmark-arrow-down"></i> Download CV</a>
-                    @endif
-                    @if ($candidate->candidate_details_file_path)
-                        <a class="sp-edit-btn" href="{{ route('student.files', 'details') }}"><i class="bi bi-file-earmark-arrow-down"></i> Candidate Details</a>
-                    @endif
-                    @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path)
-                        <span class="text-sm text-muted">No files uploaded yet.</span>
-                    @endif
-                </div>
-
-                <form method="POST" action="{{ route('student.info.documents') }}" enctype="multipart/form-data"
-                    style="margin-top:14px;">
-                    @csrf
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label class="form-label">Upload CV</label>
-                            <input type="file" name="cv_file" class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Upload Candidate Details</label>
-                            <input type="file" name="candidate_details_file" class="form-control"
-                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                        </div>
-                    </div>
-                    <div class="text-sm text-muted" style="margin-top:-4px;">
-                        Allowed formats: PDF, DOC, DOCX, JPG, JPEG, PNG (max 5MB each).
-                    </div>
-                    <div style="margin-top:12px;">
-                        <button type="submit" class="sp-submit-btn">
-                            <i class="bi bi-cloud-arrow-up-fill"></i> Upload Documents
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div class="sp-card">
-            <div class="sp-card-head">
-                <div>
-                    <div class="sp-card-title"><i class="bi bi-shield-lock-fill"></i> Change Password</div>
-                    <div class="sp-card-sub">Update your portal login password</div>
-                </div>
+        <div class="stp-card" style="margin-top:16px;">
+            <div class="stp-card-head">
+                <div class="stp-card-title"><i class="bi bi-shield-lock-fill"></i> Change Password</div>
+                <div class="stp-card-hint">Update your portal login password</div>
             </div>
             <form method="POST" action="{{ route('student.info.password') }}">
                 @csrf
-                <div class="form-group">
-                    <label class="form-label">Current Password</label>
-                    <input type="password" name="current_password" class="form-control" required>
+                <div class="stp-form-group" style="margin-bottom:12px;">
+                    <label class="stp-label">Current Password <span class="stp-required">*</span></label>
+                    <input type="password" name="current_password" class="stp-input" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">New Password</label>
-                    <input type="password" name="password" class="form-control" minlength="8" required>
+                <div class="stp-form-grid">
+                    <div class="stp-form-group">
+                        <label class="stp-label">New Password <span class="stp-required">*</span></label>
+                        <input type="password" name="password" class="stp-input" minlength="8" required>
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">Confirm New Password <span class="stp-required">*</span></label>
+                        <input type="password" name="password_confirmation" class="stp-input" minlength="8" required>
+                    </div>
                 </div>
-                <div class="form-group mb-0">
-                    <label class="form-label">Confirm Password</label>
-                    <input type="password" name="password_confirmation" class="form-control" minlength="8" required>
-                </div>
-                <div style="margin-top:16px;">
-                    <button type="submit" class="sp-submit-btn">
+                <div style="margin-top:4px;">
+                    <button type="submit" class="stp-btn-secondary">
                         <i class="bi bi-shield-check"></i> Update Password
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {{-- Right column: Enrollment Info + Documents --}}
+    <div class="stp-profile-col-right">
+        <div class="stp-card">
+            <div class="stp-card-head">
+                <div class="stp-card-title"><i class="bi bi-info-circle-fill"></i> Enrollment Info</div>
+                <div class="stp-card-hint">Set by your recruiter and admin team</div>
+            </div>
+            <div class="stp-enroll-list">
+                <div class="stp-enroll-item">
+                    <div class="stp-enroll-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-cpu"></i></div>
+                    <div>
+                        <div class="stp-enroll-label">Domain</div>
+                        <div class="stp-enroll-val">
+                            {{ implode(' / ', array_filter([$candidate->domain, $candidate->sub_domain])) ?: '—' }}
+                        </div>
+                    </div>
+                </div>
+                <div class="stp-enroll-item">
+                    <div class="stp-enroll-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-person-badge"></i></div>
+                    <div>
+                        <div class="stp-enroll-label">Recruiter</div>
+                        <div class="stp-enroll-val">{{ $candidate->recruiter?->name ?? '—' }}</div>
+                    </div>
+                </div>
+                <div class="stp-enroll-item">
+                    <div class="stp-enroll-icon" style="background:#fdf4ff;color:#a21caf;"><i class="bi bi-award"></i></div>
+                    <div>
+                        <div class="stp-enroll-label">Status</div>
+                        <div class="stp-enroll-val">
+                            <span class="sp-status-badge {{ $candidate->status }}">{{ ucfirst($candidate->status) }}</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="stp-enroll-item">
+                    <div class="stp-enroll-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-file-earmark-text"></i></div>
+                    <div>
+                        <div class="stp-enroll-label">Applications</div>
+                        <div class="stp-enroll-val">{{ $candidate->no_of_applications }}</div>
+                    </div>
+                </div>
+                <div class="stp-enroll-item">
+                    <div class="stp-enroll-icon" style="background:#ecfdf5;color:#059669;"><i class="bi bi-calendar-check"></i></div>
+                    <div>
+                        <div class="stp-enroll-label">Interviews</div>
+                        <div class="stp-enroll-val">{{ $candidate->interviews_count }}</div>
+                    </div>
+                </div>
+                @if ($candidate->visa_immigration_status)
+                    <div class="stp-enroll-item">
+                        <div class="stp-enroll-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-shield-check"></i></div>
+                        <div>
+                            <div class="stp-enroll-label">Visa Status</div>
+                            <div class="stp-enroll-val">{{ ucfirst(str_replace('_', ' ', $candidate->visa_immigration_status)) }}</div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+
+        <div class="stp-card" style="margin-top:16px;">
+            <div class="stp-card-head">
+                <div class="stp-card-title"><i class="bi bi-folder2-open"></i> Documents</div>
+                <div class="stp-card-hint">View and upload your files</div>
+            </div>
+
+            @if ($candidate->cv_file_path || $candidate->candidate_details_file_path)
+                <div class="stp-doc-list" style="margin-bottom:16px;">
+                    @if ($candidate->cv_file_path)
+                        <a href="{{ route('student.files', 'cv') }}" target="_blank" class="stp-doc-item">
+                            <div class="stp-doc-icon"><i class="bi bi-file-earmark-pdf-fill"></i></div>
+                            <div class="stp-doc-body">
+                                <div class="stp-doc-name">Curriculum Vitae (CV)</div>
+                                <div class="stp-doc-hint">Click to open in browser</div>
+                            </div>
+                            <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
+                        </a>
+                    @endif
+                    @if ($candidate->candidate_details_file_path)
+                        <a href="{{ route('student.files', 'details') }}" target="_blank" class="stp-doc-item">
+                            <div class="stp-doc-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-file-earmark-text-fill"></i></div>
+                            <div class="stp-doc-body">
+                                <div class="stp-doc-name">Candidate Details</div>
+                                <div class="stp-doc-hint">Click to open in browser</div>
+                            </div>
+                            <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
+                        </a>
+                    @endif
+                </div>
+            @endif
+
+            <form method="POST" action="{{ route('student.info.documents') }}" enctype="multipart/form-data">
+                @csrf
+                <div class="stp-form-grid">
+                    <div class="stp-form-group">
+                        <label class="stp-label">
+                            Upload / Replace CV
+                            @if ($candidate->cv_file_path)
+                                <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
+                            @endif
+                        </label>
+                        <input type="file" name="cv_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">
+                            Upload / Replace Candidate Details
+                            @if ($candidate->candidate_details_file_path)
+                                <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
+                            @endif
+                        </label>
+                        <input type="file" name="candidate_details_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+                    </div>
+                </div>
+                <div class="stp-file-hint">Allowed: PDF, DOC, DOCX, JPG, PNG (max 5 MB each)</div>
+                <div style="margin-top:12px;">
+                    <button type="submit" class="stp-btn-primary">
+                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload Documents
                     </button>
                 </div>
             </form>
