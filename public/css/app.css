@@ -1375,7 +1375,8 @@ textarea.form-control { resize: vertical; min-height: 90px; }
     border-bottom: 1px solid var(--border-color);
     background: var(--card-bg);
     border-radius: var(--radius) var(--radius) 0 0;
-    overflow-x: auto;
+    flex-shrink: 0;
+    overflow: hidden;
 }
 .modal-tab-btn {
     display: inline-flex;
