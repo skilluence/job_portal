@@ -180,16 +180,16 @@
                     <div class="ie-export-form-title">
                         <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
                     </div>
-                    <div class="form-grid" style="margin-bottom:14px;">
-                        <div class="form-group mb-0">
+                    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
                             <input type="date" name="date_from" class="form-control">
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
                             <input type="date" name="date_to" class="form-control">
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-control">
                                 <option value="">All Statuses</option>
@@ -202,7 +202,7 @@
                                 <option value="inactive">Inactive</option>
                             </select>
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Recruiter</label>
                             <select name="recruiter_id" class="form-control">
                                 <option value="">All Recruiters</option>
@@ -211,10 +211,14 @@
                                 @endforeach
                             </select>
                         </div>
+                        <div class="form-group mb-0" style="flex-shrink:0;">
+                            <label class="form-label" style="visibility:hidden;">x</label>
+                            <button type="submit" class="btn btn-primary" title="Export Filtered Data"
+                                style="width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-download"></i> Export Filtered Data
-                    </button>
                 </div>
             </form>
 
@@ -235,16 +239,16 @@
                     <div class="ie-export-form-title">
                         <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
                     </div>
-                    <div class="form-grid" style="margin-bottom:14px;">
-                        <div class="form-group mb-0">
+                    <div style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap;">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Date From <span class="text-muted" style="font-weight:400;">(created)</span></label>
                             <input type="date" name="date_from" class="form-control">
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Date To <span class="text-muted" style="font-weight:400;">(created)</span></label>
                             <input type="date" name="date_to" class="form-control">
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Role</label>
                             <select name="role" class="form-control">
                                 <option value="">All Roles</option>
@@ -253,7 +257,7 @@
                                 <option value="manager">Team Manager</option>
                             </select>
                         </div>
-                        <div class="form-group mb-0">
+                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
                             <label class="form-label">Status</label>
                             <select name="status" class="form-control">
                                 <option value="">All Statuses</option>
@@ -261,10 +265,14 @@
                                 <option value="inactive">Inactive</option>
                             </select>
                         </div>
+                        <div class="form-group mb-0" style="flex-shrink:0;">
+                            <label class="form-label" style="visibility:hidden;">x</label>
+                            <button type="submit" class="btn btn-primary" title="Export Filtered Data"
+                                style="width:38px;height:38px;padding:0;display:flex;align-items:center;justify-content:center;font-size:16px;">
+                                <i class="bi bi-download"></i>
+                            </button>
+                        </div>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-sm">
-                        <i class="bi bi-download"></i> Export Filtered Data
-                    </button>
                 </div>
             </form>
 
