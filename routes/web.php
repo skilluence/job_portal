@@ -42,8 +42,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
     Route::post('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::post('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // Users — view + self-edit accessible to all; create/delete restricted to admin
-    Route::get('/users', [UsersController::class, 'index'])->name('users');
+    // Users — view restricted to admin/manager; self-edit accessible to all roles
+    Route::get('/users', [UsersController::class, 'index'])->name('users')->middleware('role:admin,manager');
     Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
 
     // Audit Logs — accessible to all (controller filters by role)

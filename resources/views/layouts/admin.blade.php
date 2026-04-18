@@ -47,10 +47,12 @@
                 class="nav-item {{ request()->routeIs('admin.candidates*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i><span class="nav-text">Candidates</span>
             </a>
+            @if (!$authUser?->isRecruiter())
             <a href="{{ route('admin.users') }}"
                 class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
                 <i class="bi bi-person-badge-fill"></i><span class="nav-text">Recruiters</span>
             </a>
+            @endif
 
             <span class="nav-section-label">System</span>
             <a href="{{ route('admin.audit-logs') }}"
