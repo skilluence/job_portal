@@ -668,6 +668,11 @@
         setVal('edit_user_email',  user.email  || '');
         setVal('edit_user_role',   user.role   || 'recruiter');
         setVal('edit_user_status', user.status || 'active');
+        setVal('edit_user_team_manager', user.team_manager_id || '');
+
+        // Trigger role-change logic to show/hide team manager field
+        var roleSelect = document.getElementById('edit_user_role');
+        if (roleSelect) roleSelect.dispatchEvent(new Event('change'));
 
         openModal('editUserModal');
     };

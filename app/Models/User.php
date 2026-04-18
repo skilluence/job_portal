@@ -72,6 +72,21 @@ class User extends Authenticatable
         return $this->role === 'recruiter';
     }
 
+    public function isManager(): bool
+    {
+        return $this->role === 'manager';
+    }
+
+    public function teamMemberIds(): array
+    {
+        return $this->teamMembers()->pluck('id')->toArray();
+    }
+
+    public function scopeManagers($query)
+    {
+        return $query->where('role', 'manager');
+    }
+
     public function getInitialsAttribute(): string
     {
         $words = preg_split('/\s+/', trim($this->name)) ?: ['U'];

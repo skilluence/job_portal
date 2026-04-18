@@ -15,9 +15,11 @@ class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $user        = $request->user();
-        $isAdmin     = $user->isAdmin();
-        $isRecruiter = $user->isRecruiter();
+        $user          = $request->user();
+        $isAdmin       = $user->isAdmin();
+        $isRecruiter   = $user->isRecruiter();
+        $isManager     = $user->isManager();
+        $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
         // Resolve chart date range
         $range       = $request->get('range', 'week');
@@ -26,15 +28,18 @@ class DashboardController extends Controller
 
         [$rangeStart, $rangeEnd, $rangeLabel] = $this->resolveRange($range, $customStart, $customEnd);
 
-        // Base query closure — filters by recruiter when needed
+        // Base query closure — filters by recruiter or manager team when needed
         $base = fn () => Candidate::query()
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id));
+            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds));
 
         $activeCandidateStatuses = ['active', 'enrolled', 'interview', 'offer', 'placed', 'onhold'];
 
         $stats = [
             'active_candidates'          => $base()->whereIn('status', $activeCandidateStatuses)->count(),
-            'active_recruiters'          => $isAdmin ? User::recruiters()->active()->count() : 1,
+            'active_recruiters'          => $isAdmin
+                ? User::recruiters()->active()->count()
+                : ($isManager ? count($teamMemberIds) : 1),
             'today_applications'         => 0,
             'today_interviews'           => 0,
             'today_scheduled_interviews' => $base()->where('status', 'interview')
@@ -47,7 +52,8 @@ class DashboardController extends Controller
         $todayLogsQuery = AuditLog::where('module', 'candidates')
             ->whereDate('created_at', today())
             ->whereIn('action', ['created', 'updated'])
-            ->when($isRecruiter, fn ($q) => $q->where('user_id', $user->id));
+            ->when($isRecruiter, fn ($q) => $q->where('user_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->whereIn('user_id', array_merge($teamMemberIds, [$user->id])));
 
         foreach ($todayLogsQuery->get(['action', 'old_values', 'new_values']) as $log) {
             $oldApps  = (int) data_get($log->old_values, 'no_of_applications', 0);
@@ -69,10 +75,14 @@ class DashboardController extends Controller
         $topPerformers       = collect();
         $recruiterPerformance = collect();
 
-        if ($isAdmin) {
+        if ($isAdmin || $isManager) {
             $monthStart = Carbon::now()->startOfMonth();
 
-            $topPerformers = User::recruiters()
+            $teamBase = fn () => User::query()
+                ->when($isAdmin,   fn ($q) => $q->recruiters())
+                ->when($isManager, fn ($q) => $q->whereIn('id', $teamMemberIds));
+
+            $topPerformers = $teamBase()
                 ->withCount('candidates')
                 ->withSum(['candidates as monthly_applications' => fn ($q) => $q->where('created_at', '>=', $monthStart)], 'no_of_applications')
                 ->get()
@@ -80,7 +90,7 @@ class DashboardController extends Controller
                 ->take(5)
                 ->values();
 
-            $recruiterPerformance = User::recruiters()
+            $recruiterPerformance = $teamBase()
                 ->withCount('candidates')
                 ->withSum('candidates', 'no_of_applications')
                 ->withSum('candidates', 'interviews_count')
@@ -154,7 +164,7 @@ class DashboardController extends Controller
             'trendChartData'      => $chartData,
             'statusChartLabels'   => $statusDistribution->keys()->map(fn ($s) => ucfirst($s))->values(),
             'statusChartData'     => $statusDistribution->values(),
-            'isAdmin'             => $isAdmin,
+            'isAdmin'             => $isAdmin || $isManager,
             'isRecruiter'         => $isRecruiter,
             'activeRange'         => $range,
             'customStart'         => $customStart,

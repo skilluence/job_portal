@@ -29,8 +29,12 @@ class CandidatesController extends Controller
         $status  = $request->get('status');
         $isAdmin = $user->isAdmin();
 
+        $isManager     = $user->isManager();
+        $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
+
         $candidates = Candidate::with('recruiter')
             ->when($user->isRecruiter(), fn ($q) => $q->where('recruiter_id', $user->id))
+            ->when($isManager, fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
             ->when($search, fn ($q) => $q->search($search))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->latest()
@@ -39,7 +43,9 @@ class CandidatesController extends Controller
 
         $recruiters = $isAdmin
             ? User::recruiters()->active()->orderBy('name')->get(['id', 'name'])
-            : collect();
+            : ($isManager
+                ? User::where('team_manager_id', $user->id)->active()->orderBy('name')->get(['id', 'name'])
+                : collect());
 
         return view('admin.candidates.index', [
             'candidates'    => $candidates,
@@ -47,17 +53,18 @@ class CandidatesController extends Controller
             'search'        => $search,
             'status'        => $status,
             'statusOptions' => self::STATUSES,
-            'isAdmin'       => $isAdmin,
+            'isAdmin'       => $isAdmin || $isManager,
             'currentUser'   => $user,
         ]);
     }
 
     public function store(Request $request)
     {
-        $user    = $request->user();
-        $isAdmin = $user->isAdmin();
+        $user      = $request->user();
+        $isAdmin   = $user->isAdmin();
+        $isManager = $user->isManager();
 
-        $data = $request->validate($this->validationRules($isAdmin, null));
+        $data = $request->validate($this->validationRules($isAdmin || $isManager, null));
 
         $data['email_id'] = strtolower($data['email_id']);
         $data['full_name'] = $this->buildFullName($data);
@@ -66,7 +73,18 @@ class CandidatesController extends Controller
         $data['login_password']       = Hash::make($plainPassword);
         $data['login_password_plain'] = $plainPassword;
         $data['created_by']    = $user->id;
-        $data['recruiter_id']  = $isAdmin ? (int) $data['recruiter_id'] : $user->id;
+
+        if ($isAdmin) {
+            $data['recruiter_id'] = (int) $data['recruiter_id'];
+        } elseif ($isManager) {
+            // Validate recruiter is in manager's team
+            if (!in_array((int) $data['recruiter_id'], $user->teamMemberIds(), true)) {
+                abort(403, 'You can only assign candidates to your team members.');
+            }
+            $data['recruiter_id'] = (int) $data['recruiter_id'];
+        } else {
+            $data['recruiter_id'] = $user->id;
+        }
         $data['interviews_count'] = 0;
 
         // Handle sensitive nullable fields — store null when blank
@@ -98,17 +116,32 @@ class CandidatesController extends Controller
         $user    = $request->user();
         $isAdmin = $user->isAdmin();
 
+        $isManager = $user->isManager();
+
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
             abort(403, 'You are not authorized to edit this candidate.');
         }
+        if ($isManager && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
+            abort(403, 'You are not authorized to edit this candidate.');
+        }
 
-        $data = $request->validate($this->validationRules($isAdmin, $candidate->id));
+        $data = $request->validate($this->validationRules($isAdmin || $isManager, $candidate->id));
 
         $old = $candidate->toArray();
 
         $data['email_id']   = strtolower($data['email_id']);
         $data['full_name']  = $this->buildFullName($data);
-        $data['recruiter_id'] = $isAdmin ? (int) $data['recruiter_id'] : $candidate->recruiter_id;
+
+        if ($isAdmin) {
+            $data['recruiter_id'] = (int) $data['recruiter_id'];
+        } elseif ($isManager) {
+            if (!in_array((int) $data['recruiter_id'], $user->teamMemberIds(), true)) {
+                abort(403, 'You can only assign candidates to your team members.');
+            }
+            $data['recruiter_id'] = (int) $data['recruiter_id'];
+        } else {
+            $data['recruiter_id'] = $candidate->recruiter_id;
+        }
 
         // Password: only update if provided
         if (!empty($data['login_password'])) {
@@ -145,7 +178,11 @@ class CandidatesController extends Controller
 
     public function destroy(Request $request, Candidate $candidate)
     {
-        if ($request->user()->isRecruiter() && $candidate->recruiter_id !== $request->user()->id) {
+        $authUser = $request->user();
+        if ($authUser->isRecruiter() && $candidate->recruiter_id !== $authUser->id) {
+            abort(403, 'You are not authorized to delete this candidate.');
+        }
+        if ($authUser->isManager() && !in_array($candidate->recruiter_id, $authUser->teamMemberIds(), true)) {
             abort(403, 'You are not authorized to delete this candidate.');
         }
 

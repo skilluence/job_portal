@@ -10,17 +10,20 @@ class AuditLogsController extends Controller
 {
     public function index(Request $request)
     {
-        $user      = $request->user();
-        $search    = trim((string) $request->get('search'));
-        $action    = $request->get('action');
-        $tab       = $request->get('tab', 'recruiters');
-        $isRecruiter = $user->isRecruiter();
+        $user          = $request->user();
+        $search        = trim((string) $request->get('search'));
+        $action        = $request->get('action');
+        $tab           = $request->get('tab', 'recruiters');
+        $isRecruiter   = $user->isRecruiter();
+        $isManager     = $user->isManager();
+        $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
         $logs = AuditLog::query()
             ->with('user')
             ->when($tab === 'students', fn ($q) => $q->where('actor_type', 'student'))
             ->when($tab === 'recruiters', fn ($q) => $q->whereIn('actor_type', ['staff', 'system']))
             ->when($isRecruiter, fn ($q) => $q->where('user_id', $user->id))
+            ->when($isManager, fn ($q) => $q->whereIn('user_id', array_merge($teamMemberIds, [$user->id])))
             ->when($search, function ($q) use ($search) {
                 $like = '%' . str_replace('%', '\%', $search) . '%';
                 $q->where(function ($query) use ($like) {

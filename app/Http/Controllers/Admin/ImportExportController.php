@@ -137,9 +137,12 @@ class ImportExportController extends Controller
 
     public function importCandidates(Request $request)
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
-        ]);
+        $request->validate(['file' => ['required', 'file', 'max:10240']]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).']);
+        }
 
         $fh        = fopen($request->file('file')->getRealPath(), 'r');
         $rawHeader = fgetcsv($fh);
@@ -259,8 +262,9 @@ class ImportExportController extends Controller
 
         $callback = function () {
             $fh = fopen('php://output', 'w');
-            fputcsv($fh, ['name', 'email', 'password', 'role', 'status']);
-            fputcsv($fh, ['Jane Recruiter', 'jane@company.com', 'password123', 'recruiter', 'active']);
+            fputcsv($fh, ['name', 'email', 'password', 'role', 'status', 'team_manager_email']);
+            fputcsv($fh, ['Jane Recruiter', 'jane@company.com', 'password123', 'recruiter', 'active', 'manager@company.com']);
+            fputcsv($fh, ['Tom Manager', 'tom@company.com', 'password123', 'manager', 'active', '']);
             fclose($fh);
         };
 
@@ -284,7 +288,7 @@ class ImportExportController extends Controller
 
         AuditLog::log('exported', 'recruiters', $desc);
 
-        $allowedRoles = ['recruiter', 'admin'];
+        $allowedRoles = ['recruiter', 'admin', 'manager'];
 
         $headers = [
             'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -322,9 +326,12 @@ class ImportExportController extends Controller
 
     public function importRecruiters(Request $request)
     {
-        $request->validate([
-            'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
-        ]);
+        $request->validate(['file' => ['required', 'file', 'max:10240']]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).']);
+        }
 
         $fh        = fopen($request->file('file')->getRealPath(), 'r');
         $rawHeader = fgetcsv($fh);
@@ -367,8 +374,8 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            if (!in_array($role, ['admin', 'recruiter'], true)) {
-                $errors[] = "Row {$rowNum}: role must be admin or recruiter.";
+            if (!in_array($role, ['admin', 'manager', 'recruiter'], true)) {
+                $errors[] = "Row {$rowNum}: role must be admin, manager, or recruiter.";
                 $skipped++;
                 continue;
             }
@@ -383,12 +390,21 @@ class ImportExportController extends Controller
                 continue;
             }
 
+            $teamManagerId = null;
+            if ($role === 'recruiter' && !empty($d['team_manager_email'])) {
+                $mgr = User::where('email', strtolower($d['team_manager_email']))->where('role', 'manager')->first();
+                if ($mgr) {
+                    $teamManagerId = $mgr->id;
+                }
+            }
+
             User::create([
-                'name'     => $name,
-                'email'    => $email,
-                'password' => Hash::make($pass),
-                'role'     => $role,
-                'status'   => $status,
+                'name'            => $name,
+                'email'           => $email,
+                'password'        => Hash::make($pass),
+                'role'            => $role,
+                'status'          => $status,
+                'team_manager_id' => $teamManagerId,
             ]);
 
             $imported++;

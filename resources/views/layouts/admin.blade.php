@@ -49,7 +49,7 @@
             </a>
             <a href="{{ route('admin.users') }}"
                 class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
-                <i class="bi bi-person-badge-fill"></i><span class="nav-text">Users</span>
+                <i class="bi bi-person-badge-fill"></i><span class="nav-text">Recruiters</span>
             </a>
 
             <span class="nav-section-label">System</span>

@@ -50,7 +50,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
     Route::get('/audit-logs', [AuditLogsController::class, 'index'])->name('audit-logs');
 
     // Admin-only routes
-    Route::middleware('role:admin')->group(function () {
+    Route::middleware('role:admin,manager')->group(function () {
         Route::post('/users', [UsersController::class, 'store'])->name('users.store');
         Route::delete('/users/{user}', [UsersController::class, 'destroy'])->name('users.destroy');
 
