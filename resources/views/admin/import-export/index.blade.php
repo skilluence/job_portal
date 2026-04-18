@@ -150,10 +150,10 @@
                         <div class="ie-tips-title"><i class="bi bi-info-circle-fill"></i> Import Tips — Candidates</div>
                         <ul>
                             <li>Column names must match the template exactly</li>
-                            <li>Required: <strong>full_name, email_id, portal_login_password, recruiter</strong></li>
+                            <li>Required: <strong>first_name, last_name, email_id, portal_login_password, recruiter</strong></li>
                             <li>Status values: <strong>active, enrolled, interview, offer, placed, onhold, inactive</strong></li>
                             <li>Recruiter name must match an existing recruiter in the system</li>
-                            <li>Date format: <strong>YYYY-MM-DD</strong> (enrollment_date, linkedin_updated)</li>
+                            <li>Visa status: <strong>us_citizen, green_card, h1b, h4_ead, opt_f1, stem_opt, cpt, l1, tn_visa, other</strong></li>
                             <li>Up to <strong>1,000 candidates</strong> per import; duplicate emails are skipped</li>
                         </ul>
                     </div>
@@ -164,19 +164,21 @@
                         </div>
                         <div class="ie-col-list">
                             @foreach ([
-                                ['full_name', true], ['enrollment_date', false],
-                                ['sales_agent', false], ['no_of_applications', true],
-                                ['interviews_count', false], ['status', true],
-                                ['recruiter', true], ['linkedin_id', false],
-                                ['linkedin_password', false], ['email_id', true],
-                                ['email_password', false], ['linkedin_updated', false],
-                                ['address', false], ['profile', false],
-                                ['notes', false], ['portal_login_password', true],
+                                ['first_name', true], ['last_name', true],
+                                ['email_id', true], ['phone_number', false],
+                                ['domain', false], ['sub_domain', false],
+                                ['city', false], ['state_province', false],
+                                ['zip_code', false], ['visa_immigration_status', false],
+                                ['work_auth_status', false], ['no_of_applications', false],
+                                ['status', false], ['recruiter', true],
+                                ['portal_login_password', true], ['', false],
                             ] as [$col, $req])
+                            @if($col)
                             <div class="ie-col-tag {{ $req ? 'required' : '' }}">
                                 <code style="font-size:10px;background:rgba(0,0,0,0.04);padding:1px 4px;border-radius:3px;">{{ $col }}</code>
                                 @if ($req)<span style="color:var(--blue-text);font-size:9px;margin-left:2px;">*</span>@endif
                             </div>
+                            @endif
                             @endforeach
                         </div>
                         <div style="font-size:10px;color:var(--text-muted);margin-top:8px;"><span style="color:var(--blue-text);">*</span> = required field</div>
