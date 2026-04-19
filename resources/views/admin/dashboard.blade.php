@@ -37,7 +37,7 @@
 .dw-sub      { font-size:12px; color:var(--text-muted); margin-top:1px; }
 
 /* ── Interview day tabs ───────────────────────────────────── */
-.dw-day-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:14px; }
+.dw-day-tabs { display:flex; gap:0; border-bottom:2px solid var(--border-color); margin-bottom:14px; }
 .dw-day-tab  {
     padding:7px 18px; font-size:13px; font-weight:500; cursor:pointer;
     color:var(--text-muted); border:none; background:none;
@@ -51,17 +51,18 @@
 /* ── Tables ──────────────────────────────────────────────── */
 .dw-table { width:100%; border-collapse:collapse; font-size:13px; }
 .dw-table th {
-    padding:7px 10px; text-align:left; font-weight:600; font-size:11.5px;
+    padding:8px 10px; text-align:left; font-weight:600; font-size:11.5px;
     text-transform:uppercase; letter-spacing:.4px;
-    color:var(--text-muted); border-bottom:1px solid var(--border);
+    color:var(--text-muted); border-bottom:2px solid var(--border-color);
+    background:var(--main-bg);
 }
-.dw-table td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.dw-table td { padding:9px 10px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
 .dw-table tr:last-child td { border-bottom:none; }
 .dw-table tr:hover td { background:var(--hover-bg,rgba(0,0,0,.025)); }
 
 /* ── Top performer dropdown ──────────────────────────────── */
 .dw-top-select {
-    font-size:12px; font-weight:500; padding:4px 10px; border:1px solid var(--border);
+    font-size:12px; font-weight:500; padding:4px 10px; border:1px solid var(--border-color);
     border-radius:6px; background:var(--card-bg); color:var(--text-primary); cursor:pointer;
 }
 
@@ -69,11 +70,12 @@
 .dw-rank {
     display:inline-flex; align-items:center; justify-content:center;
     width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:700;
-    background:var(--border); color:var(--text-muted);
+    background:var(--main-bg); color:var(--text-muted);
+    border:1px solid var(--border-color);
 }
-.dw-rank.gold   { background:#fef9c3; color:#854d0e; }
-.dw-rank.silver { background:#f1f5f9; color:#475569; }
-.dw-rank.bronze { background:#fff7ed; color:#9a3412; }
+.dw-rank.gold   { background:#fef9c3; color:#854d0e; border-color:#fde68a; }
+.dw-rank.silver { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
+.dw-rank.bronze { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
 
 /* ── Pending filter bar ──────────────────────────────────── */
 .dw-filter-bar {
@@ -544,7 +546,7 @@
                         @endforeach
                     </tbody>
                     <tfoot>
-                        <tr style="border-top:2px solid var(--border);">
+                        <tr style="border-top:2px solid var(--border-color);">
                             <td colspan="{{ $isRecruiter ? 3 : 4 }}" style="text-align:right;font-weight:600;font-size:12px;color:var(--text-muted);padding:8px 10px;">
                                 Totals
                             </td>
