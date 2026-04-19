@@ -40,8 +40,16 @@
                 @csrf
                 <div class="stp-form-grid">
                     <div class="stp-form-group">
-                        <label class="stp-label">Full Name <span class="stp-required">*</span></label>
-                        <input type="text" name="full_name" class="stp-input" value="{{ old('full_name', $candidate->full_name) }}" required>
+                        <label class="stp-label">First Name <span class="stp-required">*</span></label>
+                        <input type="text" name="first_name" class="stp-input" value="{{ old('first_name', $candidate->first_name) }}" required placeholder="First name">
+                    </div>
+                    <div class="stp-form-group">
+                        <label class="stp-label">Last Name <span class="stp-required">*</span></label>
+                        <input type="text" name="last_name" class="stp-input" value="{{ old('last_name', $candidate->last_name) }}" required placeholder="Last name">
+                    </div>
+                    <div class="stp-form-group" style="grid-column:1/-1;">
+                        <label class="stp-label">Middle Name <span style="font-size:11px;color:#94a3b8;font-weight:400;">(optional)</span></label>
+                        <input type="text" name="middle_name" class="stp-input" value="{{ old('middle_name', $candidate->middle_name) }}" placeholder="Middle name">
                     </div>
                     <div class="stp-form-group">
                         <label class="stp-label">Email ID <span class="stp-required">*</span></label>
@@ -51,7 +59,7 @@
                         <label class="stp-label">Phone Number</label>
                         <input type="text" name="phone_number" class="stp-input" value="{{ old('phone_number', $candidate->phone_number) }}" placeholder="+1 (555) 000-0000">
                     </div>
-                    <div class="stp-form-group">
+                    <div class="stp-form-group" style="grid-column:1/-1;">
                         <label class="stp-label">LinkedIn URL</label>
                         <input type="url" name="linkedin_url" class="stp-input" value="{{ old('linkedin_url', $candidate->linkedin_url) }}" placeholder="https://linkedin.com/in/username">
                     </div>
@@ -133,13 +141,6 @@
                         <div class="stp-enroll-val">
                             <span class="sp-status-badge {{ $candidate->status }}">{{ ucfirst($candidate->status) }}</span>
                         </div>
-                    </div>
-                </div>
-                <div class="stp-enroll-item">
-                    <div class="stp-enroll-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-file-earmark-text"></i></div>
-                    <div>
-                        <div class="stp-enroll-label">Daily Target Applications</div>
-                        <div class="stp-enroll-val">{{ $candidate->no_of_applications ?: '—' }}</div>
                     </div>
                 </div>
                 <div class="stp-enroll-item">

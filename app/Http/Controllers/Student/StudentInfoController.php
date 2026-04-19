@@ -27,17 +27,26 @@ class StudentInfoController extends Controller
     {
         $candidate = $this->student();
 
-        $old = $candidate->only(['full_name', 'email_id', 'phone_number', 'linkedin_url', 'city', 'state_province', 'zip_code']);
+        $old = $candidate->only(['full_name', 'first_name', 'middle_name', 'last_name', 'email_id', 'phone_number', 'linkedin_url', 'city', 'state_province', 'zip_code']);
 
         $data = $request->validate([
-            'full_name'    => ['required', 'string', 'max:255'],
-            'email_id'     => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
-            'phone_number' => ['nullable', 'string', 'max:30'],
-            'linkedin_url' => ['nullable', 'url', 'max:255'],
-            'city'         => ['nullable', 'string', 'max:100'],
+            'first_name'     => ['required', 'string', 'max:100'],
+            'middle_name'    => ['nullable', 'string', 'max:100'],
+            'last_name'      => ['required', 'string', 'max:100'],
+            'email_id'       => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
+            'phone_number'   => ['nullable', 'string', 'max:30'],
+            'linkedin_url'   => ['nullable', 'url', 'max:255'],
+            'city'           => ['nullable', 'string', 'max:100'],
             'state_province' => ['nullable', 'string', 'max:5'],
-            'zip_code'     => ['nullable', 'string', 'max:20'],
+            'zip_code'       => ['nullable', 'string', 'max:20'],
         ]);
+
+        // Build full_name from parts
+        $data['full_name'] = trim(implode(' ', array_filter([
+            $data['first_name'],
+            $data['middle_name'] ?? null,
+            $data['last_name'],
+        ])));
 
         $data['email_id'] = strtolower($data['email_id']);
         $candidate->update($data);
