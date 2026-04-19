@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Student;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Models\Interview;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -106,6 +107,33 @@ class StudentInfoController extends Controller
         AuditLog::log('updated', 'student_auth', "Student changed portal password: {$candidate->full_name}");
 
         return back()->with('success', 'Password updated successfully.');
+    }
+
+    public function updateInterviewStatus(Request $request, Interview $interview)
+    {
+        $candidate = Candidate::findOrFail(session('student_id'));
+
+        // Ensure this interview belongs to the logged-in student's candidate
+        if ($interview->candidate_id !== $candidate->id) {
+            abort(403, 'Not authorized.');
+        }
+
+        $data = $request->validate([
+            'interview_status' => ['required', Rule::in(['valid', 'invalid'])],
+        ]);
+
+        $old = $interview->interview_status;
+        $interview->update(['interview_status' => $data['interview_status']]);
+
+        AuditLog::log(
+            'updated',
+            'interviews',
+            "Student updated interview status: {$candidate->full_name}",
+            ['interview_status' => $old],
+            ['interview_status' => $data['interview_status'], 'interview_id' => $interview->id]
+        );
+
+        return back()->with('success', 'Interview status updated.');
     }
 
     public function downloadFile(string $file)

@@ -95,4 +95,5 @@ Route::prefix('student')->name('student.')->middleware('student.auth')->group(fu
         ->name('files');
     Route::post('/resumes', [StudentResumeController::class, 'store'])->name('resumes.store');
     Route::get('/resumes/{resume}/file', [StudentResumeController::class, 'download'])->name('resumes.download');
+    Route::patch('/interviews/{interview}/status', [StudentInfoController::class, 'updateInterviewStatus'])->name('interviews.status');
 });

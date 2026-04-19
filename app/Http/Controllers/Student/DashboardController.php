@@ -3,27 +3,42 @@
 namespace App\Http\Controllers\Student;
 
 use App\Http\Controllers\Controller;
-use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Models\CandidateResume;
+use App\Models\DailyLog;
+use App\Models\Interview;
 
 class DashboardController extends Controller
 {
     public function index()
     {
-        $candidate = Candidate::with('recruiter')->findOrFail(session('student_id'));
+        $candidateId = session('student_id');
 
-        $recentStudentLogs = AuditLog::where('actor_type', 'student')
-            ->where('actor_name', $candidate->full_name)
-            ->latest()
-            ->limit(6)
-            ->get();
+        $candidate = Candidate::with('recruiter')->findOrFail($candidateId);
 
         $profileCompletion = $this->profileCompletion($candidate);
 
+        // Tab 1: Application & Assistant — daily log records for this candidate
+        $dailyLogs = DailyLog::where('candidate_id', $candidateId)
+            ->orderBy('log_date', 'desc')
+            ->get(['log_date', 'applications', 'assistant_count']);
+
+        // Tab 2: Interview — interview records for this candidate
+        $interviews = Interview::where('candidate_id', $candidateId)
+            ->orderBy('scheduled_date', 'desc')
+            ->get();
+
+        // Tab 3: Documents — resume records for this candidate
+        $resumes = CandidateResume::where('candidate_id', $candidateId)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view('student.dashboard', [
             'candidate'         => $candidate,
-            'recentStudentLogs' => $recentStudentLogs,
             'profileCompletion' => $profileCompletion,
+            'dailyLogs'         => $dailyLogs,
+            'interviews'        => $interviews,
+            'resumes'           => $resumes,
         ]);
     }
 

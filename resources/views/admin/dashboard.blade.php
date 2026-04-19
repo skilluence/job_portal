@@ -1,21 +1,90 @@
 @extends('layouts.admin')
 @section('title', 'Dashboard')
 @section('module-title', 'Dashboard')
-@section('module-description', 'Real-time analytics for candidates, recruiters, and daily performance.')
+@section('module-description', 'Live overview — interviews, recruiter performance, pending work, and attention flags.')
 @section('content')
 
-{{-- Manager-specific My vs Team Candidates highlight --}}
+<style>
+/* ── Dashboard Widget Layout ─────────────────────────────── */
+.dw-grid-2   { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+.dw-grid-1   { margin-bottom:20px; }
+
+/* ── Section header ──────────────────────────────────────── */
+.dw-head     { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
+.dw-title    { font-size:15px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
+.dw-title i  { font-size:17px; }
+.dw-sub      { font-size:12px; color:var(--text-muted); margin-top:1px; }
+
+/* ── Interview day tabs ───────────────────────────────────── */
+.dw-day-tabs { display:flex; gap:0; border-bottom:2px solid var(--border); margin-bottom:14px; }
+.dw-day-tab  {
+    padding:7px 18px; font-size:13px; font-weight:500; cursor:pointer;
+    color:var(--text-muted); border:none; background:none;
+    border-bottom:2px solid transparent; margin-bottom:-2px;
+    transition:color .15s, border-color .15s;
+}
+.dw-day-tab.active { color:var(--blue); border-bottom-color:var(--blue); font-weight:600; }
+.dw-day-panel      { display:none; }
+.dw-day-panel.show { display:block; }
+
+/* ── Tables ──────────────────────────────────────────────── */
+.dw-table { width:100%; border-collapse:collapse; font-size:13px; }
+.dw-table th {
+    padding:7px 10px; text-align:left; font-weight:600; font-size:11.5px;
+    text-transform:uppercase; letter-spacing:.4px;
+    color:var(--text-muted); border-bottom:1px solid var(--border);
+}
+.dw-table td { padding:8px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.dw-table tr:last-child td { border-bottom:none; }
+.dw-table tr:hover td { background:var(--hover-bg,rgba(0,0,0,.025)); }
+
+/* ── Top performer dropdown ──────────────────────────────── */
+.dw-top-select {
+    font-size:12px; font-weight:500; padding:4px 10px; border:1px solid var(--border);
+    border-radius:6px; background:var(--card-bg); color:var(--text-primary); cursor:pointer;
+}
+
+/* ── Rank badge ──────────────────────────────────────────── */
+.dw-rank {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:22px; height:22px; border-radius:50%; font-size:11px; font-weight:700;
+    background:var(--border); color:var(--text-muted);
+}
+.dw-rank.gold   { background:#fef9c3; color:#854d0e; }
+.dw-rank.silver { background:#f1f5f9; color:#475569; }
+.dw-rank.bronze { background:#fff7ed; color:#9a3412; }
+
+/* ── Pending filter bar ──────────────────────────────────── */
+.dw-filter-bar {
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+}
+.dw-filter-bar .form-control { height:32px; font-size:13px; padding:4px 10px; }
+.dw-filter-sep { color:var(--text-muted); font-size:12px; }
+
+/* ── Badge extras ────────────────────────────────────────── */
+.badge-gap    { background:#fef2f2; color:#dc2626; font-weight:700; }
+.badge-logged { background:#f0fdf4; color:#16a34a; }
+.badge-target { background:#eff6ff; color:#2563eb; }
+
+/* ── Empty state mini ────────────────────────────────────── */
+.dw-empty { text-align:center; padding:24px 0; color:var(--text-muted); }
+.dw-empty i { font-size:26px; display:block; margin-bottom:6px; opacity:.4; }
+.dw-empty p { font-size:13px; margin:0; }
+
+/* ── Attention badges ────────────────────────────────────── */
+.dw-days-ago {
+    font-size:11px; padding:2px 8px; border-radius:99px;
+    background:#fff7ed; color:#c2410c; font-weight:600;
+}
+
+@media (max-width:768px) {
+    .dw-grid-2 { grid-template-columns:1fr; }
+}
+</style>
+
+{{-- ── Manager context header ──────────────────────────────────────────── --}}
 @if ($isManager ?? false)
-<div class="d-flex justify-between align-center mb-16" style="flex-wrap:wrap;gap:10px;">
-    <div>
-        <div style="font-size:16px;font-weight:600;color:var(--text-primary);">Candidate Overview</div>
-        <div class="text-sm text-muted">Your direct candidates and team assignments</div>
-    </div>
-    <a href="{{ route('admin.candidates') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-plus-lg"></i> Add Candidate
-    </a>
-</div>
-<div class="content-grid mb-24" style="grid-template-columns:repeat(2,1fr);">
+<div class="content-grid mb-20" style="grid-template-columns:repeat(2,1fr);">
     <div class="card" style="border-left:4px solid var(--blue);">
         <div class="card-header" style="padding-bottom:8px;">
             <div>
@@ -24,323 +93,386 @@
             </div>
             <a href="{{ route('admin.candidates', ['scope' => 'mine']) }}" class="btn btn-outline btn-sm">View</a>
         </div>
-        <div style="font-size:36px;font-weight:700;color:var(--blue);padding:8px 0 4px;">{{ $managerMyCandidatesCount }}</div>
-        <div class="text-sm text-muted">directly under your management</div>
+        <div style="font-size:32px;font-weight:700;color:var(--blue);padding:4px 0 2px;">{{ $managerMyCandidatesCount }}</div>
     </div>
     <div class="card" style="border-left:4px solid var(--green);">
         <div class="card-header" style="padding-bottom:8px;">
             <div>
-                <div class="card-title" style="font-size:15px;"><i class="bi bi-people-fill" style="color:var(--green);margin-right:6px;"></i> Recruiters' Candidates</div>
-                <div class="card-subtitle">Through your team recruiters</div>
+                <div class="card-title" style="font-size:15px;"><i class="bi bi-people-fill" style="color:var(--green);margin-right:6px;"></i> Team Candidates</div>
+                <div class="card-subtitle">Through your recruiters</div>
             </div>
             <a href="{{ route('admin.candidates', ['scope' => 'team']) }}" class="btn btn-outline btn-sm">View</a>
         </div>
-        <div style="font-size:36px;font-weight:700;color:var(--green);padding:8px 0 4px;">{{ $managerAllCandidatesCount }}</div>
-        <div class="text-sm text-muted">via your team recruiters</div>
+        <div style="font-size:32px;font-weight:700;color:var(--green);padding:4px 0 2px;">{{ $managerAllCandidatesCount }}</div>
     </div>
 </div>
 @endif
 
-<div class="stats-grid mb-24">
-    <div class="stat-card">
-        <div class="stat-icon blue"><i class="bi bi-people-fill"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['active_candidates'] }}</div>
-            <div class="stat-label">Active Candidates</div>
-        </div>
-    </div>
-    @if ($isAdmin)
-    <div class="stat-card">
-        <div class="stat-icon green"><i class="bi bi-person-check-fill"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['active_recruiters'] }}</div>
-            <div class="stat-label">Active Recruiters</div>
-        </div>
-    </div>
-    @endif
-    <div class="stat-card">
-        <div class="stat-icon orange"><i class="bi bi-file-earmark-text-fill"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['today_applications'] }}</div>
-            <div class="stat-label">Today's Applications</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon purple"><i class="bi bi-calendar-check-fill"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['today_interviews'] }}</div>
-            <div class="stat-label">Today's Interviews</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon blue"><i class="bi bi-calendar2-event-fill"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['today_scheduled_interviews'] }}</div>
-            <div class="stat-label">Today Scheduled Interview</div>
-        </div>
-    </div>
-    <div class="stat-card">
-        <div class="stat-icon orange"><i class="bi bi-hourglass-split"></i></div>
-        <div>
-            <div class="stat-value">{{ $stats['today_pending_applications'] }}</div>
-            <div class="stat-label">Today's Pending Application</div>
-        </div>
-    </div>
-</div>
-
-@if ($isAdmin)
-<div class="content-grid mb-24">
+{{-- ── Row 1: Today & Tomorrow Interviews (full width) ──────────────────── --}}
+<div class="dw-grid-1">
     <div class="card">
-        <div class="card-header">
+        <div class="dw-head">
             <div>
-                <div class="card-title">Top Recruiters</div>
-                <div class="card-subtitle">Ranked by applications this month</div>
+                <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
+                <div class="dw-sub">Today and tomorrow's scheduled interviews</div>
             </div>
+            <span class="badge badge-primary">
+                {{ $todayInterviews->count() + $tomorrowInterviews->count() }} total
+            </span>
         </div>
-        @forelse ($topPerformers as $index => $performer)
-            <div class="d-flex align-center gap-12 {{ $index < $topPerformers->count() - 1 ? 'mb-12' : '' }}">
-                <span class="text-sm text-muted font-600" style="width:18px;text-align:right;flex-shrink:0;">{{ $index + 1 }}</span>
-                <div class="avatar-sm">{{ $performer->initials }}</div>
-                <div style="flex:1;min-width:0;">
-                    <div class="avatar-name">{{ $performer->name }}</div>
-                    <div class="avatar-sub">{{ $performer->candidates_count }} total candidates</div>
-                </div>
-                <span class="badge badge-primary">{{ number_format($performer->monthly_applications ?? 0) }} apps</span>
-            </div>
-        @empty
-            <div class="page-empty mb-0">
-                <i class="bi bi-person-badge"></i>
-                <p>No recruiter data available.</p>
-            </div>
-        @endforelse
-    </div>
 
+        <div class="dw-day-tabs">
+            <button class="dw-day-tab active" onclick="switchDayTab('today', this)">
+                Today
+                @if ($todayInterviews->count())
+                    <span class="badge badge-primary" style="margin-left:5px;font-size:11px;">{{ $todayInterviews->count() }}</span>
+                @endif
+            </button>
+            <button class="dw-day-tab" onclick="switchDayTab('tomorrow', this)">
+                Tomorrow
+                @if ($tomorrowInterviews->count())
+                    <span class="badge badge-info" style="margin-left:5px;font-size:11px;">{{ $tomorrowInterviews->count() }}</span>
+                @endif
+            </button>
+        </div>
+
+        {{-- Today panel --}}
+        <div id="panel-today" class="dw-day-panel show">
+            @if ($todayInterviews->isEmpty())
+                <div class="dw-empty"><i class="bi bi-calendar-x"></i><p>No interviews scheduled for today.</p></div>
+            @else
+                <div style="overflow-x:auto;">
+                    <table class="dw-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Company</th>
+                                <th>Type</th>
+                                <th>Scheduled At</th>
+                                @if(!$isRecruiter)<th>Recruiter</th>@endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($todayInterviews as $iv)
+                            <tr>
+                                <td>
+                                    @if ($iv->candidate)
+                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;">
+                                            {{ $iv->candidate->full_name }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-sm">{{ $iv->company_name }}</td>
+                                <td>
+                                    <span class="badge badge-info" style="font-size:11px;text-transform:capitalize;">
+                                        {{ str_replace('_', ' ', $iv->interview_type) }}
+                                    </span>
+                                </td>
+                                <td class="text-sm text-muted">
+                                    @if ($iv->scheduled_time)
+                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
+                                        @if ($iv->scheduled_timezone) <span style="font-size:11px;">{{ $iv->scheduled_timezone }}</span>@endif
+                                    @else
+                                        <span style="opacity:.5;">TBD</span>
+                                    @endif
+                                </td>
+                                @if(!$isRecruiter)
+                                    <td class="text-sm text-muted">{{ $iv->recruiter?->name ?? '—' }}</td>
+                                @endif
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
+        {{-- Tomorrow panel --}}
+        <div id="panel-tomorrow" class="dw-day-panel">
+            @if ($tomorrowInterviews->isEmpty())
+                <div class="dw-empty"><i class="bi bi-calendar-check"></i><p>No interviews scheduled for tomorrow.</p></div>
+            @else
+                <div style="overflow-x:auto;">
+                    <table class="dw-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Company</th>
+                                <th>Type</th>
+                                <th>Scheduled At</th>
+                                @if(!$isRecruiter)<th>Recruiter</th>@endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tomorrowInterviews as $iv)
+                            <tr>
+                                <td>
+                                    @if ($iv->candidate)
+                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;">
+                                            {{ $iv->candidate->full_name }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-sm">{{ $iv->company_name }}</td>
+                                <td>
+                                    <span class="badge badge-info" style="font-size:11px;text-transform:capitalize;">
+                                        {{ str_replace('_', ' ', $iv->interview_type) }}
+                                    </span>
+                                </td>
+                                <td class="text-sm text-muted">
+                                    @if ($iv->scheduled_time)
+                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
+                                        @if ($iv->scheduled_timezone) <span style="font-size:11px;">{{ $iv->scheduled_timezone }}</span>@endif
+                                    @else
+                                        <span style="opacity:.5;">TBD</span>
+                                    @endif
+                                </td>
+                                @if(!$isRecruiter)
+                                    <td class="text-sm text-muted">{{ $iv->recruiter?->name ?? '—' }}</td>
+                                @endif
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+    </div>
+</div>
+
+{{-- ── Row 2: Top Performance + Attention Required ───────────────────────── --}}
+<div class="dw-grid-2">
+
+    {{-- Top Performance --}}
+    @if (!$isRecruiter)
     <div class="card">
-        <div class="card-header" style="align-items:flex-start;flex-direction:column;gap:10px;">
+        <div class="dw-head">
             <div>
-                <div class="card-title">Charts — {{ $rangeLabel }}</div>
-                <div class="card-subtitle">Candidate trend and status distribution</div>
+                <div class="dw-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Top Performance</div>
+                <div class="dw-sub">Ranked by valid interview count</div>
             </div>
-            <form method="GET" action="{{ route('admin.dashboard') }}" class="d-flex gap-6" style="flex-wrap:wrap;align-items:center;" id="chartRangeForm">
-                <div class="range-btn-group">
-                    @foreach (['today'=>'Today','week'=>'Week','month'=>'Month','year'=>'Year'] as $val => $label)
-                        <button type="submit" name="range" value="{{ $val }}"
-                            class="range-btn {{ $activeRange === $val ? 'active' : '' }}">{{ $label }}</button>
-                    @endforeach
-                    <button type="button" class="range-btn {{ $activeRange === 'custom' ? 'active' : '' }}"
-                        onclick="document.getElementById('customRangeRow').classList.toggle('hidden')">Custom</button>
-                </div>
-                <div id="customRangeRow" class="d-flex gap-6 align-center {{ $activeRange !== 'custom' ? 'hidden' : '' }}">
-                    <input type="hidden" name="range" value="custom" id="customRangeInput">
-                    <input type="date" name="custom_start" class="form-control" style="width:140px;"
-                        value="{{ $customStart }}">
-                    <span class="text-muted text-sm">to</span>
-                    <input type="date" name="custom_end" class="form-control" style="width:140px;"
-                        value="{{ $customEnd }}">
-                    <button type="submit" class="btn btn-primary btn-sm">Go</button>
-                </div>
-            </form>
+            <select class="dw-top-select" onchange="filterTopRecruiters(this.value)">
+                <option value="5">Top 5</option>
+                <option value="10">Top 10</option>
+            </select>
         </div>
-        <div style="height:200px;margin-bottom:16px;">
-            <canvas id="candidateTrendChart"></canvas>
-        </div>
-        <div style="height:200px;">
-            <canvas id="candidateStatusChart"></canvas>
-        </div>
-    </div>
-</div>
-@else
-{{-- Recruiter: just charts --}}
-<div class="card mb-24">
-    <div class="card-header" style="align-items:flex-start;flex-direction:column;gap:10px;">
-        <div>
-            <div class="card-title">Charts — {{ $rangeLabel }}</div>
-            <div class="card-subtitle">Your candidate trend and status distribution</div>
-        </div>
-        <form method="GET" action="{{ route('admin.dashboard') }}" class="d-flex gap-6" style="flex-wrap:wrap;align-items:center;">
-            <div class="range-btn-group">
-                @foreach (['today'=>'Today','week'=>'Week','month'=>'Month','year'=>'Year'] as $val => $label)
-                    <button type="submit" name="range" value="{{ $val }}"
-                        class="range-btn {{ $activeRange === $val ? 'active' : '' }}">{{ $label }}</button>
-                @endforeach
-                <button type="button" class="range-btn {{ $activeRange === 'custom' ? 'active' : '' }}"
-                    onclick="document.getElementById('customRangeRow').classList.toggle('hidden')">Custom</button>
-            </div>
-            <div id="customRangeRow" class="d-flex gap-6 align-center {{ $activeRange !== 'custom' ? 'hidden' : '' }}">
-                <input type="hidden" name="range" value="custom">
-                <input type="date" name="custom_start" class="form-control" style="width:140px;" value="{{ $customStart }}">
-                <span class="text-muted text-sm">to</span>
-                <input type="date" name="custom_end" class="form-control" style="width:140px;" value="{{ $customEnd }}">
-                <button type="submit" class="btn btn-primary btn-sm">Go</button>
-            </div>
-        </form>
-    </div>
-    <div class="content-grid" style="padding:0 16px 16px;">
-        <div style="height:220px;"><canvas id="candidateTrendChart"></canvas></div>
-        <div style="height:220px;"><canvas id="candidateStatusChart"></canvas></div>
-    </div>
-</div>
-@endif
 
-<div class="card mb-24">
-    <div class="card-header">
-        <div>
-            <div class="card-title">{{ $rangeLabel }} — New Candidates</div>
-            <div class="card-subtitle">Candidates added in this period</div>
-        </div>
-    </div>
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Candidate Name</th>
-                    <th>Status</th>
-                    @if ($isAdmin)<th>Recruiter</th>@endif
-                    <th>Added On</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($last7DaysCandidates as $i => $c)
+        @if ($topRecruiters->isEmpty())
+            <div class="dw-empty"><i class="bi bi-person-dash"></i><p>No recruiter data available.</p></div>
+        @else
+            <table class="dw-table">
+                <thead>
                     <tr>
-                        <td class="text-muted text-sm">{{ $i + 1 }}</td>
-                        <td class="avatar-name">{{ $c->full_name }}</td>
-                        <td><span class="badge {{ $c->status_badge }}">{{ ucfirst($c->status) }}</span></td>
-                        @if ($isAdmin)<td class="text-muted text-sm">{{ $c->recruiter?->name ?? '-' }}</td>@endif
-                        <td class="text-muted text-sm">{{ $c->created_at->format('M d, Y') }}</td>
+                        <th>#</th>
+                        <th>Recruiter</th>
+                        <th style="text-align:right;">Valid Interviews</th>
                     </tr>
-                @empty
-                    <tr>
-                        <td colspan="{{ $isAdmin ? 5 : 4 }}">
-                            <div class="page-empty mb-0">
-                                <i class="bi bi-person-plus"></i>
-                                <p>No candidates added in this period.</p>
-                            </div>
+                </thead>
+                <tbody id="topRecruiterRows">
+                    @foreach ($topRecruiters as $index => $r)
+                    <tr class="top-rec-row" data-rank="{{ $index + 1 }}">
+                        <td>
+                            <span class="dw-rank {{ $index === 0 ? 'gold' : ($index === 1 ? 'silver' : ($index === 2 ? 'bronze' : '')) }}">
+                                {{ $index + 1 }}
+                            </span>
                         </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
-
-@if ($isAdmin)
-<div class="card mb-24">
-    <div class="card-header">
-        <div>
-            <div class="card-title">Recruiter Performance</div>
-            <div class="card-subtitle">Candidates, applications, interviews, and placement outcomes</div>
-        </div>
-    </div>
-    <div class="table-wrapper">
-        <table>
-            <thead>
-                <tr>
-                    <th>Recruiter</th>
-                    <th>Candidates</th>
-                    <th>Applications</th>
-                    <th>Interviews</th>
-                    <th>Placed</th>
-                    <th>Success Rate</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($recruiterPerformance as $recruiter)
-                    <tr>
                         <td>
                             <div class="avatar-row">
-                                <div class="avatar-sm">{{ $recruiter->initials }}</div>
+                                <div class="avatar-sm">{{ $r->initials }}</div>
                                 <div>
-                                    <div class="avatar-name">{{ $recruiter->name }}</div>
-                                    <div class="avatar-sub">{{ $recruiter->email }}</div>
+                                    <div class="avatar-name">{{ $r->name }}</div>
+                                    <div class="avatar-sub">{{ $r->candidates_count }} candidate{{ $r->candidates_count !== 1 ? 's' : '' }}</div>
                                 </div>
                             </div>
                         </td>
-                        <td>{{ $recruiter->candidates_count }}</td>
-                        <td>{{ number_format($recruiter->candidates_sum_no_of_applications ?? 0) }}</td>
-                        <td>{{ number_format($recruiter->candidates_sum_interviews_count ?? 0) }}</td>
-                        <td>{{ $recruiter->placed_count }}</td>
-                        <td>{{ $recruiter->success_rate }}%</td>
-                    </tr>
-                @empty
-                    <tr>
-                        <td colspan="6">
-                            <div class="page-empty mb-0">
-                                <i class="bi bi-people"></i>
-                                <p>No recruiter data found.</p>
-                            </div>
+                        <td style="text-align:right;">
+                            <span class="badge badge-success" style="font-size:13px;font-weight:700;">
+                                {{ number_format($r->valid_interview_count) }}
+                            </span>
                         </td>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+    </div>
+    @endif
+
+    {{-- Attention Required --}}
+    <div class="card {{ $isRecruiter ? '' : '' }}">
+        <div class="dw-head">
+            <div>
+                <div class="dw-title"><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i> Attention Required</div>
+                <div class="dw-sub">Active candidates with no interview in last 20 days</div>
+            </div>
+            <span class="badge badge-danger" style="font-size:12px;">{{ $attentionCandidates->count() }}</span>
+        </div>
+
+        @if ($attentionCandidates->isEmpty())
+            <div class="dw-empty"><i class="bi bi-check-circle-fill" style="color:#16a34a;opacity:1;"></i><p style="color:#16a34a;font-weight:500;">All candidates are up to date!</p></div>
+        @else
+            <div style="overflow-x:auto;">
+                <table class="dw-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            @if (!$isRecruiter)<th>Recruiter</th>@endif
+                            <th>Domain</th>
+                            <th>Added</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($attentionCandidates as $c)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.candidates.show', $c) }}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                                    {{ $c->full_name }}
+                                </a>
+                            </td>
+                            @if (!$isRecruiter)
+                                <td class="text-sm text-muted">{{ $c->recruiter?->name ?? '—' }}</td>
+                            @endif
+                            <td class="text-sm text-muted">{{ $c->domain ?: '—' }}</td>
+                            <td>
+                                <span class="dw-days-ago">
+                                    {{ $c->created_at->diffForHumans() }}
+                                </span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
     </div>
 </div>
-@endif
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+{{-- ── Row 3: Pending Applications (full width) ───────────────────────────── --}}
+<div class="dw-grid-1">
+    <div class="card">
+        <div class="dw-head">
+            <div>
+                <div class="dw-title"><i class="bi bi-hourglass-split" style="color:#f59e0b;"></i> Pending Applications</div>
+                <div class="dw-sub">
+                    Candidates who haven't met their daily application target
+                    @if ($pendingDays > 1)
+                        <span style="margin-left:6px;">({{ $pendingDays }}-day period)</span>
+                    @endif
+                </div>
+            </div>
+            {{-- Date filter form --}}
+            <form method="GET" action="{{ route('admin.dashboard') }}" class="dw-filter-bar">
+                <input type="date" name="pend_date" class="form-control"
+                    value="{{ $pendingDateStr }}"
+                    style="width:150px;"
+                    title="Start date">
+                <span class="dw-filter-sep">to</span>
+                <input type="date" name="pend_date_end" class="form-control"
+                    value="{{ $pendingDateEndStr ?? '' }}"
+                    style="width:150px;"
+                    title="End date (leave blank for single day)">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel-fill"></i> Filter
+                </button>
+                @if ($pendingDateEndStr)
+                    <a href="{{ route('admin.dashboard', ['pend_date' => today()->toDateString()]) }}"
+                        class="btn btn-outline btn-sm" title="Reset to today">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                @endif
+            </form>
+        </div>
+
+        @if ($pendingCandidates->isEmpty())
+            <div class="dw-empty">
+                <i class="bi bi-check2-circle" style="color:#16a34a;opacity:1;"></i>
+                <p style="color:#16a34a;font-weight:500;">
+                    All candidates met their application targets for this period!
+                </p>
+            </div>
+        @else
+            <div style="overflow-x:auto;">
+                <table class="dw-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            @if (!$isRecruiter)<th>Recruiter</th>@endif
+                            <th style="text-align:right;">Daily Target</th>
+                            <th style="text-align:right;">Period Target</th>
+                            <th style="text-align:right;">Logged</th>
+                            <th style="text-align:right;">Pending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($pendingCandidates as $c)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.candidates.show', $c) }}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                                    {{ $c->full_name }}
+                                </a>
+                            </td>
+                            @if (!$isRecruiter)
+                                <td class="text-sm text-muted">{{ $c->recruiter?->name ?? '—' }}</td>
+                            @endif
+                            <td style="text-align:right;">
+                                <span class="text-sm text-muted">{{ number_format($c->no_of_applications) }}/day</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <span class="badge badge-target">{{ number_format($c->pending_target) }}</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <span class="badge badge-logged">{{ number_format($c->pending_logged) }}</span>
+                            </td>
+                            <td style="text-align:right;">
+                                <span class="badge badge-gap">–{{ number_format($c->pending_gap) }}</span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top:2px solid var(--border);">
+                            <td colspan="{{ $isRecruiter ? 3 : 4 }}" style="text-align:right;font-weight:600;font-size:12px;color:var(--text-muted);padding:8px 10px;">
+                                Totals
+                            </td>
+                            <td style="text-align:right;padding:8px 10px;">
+                                <span class="badge badge-logged">{{ number_format($pendingCandidates->sum('pending_logged')) }}</span>
+                            </td>
+                            <td style="text-align:right;padding:8px 10px;">
+                                <span class="badge badge-gap">–{{ number_format($pendingCandidates->sum('pending_gap')) }}</span>
+                            </td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        @endif
+    </div>
+</div>
+
 <script>
-(function () {
-    var trendCtx  = document.getElementById('candidateTrendChart');
-    var statusCtx = document.getElementById('candidateStatusChart');
-    if (!trendCtx || !statusCtx || typeof Chart === 'undefined') return;
+// ── Day tab toggle ────────────────────────────────────────────────────────
+function switchDayTab(day, btn) {
+    document.querySelectorAll('.dw-day-tab').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.dw-day-panel').forEach(p => p.classList.remove('show'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + day).classList.add('show');
+}
 
-    var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-    var gridColor = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
-    var tickColor = isDark ? '#94a3b8' : '#64748b';
-
-    new Chart(trendCtx, {
-        type: 'line',
-        data: {
-            labels: @json($trendChartLabels),
-            datasets: [{
-                label: 'Candidates',
-                data: @json($trendChartData),
-                borderColor: '#2563eb',
-                backgroundColor: 'rgba(37,99,235,0.12)',
-                fill: true,
-                tension: 0.35,
-                pointRadius: 3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: {
-                x: { grid: { color: gridColor }, ticks: { color: tickColor } },
-                y: { grid: { color: gridColor }, ticks: { color: tickColor, stepSize: 1 }, beginAtZero: true }
-            }
-        }
+// ── Top recruiter filter (Top 5 / Top 10) ────────────────────────────────
+function filterTopRecruiters(limit) {
+    var rows = document.querySelectorAll('.top-rec-row');
+    rows.forEach(function(row) {
+        var rank = parseInt(row.getAttribute('data-rank'), 10);
+        row.style.display = rank <= parseInt(limit) ? '' : 'none';
     });
-
-    new Chart(statusCtx, {
-        type: 'doughnut',
-        data: {
-            labels: @json($statusChartLabels),
-            datasets: [{
-                data: @json($statusChartData),
-                backgroundColor: ['#2563eb','#16a34a','#f59e0b','#8b5cf6','#0ea5e9','#ef4444','#64748b']
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: { legend: { position: 'right', labels: { color: tickColor, boxWidth: 12 } } }
-        }
-    });
-
-    // Custom range toggle: ensure the hidden input gets the right value
-    var customBtn = document.querySelector('.range-btn[onclick]');
-    var customRow = document.getElementById('customRangeRow');
-    var hiddenRangeInput = document.getElementById('customRangeInput');
-    if (customBtn && customRow && hiddenRangeInput) {
-        customBtn.addEventListener('click', function () {
-            var isOpen = !customRow.classList.contains('hidden');
-            if (isOpen) hiddenRangeInput.disabled = false;
-        });
-    }
-})();
+}
+// Apply default Top 5 on load
+document.addEventListener('DOMContentLoaded', function() {
+    filterTopRecruiters(5);
+});
 </script>
 
 @endsection

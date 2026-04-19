@@ -212,21 +212,21 @@
             </form>
         </div>
 
-        {{-- ── Resumes Section ── --}}
+        {{-- ── Resumes Section (view-only) ── --}}
         <div class="stp-card" style="margin-top:16px;">
             <div class="stp-card-head">
                 <div class="stp-card-title"><i class="bi bi-file-earmark-person-fill"></i> My Resumes</div>
-                <div class="stp-card-hint">Upload multiple resumes with designation</div>
+                <div class="stp-card-hint">Resumes uploaded by your recruiter</div>
             </div>
 
             @if ($candidate->resumes->count() > 0)
-                <div style="margin-bottom:16px;overflow-x:auto;">
+                <div style="overflow-x:auto;">
                     <table style="width:100%;border-collapse:collapse;font-size:13px;">
                         <thead>
                             <tr style="background:var(--stp-bg,#f8fafc);">
                                 <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Designation</th>
                                 <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">File</th>
-                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Uploaded At</th>
+                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Uploaded</th>
                                 <th style="padding:8px 12px;text-align:center;font-weight:600;border-bottom:1px solid #e2e8f0;">View</th>
                             </tr>
                         </thead>
@@ -249,48 +249,14 @@
                         </tbody>
                     </table>
                 </div>
+            @else
+                <div style="text-align:center;padding:28px 0;color:#94a3b8;">
+                    <i class="bi bi-file-earmark-x" style="font-size:28px;display:block;margin-bottom:6px;"></i>
+                    <div style="font-size:13px;">No resumes uploaded yet.</div>
+                </div>
             @endif
-
-            <form method="POST" action="{{ route('student.resumes.store') }}" enctype="multipart/form-data">
-                @csrf
-                <div id="resumeEntriesWrap">
-                    <div style="display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;">
-                        <div style="flex:1;min-width:160px;">
-                            <input type="text" name="resumes[0][designation]" class="stp-input"
-                                placeholder="Designation (e.g. Java Developer)" required>
-                        </div>
-                        <div style="flex:1;min-width:160px;">
-                            <input type="file" name="resumes[0][file]" class="stp-input stp-file-input"
-                                accept=".pdf,.doc,.docx" required>
-                        </div>
-                    </div>
-                </div>
-                <div class="stp-file-hint" style="margin-bottom:10px;">Allowed: PDF, DOC, DOCX (max 5 MB each)</div>
-                <div style="display:flex;gap:10px;flex-wrap:wrap;">
-                    <button type="button" class="stp-btn-secondary" onclick="addResumeEntry()">
-                        <i class="bi bi-plus-lg"></i> Add More
-                    </button>
-                    <button type="submit" class="stp-btn-primary">
-                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload Resumes
-                    </button>
-                </div>
-            </form>
         </div>
     </div>
 </div>
-
-<script>
-var resumeCount = 1;
-function addResumeEntry() {
-    var wrap = document.getElementById('resumeEntriesWrap');
-    var idx  = resumeCount++;
-    var div  = document.createElement('div');
-    div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;';
-    div.innerHTML =
-        '<div style="flex:1;min-width:160px;"><input type="text" name="resumes['+idx+'][designation]" class="stp-input" placeholder="Designation" required></div>' +
-        '<div style="flex:1;min-width:160px;"><input type="file" name="resumes['+idx+'][file]" class="stp-input stp-file-input" accept=".pdf,.doc,.docx" required></div>';
-    wrap.appendChild(div);
-}
-</script>
 
 @endsection
