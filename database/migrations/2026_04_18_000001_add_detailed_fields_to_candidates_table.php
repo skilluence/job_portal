@@ -8,6 +8,11 @@ return new class extends Migration
 {
     public function up(): void
     {
+        // If the updated create_candidates_table migration already added these columns, skip.
+        if (Schema::hasColumn('candidates', 'first_name')) {
+            return;
+        }
+
         Schema::table('candidates', function (Blueprint $table) {
             // Personal Info
             $table->string('first_name', 100)->nullable()->after('full_name');
