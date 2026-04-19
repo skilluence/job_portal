@@ -3,8 +3,10 @@
 use App\Http\Controllers\Admin\AuditLogsController;
 use App\Http\Controllers\Admin\CandidateResumeController;
 use App\Http\Controllers\Admin\CandidatesController;
+use App\Http\Controllers\Admin\DailyLogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ImportExportController;
+use App\Http\Controllers\Admin\InterviewController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Auth\LoginController;
@@ -40,6 +42,13 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
         ->name('candidates.files');
     Route::get('/candidates/{candidate}/resumes/{resume}', [CandidateResumeController::class, 'download'])
         ->name('candidates.resumes.download');
+    Route::get('/candidates/{candidate}/preview', [CandidatesController::class, 'show'])->name('candidates.show');
+    Route::patch('/candidates/{candidate}/field', [CandidatesController::class, 'patchField'])->name('candidates.patch-field');
+    Route::post('/candidates/{candidate}/daily-logs', [DailyLogController::class, 'store'])->name('candidates.daily-logs.store');
+    Route::patch('/candidates/{candidate}/daily-logs/{log}', [DailyLogController::class, 'update'])->name('candidates.daily-logs.update');
+    Route::post('/candidates/{candidate}/interviews', [InterviewController::class, 'store'])->name('candidates.interviews.store');
+    Route::put('/candidates/{candidate}/interviews/{interview}', [InterviewController::class, 'update'])->name('candidates.interviews.update');
+    Route::delete('/candidates/{candidate}/interviews/{interview}', [InterviewController::class, 'destroy'])->name('candidates.interviews.destroy');
 
     // Profile — accessible to all roles
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');

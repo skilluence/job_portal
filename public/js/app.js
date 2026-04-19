@@ -833,6 +833,12 @@
 
         setSS('edit', 'recruiter', candidate.recruiter_id || '');
         setSS('edit', 'manager',   candidate.team_manager_id || '');
+        // Manager view: apply mutual exclusion on load —
+        // if a recruiter is already assigned, clear the team-manager display so only one shows
+        if (window.__isManager && candidate.recruiter_id) {
+            var mgrLabelEl = document.getElementById('edit_manager_label');
+            if (mgrLabelEl) mgrLabelEl.textContent = '— None —';
+        }
         setVal('edit_login_password',     '');
         resetCandidatePasswordReveal();
 

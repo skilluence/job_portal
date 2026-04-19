@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Models\DailyLog;
+use App\Models\Interview;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -33,12 +35,18 @@ class CandidatesController extends Controller
 
         $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
-        // Manager-specific counts for the two scope cards
+        // Manager-specific counts for the three scope cards
         $managerMyCount   = 0;
         $managerTeamCount = 0;
+        $managerAllCount  = 0;
         if ($isManager) {
             $managerMyCount   = Candidate::where('team_manager_id', $user->id)->count();
             $managerTeamCount = Candidate::whereIn('recruiter_id', $teamMemberIds)->count();
+            // All = distinct union (avoids double-counting candidates with both fields set)
+            $managerAllCount  = Candidate::where(function ($q) use ($user, $teamMemberIds) {
+                $q->where('team_manager_id', $user->id)
+                  ->orWhereIn('recruiter_id', $teamMemberIds);
+            })->count();
         }
 
         $candidates = Candidate::with(['recruiter', 'teamManager', 'resumes'])
@@ -90,6 +98,7 @@ class CandidatesController extends Controller
             'currentUser'      => $user,
             'managerMyCount'   => $managerMyCount,
             'managerTeamCount' => $managerTeamCount,
+            'managerAllCount'  => $managerAllCount,
         ]);
     }
 
@@ -373,6 +382,94 @@ class CandidatesController extends Controller
         );
 
         return response()->json(['password' => $password]);
+    }
+
+    public function show(Request $request, Candidate $candidate)
+    {
+        $user      = $request->user();
+        $isAdmin   = $user->isAdmin();
+        $isManager = $user->isManager();
+
+        // Access control
+        if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
+            abort(403, 'Not authorized.');
+        }
+        if ($isManager
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
+            abort(403, 'Not authorized.');
+        }
+
+        $candidate->load(['recruiter', 'teamManager', 'creator', 'resumes']);
+
+        $dailyLogs = DailyLog::where('candidate_id', $candidate->id)
+            ->with(['recruiter', 'creator'])
+            ->orderByDesc('log_date')->get();
+
+        $interviews = Interview::where('candidate_id', $candidate->id)
+            ->with(['recruiter', 'creator'])
+            ->orderByDesc('scheduled_date')->orderByDesc('created_at')->get();
+
+        return view('admin.candidates.show', [
+            'candidate'   => $candidate,
+            'dailyLogs'   => $dailyLogs,
+            'interviews'  => $interviews,
+            'isAdmin'     => $isAdmin,
+            'isRealAdmin' => $isAdmin,
+            'isManager'   => $isManager,
+            'currentUser' => $user,
+        ]);
+    }
+
+    public function patchField(Request $request, Candidate $candidate)
+    {
+        $user    = $request->user();
+        $isAdmin = $user->isAdmin();
+
+        if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
+            return response()->json(['message' => 'Not authorized'], 403);
+        }
+
+        $field = $request->input('field');
+        $value = $request->input('value');
+
+        // Admin-only fields
+        $adminOnlyFields = ['no_of_applications', 'recruiter_id', 'team_manager_id'];
+        if (in_array($field, $adminOnlyFields) && !$isAdmin) {
+            return response()->json(['message' => 'Only admin can update this field'], 403);
+        }
+
+        // Allowed fields whitelist
+        $allowed = [
+            'first_name', 'middle_name', 'last_name', 'date_of_birth', 'gender', 'nationality',
+            'phone_number', 'domain', 'sub_domain', 'current_salary', 'expected_salary',
+            'street_address', 'apartment_unit', 'city', 'state_province', 'zip_code', 'country',
+            'visa_immigration_status', 'work_auth_status', 'open_to_relocation', 'preferred_city', 'visa_expiry_date',
+            'marketing_phone', 'marketing_email', 'marketing_linkedin_id',
+            'masters_university', 'masters_program', 'masters_start', 'masters_end', 'masters_country',
+            'bachelors_university', 'bachelors_program', 'bachelors_start', 'bachelors_end', 'bachelors_country',
+            'github_url', 'linkedin_url', 'recruiter_notes', 'no_of_applications', 'status',
+        ];
+
+        if (!in_array($field, $allowed)) {
+            return response()->json(['message' => 'Field not editable'], 422);
+        }
+
+        $candidate->$field = $value ?: null;
+        if ($field === 'first_name' || $field === 'last_name') {
+            $candidate->full_name = trim(($candidate->first_name ?? '') . ' ' . ($candidate->middle_name ?? '') . ' ' . ($candidate->last_name ?? ''));
+        }
+        $candidate->save();
+
+        AuditLog::log(
+            'updated',
+            'candidates',
+            "Updated {$field} for {$candidate->full_name}",
+            [],
+            ['field' => $field, 'value' => $value]
+        );
+
+        return response()->json(['success' => true, 'full_name' => $candidate->full_name]);
     }
 
     // ── Private helpers ──────────────────────────────────────────────

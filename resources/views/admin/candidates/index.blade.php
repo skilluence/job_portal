@@ -54,7 +54,7 @@ $workAuthOptions = [
 <div class="d-flex gap-12 mb-16" style="flex-wrap:wrap;align-items:stretch;">
     <a href="{{ route('admin.candidates') }}"
        class="manager-scope-card {{ !$scope ? 'scope-active' : '' }}">
-        <div class="scope-num">{{ $managerMyCount + $managerTeamCount }}</div>
+        <div class="scope-num">{{ $managerAllCount }}</div>
         <div class="scope-lbl">All Candidates</div>
         <div class="scope-sub">Everyone you manage</div>
     </a>
@@ -141,13 +141,13 @@ $workAuthOptions = [
                     <tr>
                         <td class="text-muted text-sm">{{ $candidates->firstItem() + $i }}</td>
                         <td>
-                            <div class="avatar-row">
+                            <a href="{{ route('admin.candidates.show', $candidate) }}" class="avatar-row" style="text-decoration:none;color:inherit;">
                                 <div class="avatar-sm">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
                                 <div>
-                                    <div class="avatar-name">{{ $candidate->full_name }}</div>
+                                    <div class="avatar-name" style="color:var(--blue);">{{ $candidate->full_name }}</div>
                                     <div class="avatar-sub">{{ $candidate->email_id }}</div>
                                 </div>
-                            </div>
+                            </a>
                         </td>
                         <td class="text-sm">{{ $domainText ?: '-' }}</td>
                         <td class="text-muted text-sm">{{ $candidate->phone_number ?: '-' }}</td>
@@ -244,6 +244,10 @@ $workAuthOptions = [
                                 ];
                             @endphp
                             <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
+                                <a href="{{ route('admin.candidates.show', $candidate) }}"
+                                   class="btn btn-outline btn-sm" title="View candidate preview">
+                                    <i class="bi bi-eye"></i>
+                                </a>
                                 <button class="btn btn-outline btn-sm"
                                     data-candidate="{{ base64_encode(json_encode($p, JSON_UNESCAPED_SLASHES)) }}"
                                     onclick="editCandidateFromButton(this)" title="Edit candidate">
@@ -316,4 +320,7 @@ $workAuthOptions = [
     </div>
 </div>
 
+@push('scripts')
+<script>window.__isManager = {{ $isManager ? 'true' : 'false' }};</script>
+@endpush
 @endsection

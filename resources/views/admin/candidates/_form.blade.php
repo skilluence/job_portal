@@ -396,9 +396,15 @@
         <div class="form-group">
             <label class="form-label">No. of Applications <span style="color:var(--red-text)">*</span></label>
             @if ($isEdit && !($isRealAdmin ?? false))
-                <input type="number" name="no_of_applications" id="{{ $prefix }}_no_of_applications"
-                    class="form-control" min="0" required disabled
-                    title="Only admin can update No. of Applications">
+                <div style="position:relative;">
+                    <input type="number" name="no_of_applications" id="{{ $prefix }}_no_of_applications"
+                        class="form-control" min="0" required disabled
+                        style="background:var(--main-bg);color:var(--text-muted);cursor:not-allowed;opacity:1;border-style:dashed;"
+                        title="Only admin can update No. of Applications">
+                    <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:11px;color:var(--text-muted);pointer-events:none;">
+                        <i class="bi bi-lock-fill"></i>
+                    </span>
+                </div>
                 {{-- submit the value as read-only via hidden field --}}
                 <input type="hidden" name="no_of_applications" id="{{ $prefix }}_no_of_applications_hidden" value="0">
             @else
@@ -468,11 +474,11 @@
             </div>
         </div>
     @elseif ($isManager ?? false)
-        {{-- Manager: assign to one of their team recruiters; team_manager is always themselves --}}
-        <div class="form-section-title" style="margin-top:4px;">Assign Recruiter <span class="text-muted text-sm" style="font-weight:400;">(from your team)</span></div>
+        {{-- Manager: pick recruiter from team OR themselves as team manager — mutual exclusion --}}
+        <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(select one)</span></div>
         <div class="form-grid">
             <div class="form-group">
-                <label class="form-label">Recruiter</label>
+                <label class="form-label">Recruiter <span class="text-muted text-sm" style="font-weight:400;">(from your team)</span></label>
                 <div class="ss-wrap" id="{{ $prefix }}_recruiter_wrap">
                     <button type="button" class="form-control ss-trigger"
                         onclick="toggleSS('{{ $prefix }}_recruiter_wrap')">
@@ -499,10 +505,25 @@
                 </div>
             </div>
             <div class="form-group">
-                <label class="form-label">Team Manager</label>
-                <div class="form-control" style="background:var(--input-bg-disabled,#f3f4f6);color:var(--text-muted,#6b7280);cursor:default;display:flex;align-items:center;gap:6px;">
-                    <i class="bi bi-person-badge" style="color:var(--blue);"></i>
-                    <span>You (auto-assigned)</span>
+                <label class="form-label">Team Manager <span class="text-muted text-sm" style="font-weight:400;">(select yourself to assign directly)</span></label>
+                <div class="ss-wrap" id="{{ $prefix }}_manager_wrap">
+                    <button type="button" class="form-control ss-trigger"
+                        onclick="toggleSS('{{ $prefix }}_manager_wrap')">
+                        <span class="ss-label" id="{{ $prefix }}_manager_label">— None —</span>
+                        <i class="bi bi-chevron-down ss-chevron"></i>
+                    </button>
+                    <div class="ss-dropdown">
+                        <div class="ss-options">
+                            <div class="ss-option" data-value=""
+                                onclick="pickSS('{{ $prefix }}','manager','','— None —')">— None —</div>
+                            <div class="ss-option" data-value="{{ $currentUser->id }}"
+                                onclick="pickSS('{{ $prefix }}','manager','{{ $currentUser->id }}',{{ json_encode($currentUser->name . ' (You)') }})">
+                                <i class="bi bi-person-badge" style="margin-right:4px;color:var(--blue);"></i>
+                                {{ $currentUser->name }} <span style="color:var(--text-muted);">(You)</span>
+                            </div>
+                        </div>
+                    </div>
+                    <input type="hidden" name="team_manager_id" id="{{ $prefix }}_team_manager_id">
                 </div>
             </div>
         </div>

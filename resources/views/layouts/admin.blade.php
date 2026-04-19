@@ -119,6 +119,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script src="{{ asset('js/app.js') }}"></script>
+    @stack('scripts')
 </body>
 
 </html>
