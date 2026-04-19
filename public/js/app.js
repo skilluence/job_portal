@@ -24,19 +24,33 @@
     bindThemeToggles();
 
     /* ── Sidebar ────────────────────────────────────────────────── */
-    var sidebar = document.querySelector('.sidebar');
-    var sidebarToggle = document.querySelector('.sidebar-toggle');
+    var sidebar       = document.querySelector('.sidebar');
+    var sidebarToggle = document.querySelector('.sidebar-toggle');   // pin btn inside sidebar
+    var headerToggle  = document.getElementById('headerSidebarToggle'); // hamburger in top header
 
-    if (sidebar && sidebarToggle) {
-        if (localStorage.getItem('sidebarLocked') === 'true') {
-            sidebar.classList.add('locked');
+    function setSidebarLocked(locked) {
+        sidebar.classList.toggle('locked', locked);
+        localStorage.setItem('sidebarLocked', locked ? 'true' : 'false');
+    }
+
+    if (sidebar) {
+        // Restore persisted state
+        setSidebarLocked(localStorage.getItem('sidebarLocked') === 'true');
+
+        // Pin button inside sidebar
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setSidebarLocked(!sidebar.classList.contains('locked'));
+            });
         }
 
-        sidebarToggle.addEventListener('click', function (event) {
-            event.stopPropagation();
-            sidebar.classList.toggle('locked');
-            localStorage.setItem('sidebarLocked', sidebar.classList.contains('locked'));
-        });
+        // Hamburger button in main header
+        if (headerToggle) {
+            headerToggle.addEventListener('click', function () {
+                setSidebarLocked(!sidebar.classList.contains('locked'));
+            });
+        }
     }
 
     /* ── Password eye toggles (event delegation — works for all modals) ── */

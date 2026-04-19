@@ -91,6 +91,9 @@
 
     <div class="main-wrapper">
         <header class="main-header">
+            <button class="header-sidebar-toggle" id="headerSidebarToggle" title="Toggle sidebar">
+                <i class="bi bi-layout-sidebar"></i>
+            </button>
             <div class="header-info">
                 <div class="header-title">@yield('module-title', 'Dashboard')</div>
                 <div class="header-description">@yield('module-description', 'Welcome to Skilluence.')</div>
