@@ -10,6 +10,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 
+
+
 /**
  * Seeds verifiable test data for the recruiter monthly report:
  *   - 1 manager  (manager@test.skilluence.com)
@@ -71,8 +73,8 @@ class ReportTestSeeder extends Seeder
                     'phone_number'          => '555-000-0000',
                     'domain'                => 'Software Engineering',
                     'status'               => 'active',
-                    'login_password'        => 'test-placeholder',   // NOT NULL in DB
-                    'login_password_plain'  => 'test-placeholder',
+                    'login_password'        => Hash::make('Test@1234'),
+                    'login_password_plain'  => 'Test@1234',
                     'recruiter_id'          => $recruiter->id,
                     'team_manager_id'       => $manager->id,
                     'created_by'            => $adminId,

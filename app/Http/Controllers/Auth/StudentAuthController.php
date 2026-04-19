@@ -49,7 +49,14 @@ class StudentAuthController extends Controller
                 ->withInput(['email' => $request->email]);
         }
 
-        if (!Hash::check($request->password, $candidate->login_password)) {
+        try {
+            $passwordValid = Hash::check($request->password, $candidate->login_password);
+        } catch (\Throwable $e) {
+            // login_password is not a valid hash (e.g. plain-text or empty)
+            $passwordValid = false;
+        }
+
+        if (!$passwordValid) {
             return back()
                 ->withErrors(['email' => 'Invalid email or password.'])
                 ->withInput(['email' => $request->email]);
