@@ -1016,6 +1016,19 @@
             return;
         }
 
+        // Auto-flush any typed-but-not-confirmed subdomain text
+        var subInput  = document.getElementById(prefix + '_subdomain_input');
+        var subHidden = document.getElementById(prefix + '_sub_domain');
+        if (subInput && subHidden && subInput.value.trim()) {
+            var subVal  = subInput.value.trim().replace(/,/g, '');
+            var subVals = subHidden.value
+                ? subHidden.value.split(',').map(function (v) { return v.trim(); }).filter(Boolean)
+                : [];
+            if (subVal && !subVals.includes(subVal)) { subVals.push(subVal); }
+            subHidden.value = subVals.join(',');
+            subInput.value  = '';
+        }
+
         if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
     };
 
