@@ -27,25 +27,31 @@ class DailyLogController extends Controller
             abort(403, 'Not authorized.');
         }
 
+        $validated = $request->validate([
+            'applications'    => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'assistant_count' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'remark'          => ['nullable', 'string', 'max:2000'],
+        ]);
+
         // One per day check
         $today = now()->toDateString();
         if (DailyLog::where('candidate_id', $candidate->id)->where('log_date', $today)->exists()) {
             return back()->withErrors(['log_date' => 'A daily log already exists for today.']);
         }
 
-        // Auto-calculate interview count from today's interviews
+        // Auto-calculate interview count from interviews created today for this candidate
         $interviewCount = Interview::where('candidate_id', $candidate->id)
             ->whereDate('created_at', today())
             ->count();
 
         DailyLog::create([
             'candidate_id'    => $candidate->id,
-            'recruiter_id'    => $user->isRecruiter() ? $user->id : null,
+            'recruiter_id'    => $candidate->recruiter_id, // always the candidate's assigned recruiter
             'log_date'        => $today,
-            'applications'    => 0,
-            'assistant_count' => 0,
+            'applications'    => (int) ($validated['applications'] ?? 0),
+            'assistant_count' => (int) ($validated['assistant_count'] ?? 0),
             'interview_count' => $interviewCount,
-            'remark'          => $request->input('remark'),
+            'remark'          => $validated['remark'] ?? null,
             'created_by'      => $user->id,
         ]);
 

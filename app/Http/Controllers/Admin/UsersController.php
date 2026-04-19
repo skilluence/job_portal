@@ -127,7 +127,13 @@ class UsersController extends Controller
         ];
 
         // ── Interviews scheduled this month ──────────────────────
-        $interviews = Interview::where('recruiter_id', $user->id)
+        // Match by recruiter_id (forward) OR created_by when recruiter_id was null (legacy)
+        $interviews = Interview::where(function ($q) use ($user) {
+                $q->where('recruiter_id', $user->id)
+                  ->orWhere(function ($q2) use ($user) {
+                      $q2->whereNull('recruiter_id')->where('created_by', $user->id);
+                  });
+            })
             ->whereBetween('scheduled_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->with('candidate')
             ->orderBy('scheduled_date')

@@ -43,10 +43,10 @@ class InterviewController extends Controller
             'scheduled_timezone' => ['nullable', Rule::in(self::TIMEZONES)],
         ]);
 
-        $data['candidate_id']      = $candidate->id;
-        $data['recruiter_id']      = $user->isRecruiter() ? $user->id : null;
-        $data['created_by']        = $user->id;
-        $data['interview_status']  = 'valid';
+        $data['candidate_id']     = $candidate->id;
+        $data['recruiter_id']     = $candidate->recruiter_id; // always the candidate's assigned recruiter
+        $data['created_by']       = $user->id;
+        $data['interview_status'] = 'valid';
 
         Interview::create($data);
 

@@ -688,21 +688,44 @@ $totalInterviews = $dailyLogs->sum('interview_count');
             <div class="modal-body">
                 <div class="form-group">
                     <label class="form-label">Date</label>
-                    <input type="date" name="log_date" class="form-control" value="{{ now()->format('Y-m-d') }}" readonly>
-                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">Only one log per day is allowed.</div>
+                    <input type="date" name="log_date" class="form-control"
+                        value="{{ now()->format('Y-m-d') }}" readonly
+                        style="background:var(--main-bg);cursor:default;">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+                        <i class="bi bi-lock-fill" style="font-size:10px;"></i> One log per candidate per day.
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                    <div class="form-group mb-0">
+                        <label class="form-label">Applications <span style="color:var(--red-text)">*</span></label>
+                        <input type="number" name="applications" class="form-control"
+                            value="0" min="0" max="9999" required>
+                    </div>
+                    <div class="form-group mb-0">
+                        <label class="form-label">Assistant <span style="color:var(--red-text)">*</span></label>
+                        <input type="number" name="assistant_count" class="form-control"
+                            value="0" min="0" max="9999" required>
+                    </div>
+                </div>
+                <div class="form-group" style="margin-top:12px;">
+                    <label class="form-label">
+                        Interview Count
+                        <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(auto-calculated)</span>
+                    </label>
+                    <div class="form-control" style="background:var(--main-bg);color:var(--text-muted);cursor:not-allowed;display:flex;align-items:center;gap:6px;">
+                        <i class="bi bi-lock-fill" style="font-size:11px;"></i>
+                        <span>Auto-counted from today's interviews</span>
+                    </div>
                 </div>
                 <div class="form-group mb-0">
-                    <label class="form-label">Remark <span style="color:var(--text-muted);font-weight:400;">(optional)</span></label>
-                    <textarea name="remark" class="form-control" rows="3" placeholder="Notes about today's activity..."></textarea>
-                </div>
-                <div style="margin-top:10px;padding:10px;background:var(--blue-light);border-radius:var(--radius-sm);font-size:12px;color:var(--blue-text);">
-                    <i class="bi bi-info-circle"></i>
-                    Applications, Assistant, and Interview counts are auto-calculated or can be updated by admin later.
+                    <label class="form-label">Remark <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(optional)</span></label>
+                    <textarea name="remark" class="form-control" rows="2"
+                        placeholder="Notes about today's activity..."></textarea>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeLogModal()">Cancel</button>
-                <button type="submit" class="btn btn-primary">Add Log</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Save Log</button>
             </div>
         </form>
     </div>
