@@ -589,7 +589,7 @@
 <div class="modal-footer">
     <button type="button" class="btn btn-outline"
         onclick="closeModal('{{ $prefix === 'add' ? 'addCandidateModal' : 'editCandidateModal' }}')">Cancel</button>
-    <button type="submit" class="btn btn-primary">
+    <button type="button" class="btn btn-primary" onclick="validateCandidateForm('{{ $prefix }}')">
         <i class="bi bi-check-lg"></i> {{ $isEdit ? 'Save Changes' : 'Add Candidate' }}
     </button>
 </div>

@@ -37,6 +37,8 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
         ->name('candidates.reveal-password');
     Route::patch('/candidates/{candidate}/status', [CandidatesController::class, 'updateStatus'])
         ->name('candidates.status');
+    Route::patch('/candidates/{candidate}/interview-status', [CandidatesController::class, 'updateInterviewStatus'])
+        ->name('candidates.interview-status');
     Route::get('/candidates/{candidate}/files/{file}', [CandidatesController::class, 'downloadFile'])
         ->whereIn('file', ['cv', 'details', 'speedy'])
         ->name('candidates.files');

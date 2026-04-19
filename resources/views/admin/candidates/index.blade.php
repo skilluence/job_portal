@@ -295,7 +295,7 @@ $workAuthOptions = [
             <div class="modal-title"><i class="bi bi-person-plus" style="margin-right:6px;"></i> Add New Candidate</div>
             <button class="modal-close" onclick="closeModal('addCandidateModal')">&times;</button>
         </div>
-        <form method="POST" action="{{ route('admin.candidates.store') }}" enctype="multipart/form-data">
+        <form method="POST" action="{{ route('admin.candidates.store') }}" enctype="multipart/form-data" novalidate>
             @csrf
             @include('admin.candidates._form', ['mode' => 'add', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'managers' => $managers, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'isRealAdmin' => $isRealAdmin, 'prefix' => 'add'])
         </form>
@@ -312,7 +312,7 @@ $workAuthOptions = [
             <button class="modal-close" onclick="closeModal('editCandidateModal')">&times;</button>
         </div>
         <form method="POST" id="editCandidateForm" action="" data-base="{{ url('admin/candidates') }}"
-            enctype="multipart/form-data">
+            enctype="multipart/form-data" novalidate>
             @csrf
             @method('PUT')
             @include('admin.candidates._form', ['mode' => 'edit', 'usStates' => $usStates, 'visaOptions' => $visaOptions, 'workAuthOptions' => $workAuthOptions, 'recruiters' => $recruiters, 'managers' => $managers, 'statusOptions' => $statusOptions, 'isAdmin' => $isAdmin, 'isRealAdmin' => $isRealAdmin, 'prefix' => 'edit'])

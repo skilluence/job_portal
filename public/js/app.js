@@ -944,4 +944,66 @@
         }, 4000);
     }
 
+    /* ── Programmatic toast (success / error) ───────────────────── */
+    window.showToast = function (message, type) {
+        var container = document.createElement('div');
+        container.className = 'toast-container';
+        var toast = document.createElement('div');
+        toast.className = 'toast toast-' + (type || 'success');
+        var icon = type === 'error'
+            ? '<i class="bi bi-exclamation-circle-fill"></i>'
+            : '<i class="bi bi-check-circle-fill"></i>';
+        toast.innerHTML = icon + '<span>' + message + '</span>';
+        container.appendChild(toast);
+        document.body.appendChild(container);
+        setTimeout(function () {
+            container.style.opacity = '0';
+            container.style.transition = 'opacity 0.4s';
+            setTimeout(function () { container.remove(); }, 400);
+        }, 3500);
+    };
+
+    /* ── Multi-tab candidate form validation ────────────────────── */
+    window.validateCandidateForm = function (prefix) {
+        var modalId = prefix === 'add' ? 'addCandidateModal' : 'editCandidateModal';
+        var modal   = document.getElementById(modalId);
+        if (!modal) return;
+        var form = modal.querySelector('form');
+        if (!form) return;
+
+        var firstInvalidPanel = null;
+        var firstInvalidField = null;
+        var panels = modal.querySelectorAll('.modal-tab-panel');
+
+        for (var i = 0; i < panels.length; i++) {
+            var fields = panels[i].querySelectorAll('input[required], select[required], textarea[required]');
+            for (var j = 0; j < fields.length; j++) {
+                var field = fields[j];
+                if (!field.value || field.value.trim() === '') {
+                    firstInvalidPanel = panels[i];
+                    firstInvalidField = field;
+                    break;
+                }
+            }
+            if (firstInvalidPanel) break;
+        }
+
+        if (firstInvalidPanel) {
+            var tabGroup = modal.querySelector('.modal-tabs');
+            if (tabGroup) window.switchModalTab(tabGroup.id, firstInvalidPanel.id);
+            window.showToast('Please fill in all required fields before submitting.', 'error');
+            if (firstInvalidField) {
+                firstInvalidField.classList.add('is-invalid');
+                firstInvalidField.focus();
+                firstInvalidField.addEventListener('input', function onFix() {
+                    firstInvalidField.classList.remove('is-invalid');
+                    firstInvalidField.removeEventListener('input', onFix);
+                });
+            }
+            return;
+        }
+
+        if (form.requestSubmit) { form.requestSubmit(); } else { form.submit(); }
+    };
+
 })();

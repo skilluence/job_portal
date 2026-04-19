@@ -17,6 +17,8 @@ class CandidatesController extends Controller
 {
     private const STATUSES = ['active', 'enrolled', 'interview', 'offer', 'placed', 'onhold', 'inactive'];
 
+    private const INTERVIEW_STATUSES = ['scheduled', 'in_progress', 'completed', 'passed', 'rejected', 'no_show'];
+
     private const VISA_STATUSES = [
         'us_citizen', 'green_card', 'h1b', 'h4_ead', 'opt_f1',
         'stem_opt', 'cpt', 'l1', 'tn_visa', 'other',
@@ -330,18 +332,73 @@ class CandidatesController extends Controller
             'status' => ['required', Rule::in(self::STATUSES)],
         ]);
 
-        $old = ['status' => $candidate->status];
-        $candidate->update(['status' => $data['status']]);
+        $oldStatus = $candidate->status;
+        $newStatus = $data['status'];
+
+        $candidate->update(['status' => $newStatus]);
+
+        // Entering 'interview' → increment overall count + today's daily log
+        if ($newStatus === 'interview' && $oldStatus !== 'interview') {
+            $candidate->increment('interviews_count');
+
+            // Upsert today's daily log: increment its interview_count
+            $today = now()->toDateString();
+            $log = DailyLog::firstOrCreate(
+                ['candidate_id' => $candidate->id, 'log_date' => $today],
+                [
+                    'recruiter_id'    => $user->isRecruiter() ? $user->id : null,
+                    'applications'    => 0,
+                    'assistant_count' => 0,
+                    'interview_count' => 0,
+                    'remark'          => null,
+                    'created_by'      => $user->id,
+                ]
+            );
+            $log->increment('interview_count');
+        }
+
+        // Leaving 'interview' → clear candidate-level interview_status
+        if ($oldStatus === 'interview' && $newStatus !== 'interview') {
+            $candidate->update(['interview_status' => null]);
+        }
 
         AuditLog::log(
             'updated',
             'candidates',
-            "Status changed: {$candidate->full_name} → {$data['status']}",
-            $old,
-            ['status' => $data['status']]
+            "Status changed: {$candidate->full_name} → {$newStatus}",
+            ['status' => $oldStatus],
+            ['status' => $newStatus]
         );
 
-        return response()->json(['status' => $data['status']]);
+        return response()->json([
+            'status'           => $newStatus,
+            'interviews_count' => $candidate->fresh()->interviews_count,
+        ]);
+    }
+
+    public function updateInterviewStatus(Request $request, Candidate $candidate)
+    {
+        // Only admin can set the candidate-level interview status
+        if (!$request->user()->isAdmin()) {
+            return response()->json(['message' => 'Only admins can update interview status.'], 403);
+        }
+
+        $data = $request->validate([
+            'interview_status' => ['nullable', Rule::in(array_merge(self::INTERVIEW_STATUSES, ['']))],
+        ]);
+
+        $status = $data['interview_status'] ?: null;
+        $candidate->update(['interview_status' => $status]);
+
+        AuditLog::log(
+            'updated',
+            'candidates',
+            "Interview status updated: {$candidate->full_name} → " . ($status ?? 'cleared'),
+            ['interview_status' => $candidate->getOriginal('interview_status')],
+            ['interview_status' => $status]
+        );
+
+        return response()->json(['interview_status' => $status]);
     }
 
     public function revealPassword(Request $request, Candidate $candidate)
@@ -434,7 +491,7 @@ class CandidatesController extends Controller
         $value = $request->input('value');
 
         // Admin-only fields
-        $adminOnlyFields = ['no_of_applications', 'recruiter_id', 'team_manager_id'];
+        $adminOnlyFields = ['no_of_applications', 'recruiter_id', 'team_manager_id', 'interview_status'];
         if (in_array($field, $adminOnlyFields) && !$isAdmin) {
             return response()->json(['message' => 'Only admin can update this field'], 403);
         }
@@ -448,7 +505,7 @@ class CandidatesController extends Controller
             'marketing_phone', 'marketing_email', 'marketing_linkedin_id',
             'masters_university', 'masters_program', 'masters_start', 'masters_end', 'masters_country',
             'bachelors_university', 'bachelors_program', 'bachelors_start', 'bachelors_end', 'bachelors_country',
-            'github_url', 'linkedin_url', 'recruiter_notes', 'no_of_applications', 'status',
+            'github_url', 'linkedin_url', 'recruiter_notes', 'no_of_applications', 'status', 'interview_status',
         ];
 
         if (!in_array($field, $allowed)) {

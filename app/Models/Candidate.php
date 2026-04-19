@@ -74,6 +74,7 @@ class Candidate extends Model
         'no_of_applications',
         'interviews_count',
         'status',
+        'interview_status',
         'recruiter_id',
         'team_manager_id',
         'created_by',
