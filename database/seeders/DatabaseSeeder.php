@@ -8,13 +8,17 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
+    /**
+     * Seed the one and only admin account.
+     * On migrate:fresh this is the sole user created — no sign-up flow exists.
+     */
     public function run(): void
     {
         User::updateOrCreate(
-            ['email' => 'admin@skilluence.com'],
+            ['email' => 'rahil@skilluenc.com'],
             [
-                'name'            => 'Admin User',
-                'password'        => Hash::make('password'),
+                'name'            => 'Rahil',
+                'password'        => Hash::make('Rahil@050725'),
                 'role'            => 'admin',
                 'status'          => 'active',
                 'team_manager_id' => null,

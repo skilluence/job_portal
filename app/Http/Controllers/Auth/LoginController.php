@@ -4,10 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
-use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 
 class LoginController extends Controller
 {
@@ -17,11 +15,7 @@ class LoginController extends Controller
             return redirect()->route('admin.dashboard');
         }
 
-        $initialTab = old('auth_mode', $request->query('mode') === 'signup' ? 'signup' : 'signin');
-
-        return view('auth.login', [
-            'initialAuthTab' => $initialTab,
-        ]);
+        return view('auth.login');
     }
 
     public function login(Request $request)
@@ -48,43 +42,6 @@ class LoginController extends Controller
         AuditLog::log('login', 'auth', 'Staff logged in');
 
         return redirect()->intended(route('admin.dashboard'));
-    }
-
-    public function register(Request $request)
-    {
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255', 'unique:users,email'],
-            'password' => ['required', 'string', 'min:8', 'confirmed'],
-        ]);
-
-        $isFirstUser = !User::query()->exists();
-        $defaultTeamManagerId = $isFirstUser
-            ? null
-            : User::whereIn('role', ['admin', 'manager'])->orderBy('id')->value('id');
-
-        $user = User::create([
-            'name' => $data['name'],
-            'email' => strtolower($data['email']),
-            'password' => Hash::make($data['password']),
-            'role' => $isFirstUser ? 'admin' : 'recruiter',
-            'status' => 'active',
-            'team_manager_id' => $defaultTeamManagerId,
-        ]);
-
-        $description = $isFirstUser
-            ? "Self-signup created initial admin: {$user->name}"
-            : "Self-signup created team member: {$user->name}";
-
-        AuditLog::log('created', 'users', $description);
-
-        Auth::login($user);
-        $request->session()->regenerate();
-
-        AuditLog::log('login', 'auth', 'Staff logged in');
-
-        return redirect()->route('admin.dashboard')
-            ->with('success', 'Account created successfully. You are now signed in.');
     }
 
     public function logout(Request $request)

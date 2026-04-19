@@ -20,7 +20,6 @@ Route::middleware('guest')->group(function () {
     Route::get('/', [LoginController::class, 'showLogin'])->name('login');
     Route::get('/login', [LoginController::class, 'showLogin'])->name('login.get');
     Route::post('/login', [LoginController::class, 'login'])->name('login.post');
-    Route::post('/register', [LoginController::class, 'register'])->name('register.post');
 });
 
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
