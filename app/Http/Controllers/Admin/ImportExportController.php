@@ -151,9 +151,20 @@ class ImportExportController extends Controller
             return back()->withErrors(['file' => 'The CSV file appears to be empty or invalid.']);
         }
 
-        $header       = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
-        $recruiterMap = User::recruiters()->pluck('id', 'name')->toArray();
-        $managerMap   = User::managers()->pluck('id', 'name')->toArray();
+        $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
+
+        // Build case-insensitive name → id maps for recruiter and manager lookup
+        $recruiterMapRaw = User::recruiters()->pluck('id', 'name')->toArray();
+        $managerMapRaw   = User::managers()->pluck('id', 'name')->toArray();
+        $recruiterMap    = array_combine(
+            array_map('strtolower', array_keys($recruiterMapRaw)),
+            array_values($recruiterMapRaw)
+        );
+        $managerMap      = array_combine(
+            array_map('strtolower', array_keys($managerMapRaw)),
+            array_values($managerMapRaw)
+        );
+
         // Pre-load each recruiter's assigned team_manager_id for auto-derivation
         $recruiterTeamManagers = User::recruiters()->whereNotNull('team_manager_id')
             ->pluck('team_manager_id', 'id')->toArray();
@@ -166,13 +177,21 @@ class ImportExportController extends Controller
         while (($row = fgetcsv($fh)) !== false) {
             $rowNum++;
 
-            if (count($row) !== count($header)) {
-                $errors[] = "Row {$rowNum}: column count mismatch. Skipped.";
-                $skipped++;
+            // Skip completely blank rows
+            if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) {
                 continue;
             }
 
-            $d = array_combine($header, array_map('trim', $row));
+            // Flexible column mapping — pad short rows, truncate long rows
+            $rowValues = array_map('trim', $row);
+            $headerCount = count($header);
+            if (count($rowValues) < $headerCount) {
+                $rowValues = array_pad($rowValues, $headerCount, '');
+            } elseif (count($rowValues) > $headerCount) {
+                $rowValues = array_slice($rowValues, 0, $headerCount);
+            }
+
+            $d = array_combine($header, $rowValues);
             if ($d === false) {
                 $errors[] = "Row {$rowNum}: invalid format. Skipped.";
                 $skipped++;
@@ -209,22 +228,22 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            $recruiterName = $d['recruiter'] ?? '';
-            $recruiterId   = $recruiterName !== '' ? (int) ($recruiterMap[$recruiterName] ?? 0) : 0;
+            $recruiterName = trim($d['recruiter'] ?? '');
+            $recruiterId   = $recruiterName !== '' ? (int) ($recruiterMap[strtolower($recruiterName)] ?? 0) : 0;
 
             if ($recruiterId <= 0) {
-                $errors[] = "Row {$rowNum}: recruiter must match an existing recruiter name.";
+                $errors[] = "Row {$rowNum}: recruiter '{$recruiterName}' not found. Check the name matches an existing recruiter.";
                 $skipped++;
                 continue;
             }
 
             // Resolve team manager from CSV column, or auto-derive from recruiter's own manager
-            $teamManagerName = $d['team_manager'] ?? '';
+            $teamManagerName = trim($d['team_manager'] ?? '');
             $teamManagerId   = null;
             if ($teamManagerName !== '') {
-                $teamManagerId = (int) ($managerMap[$teamManagerName] ?? 0) ?: null;
+                $teamManagerId = (int) ($managerMap[strtolower($teamManagerName)] ?? 0) ?: null;
                 if (!$teamManagerId) {
-                    $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found. Check the name matches exactly.";
+                    $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found. Check the name matches an existing team manager.";
                     $skipped++;
                     continue;
                 }
@@ -233,27 +252,30 @@ class ImportExportController extends Controller
                 $teamManagerId = $recruiterTeamManagers[$recruiterId] ?? null;
             }
 
+            // Helper: treat empty string as null for optional fields
+            $col = fn (string $key) => ($d[$key] ?? '') !== '' ? $d[$key] : null;
+
             Candidate::create([
-                'full_name'          => $fullName,
-                'first_name'         => $firstName ?: null,
-                'last_name'          => $lastName ?: null,
-                'email_id'           => $email,
-                'phone_number'       => $d['phone_number'] ?? null,
-                'domain'             => $d['domain'] ?? null,
-                'sub_domain'         => $d['sub_domain'] ?? null,
-                'city'               => $d['city'] ?? null,
-                'state_province'     => $d['state_province'] ?? null,
-                'zip_code'           => $d['zip_code'] ?? null,
-                'visa_immigration_status' => $d['visa_immigration_status'] ?? null,
-                'work_auth_status'   => $d['work_auth_status'] ?? null,
-                'no_of_applications' => is_numeric($d['no_of_applications'] ?? '') ? (int) $d['no_of_applications'] : 0,
-                'interviews_count'   => 0,
-                'status'             => $status,
-                'recruiter_id'       => $recruiterId,
-                'team_manager_id'    => $teamManagerId,
-                'login_password'     => Hash::make($pass),
-                'login_password_plain' => $pass,
-                'created_by'         => auth()->id(),
+                'full_name'               => $fullName,
+                'first_name'              => $firstName ?: null,
+                'last_name'               => $lastName ?: null,
+                'email_id'                => $email,
+                'phone_number'            => $col('phone_number'),
+                'domain'                  => $col('domain'),
+                'sub_domain'              => $col('sub_domain'),
+                'city'                    => $col('city'),
+                'state_province'          => $col('state_province'),
+                'zip_code'                => $col('zip_code'),
+                'visa_immigration_status' => $col('visa_immigration_status'),
+                'work_auth_status'        => $col('work_auth_status'),
+                'no_of_applications'      => is_numeric($d['no_of_applications'] ?? '') ? (int) $d['no_of_applications'] : 0,
+                'interviews_count'        => 0,
+                'status'                  => $status,
+                'recruiter_id'            => $recruiterId,
+                'team_manager_id'         => $teamManagerId,
+                'login_password'          => Hash::make($pass),
+                'login_password_plain'    => $pass,
+                'created_by'              => auth()->id(),
             ]);
 
             $imported++;
@@ -366,23 +388,38 @@ class ImportExportController extends Controller
             return back()->withErrors(['file' => 'The CSV file appears to be empty or invalid.']);
         }
 
-        $header     = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
-        $managerMap = User::managers()->pluck('id', 'name')->toArray();
-        $imported   = 0;
-        $skipped    = 0;
-        $errors     = [];
-        $rowNum     = 1;
+        $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
+
+        // Case-insensitive manager name → id map
+        $managerMapRaw = User::managers()->pluck('id', 'name')->toArray();
+        $managerMap    = array_combine(
+            array_map('strtolower', array_keys($managerMapRaw)),
+            array_values($managerMapRaw)
+        );
+
+        $imported = 0;
+        $skipped  = 0;
+        $errors   = [];
+        $rowNum   = 1;
 
         while (($row = fgetcsv($fh)) !== false) {
             $rowNum++;
 
-            if (count($row) !== count($header)) {
-                $errors[] = "Row {$rowNum}: column count mismatch. Skipped.";
-                $skipped++;
+            // Skip blank rows
+            if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) {
                 continue;
             }
 
-            $d      = array_combine($header, array_map('trim', $row));
+            // Flexible column mapping
+            $rowValues   = array_map('trim', $row);
+            $headerCount = count($header);
+            if (count($rowValues) < $headerCount) {
+                $rowValues = array_pad($rowValues, $headerCount, '');
+            } elseif (count($rowValues) > $headerCount) {
+                $rowValues = array_slice($rowValues, 0, $headerCount);
+            }
+
+            $d      = array_combine($header, $rowValues);
             $name   = $d['name'] ?? '';
             $email  = strtolower($d['email'] ?? '');
             $pass   = $d['password'] ?? '';
@@ -422,11 +459,11 @@ class ImportExportController extends Controller
             // Resolve team_manager_id for recruiter-role users
             $teamManagerId = null;
             if ($role === 'recruiter') {
-                $teamManagerName = $d['team_manager'] ?? '';
+                $teamManagerName = trim($d['team_manager'] ?? '');
                 if ($teamManagerName !== '') {
-                    $mid = (int) ($managerMap[$teamManagerName] ?? 0);
+                    $mid = (int) ($managerMap[strtolower($teamManagerName)] ?? 0);
                     if (!$mid) {
-                        $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found. Check the name matches exactly.";
+                        $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found. Check the name matches an existing manager.";
                         $skipped++;
                         continue;
                     }
