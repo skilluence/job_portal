@@ -47,10 +47,6 @@
                         <label class="stp-label">Last Name <span class="stp-required">*</span></label>
                         <input type="text" name="last_name" class="stp-input" value="{{ old('last_name', $candidate->last_name) }}" required placeholder="Last name">
                     </div>
-                    <div class="stp-form-group" style="grid-column:1/-1;">
-                        <label class="stp-label">Middle Name <span style="font-size:11px;color:#94a3b8;font-weight:400;">(optional)</span></label>
-                        <input type="text" name="middle_name" class="stp-input" value="{{ old('middle_name', $candidate->middle_name) }}" placeholder="Middle name">
-                    </div>
                     <div class="stp-form-group">
                         <label class="stp-label">Email ID <span class="stp-required">*</span></label>
                         <input type="email" name="email_id" class="stp-input" value="{{ old('email_id', $candidate->email_id) }}" required>

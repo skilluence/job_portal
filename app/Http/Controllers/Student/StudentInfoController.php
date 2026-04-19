@@ -31,7 +31,6 @@ class StudentInfoController extends Controller
 
         $data = $request->validate([
             'first_name'     => ['required', 'string', 'max:100'],
-            'middle_name'    => ['nullable', 'string', 'max:100'],
             'last_name'      => ['required', 'string', 'max:100'],
             'email_id'       => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
             'phone_number'   => ['nullable', 'string', 'max:30'],
@@ -41,10 +40,10 @@ class StudentInfoController extends Controller
             'zip_code'       => ['nullable', 'string', 'max:20'],
         ]);
 
-        // Build full_name from parts
+        // Build full_name from parts (middle name not editable by student)
         $data['full_name'] = trim(implode(' ', array_filter([
             $data['first_name'],
-            $data['middle_name'] ?? null,
+            $candidate->middle_name,
             $data['last_name'],
         ])));
 
