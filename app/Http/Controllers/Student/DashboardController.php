@@ -28,17 +28,23 @@ class DashboardController extends Controller
             ->orderBy('scheduled_date', 'desc')
             ->get();
 
+        // Stat card: today's scheduled interviews
+        $todayInterviewsCount = Interview::where('candidate_id', $candidateId)
+            ->whereDate('scheduled_date', today())
+            ->count();
+
         // Tab 3: Documents — resume records for this candidate
         $resumes = CandidateResume::where('candidate_id', $candidateId)
             ->orderBy('created_at', 'desc')
             ->get();
 
         return view('student.dashboard', [
-            'candidate'         => $candidate,
-            'profileCompletion' => $profileCompletion,
-            'dailyLogs'         => $dailyLogs,
-            'interviews'        => $interviews,
-            'resumes'           => $resumes,
+            'candidate'              => $candidate,
+            'profileCompletion'      => $profileCompletion,
+            'dailyLogs'              => $dailyLogs,
+            'interviews'             => $interviews,
+            'resumes'                => $resumes,
+            'todayInterviewsCount'   => $todayInterviewsCount,
         ]);
     }
 

@@ -113,9 +113,10 @@ class StudentInfoController extends Controller
     {
         $candidate = Candidate::findOrFail(session('student_id'));
 
-        // Ensure this interview belongs to the logged-in student's candidate
         if ($interview->candidate_id !== $candidate->id) {
-            abort(403, 'Not authorized.');
+            return $request->wantsJson()
+                ? response()->json(['error' => 'Not authorized'], 403)
+                : abort(403, 'Not authorized.');
         }
 
         $data = $request->validate([
@@ -132,6 +133,10 @@ class StudentInfoController extends Controller
             ['interview_status' => $old],
             ['interview_status' => $data['interview_status'], 'interview_id' => $interview->id]
         );
+
+        if ($request->wantsJson()) {
+            return response()->json(['success' => true, 'interview_status' => $data['interview_status']]);
+        }
 
         return back()->with('success', 'Interview status updated.');
     }

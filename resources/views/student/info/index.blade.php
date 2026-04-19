@@ -23,7 +23,7 @@
     <div class="stp-page-icon"><i class="bi bi-person-fill"></i></div>
     <div>
         <div class="stp-page-title">My Profile</div>
-        <div class="stp-page-sub">Update your personal details, documents, and portal password</div>
+        <div class="stp-page-sub">Update your personal details and portal password</div>
     </div>
 </div>
 
@@ -102,7 +102,7 @@
         </div>
     </div>
 
-    {{-- Right column: Enrollment Info + Documents --}}
+    {{-- Right column: Enrollment Info only --}}
     <div class="stp-profile-col-right">
         <div class="stp-card">
             <div class="stp-card-head">
@@ -138,123 +138,55 @@
                 <div class="stp-enroll-item">
                     <div class="stp-enroll-icon" style="background:#fff7ed;color:#ea580c;"><i class="bi bi-file-earmark-text"></i></div>
                     <div>
-                        <div class="stp-enroll-label">Applications</div>
-                        <div class="stp-enroll-val">{{ $candidate->no_of_applications }}</div>
+                        <div class="stp-enroll-label">Daily Target Applications</div>
+                        <div class="stp-enroll-val">{{ $candidate->no_of_applications ?: '—' }}</div>
                     </div>
                 </div>
                 <div class="stp-enroll-item">
                     <div class="stp-enroll-icon" style="background:#ecfdf5;color:#059669;"><i class="bi bi-calendar-check"></i></div>
                     <div>
-                        <div class="stp-enroll-label">Interviews</div>
-                        <div class="stp-enroll-val">{{ $candidate->interviews_count }}</div>
+                        <div class="stp-enroll-label">Total Interviews</div>
+                        <div class="stp-enroll-val">{{ $candidate->interviews_count ?: '0' }}</div>
                     </div>
                 </div>
                 @if ($candidate->visa_immigration_status)
                     <div class="stp-enroll-item">
                         <div class="stp-enroll-icon" style="background:#eff6ff;color:#2563eb;"><i class="bi bi-shield-check"></i></div>
                         <div>
-                            <div class="stp-enroll-label">Visa Status</div>
+                            <div class="stp-enroll-label">Visa / Immigration Status</div>
                             <div class="stp-enroll-val">{{ ucfirst(str_replace('_', ' ', $candidate->visa_immigration_status)) }}</div>
                         </div>
                     </div>
                 @endif
-            </div>
-        </div>
-
-        <div class="stp-card" style="margin-top:16px;">
-            <div class="stp-card-head">
-                <div class="stp-card-title"><i class="bi bi-folder2-open"></i> Documents</div>
-                <div class="stp-card-hint">View and upload your files</div>
-            </div>
-
-            @if ($candidate->cv_file_path || $candidate->candidate_details_file_path)
-                <div class="stp-doc-list" style="margin-bottom:16px;">
-                    @if ($candidate->cv_file_path)
-                        <a href="{{ route('student.files', 'cv') }}" target="_blank" class="stp-doc-item">
-                            <div class="stp-doc-icon"><i class="bi bi-file-earmark-pdf-fill"></i></div>
-                            <div class="stp-doc-body">
-                                <div class="stp-doc-name">Curriculum Vitae (CV)</div>
-                                <div class="stp-doc-hint">Click to open in browser</div>
+                @if ($candidate->cv_file_path)
+                    <div class="stp-enroll-item">
+                        <div class="stp-enroll-icon" style="background:#fef2f2;color:#dc2626;"><i class="bi bi-file-earmark-pdf-fill"></i></div>
+                        <div style="flex:1;min-width:0;">
+                            <div class="stp-enroll-label">CV on File</div>
+                            <div class="stp-enroll-val">
+                                <a href="{{ route('student.files', 'cv') }}" target="_blank"
+                                   style="color:#2563eb;text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:5px;">
+                                    View CV <i class="bi bi-box-arrow-up-right" style="font-size:11px;"></i>
+                                </a>
                             </div>
-                            <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
-                        </a>
-                    @endif
-                    @if ($candidate->candidate_details_file_path)
-                        <a href="{{ route('student.files', 'details') }}" target="_blank" class="stp-doc-item">
-                            <div class="stp-doc-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-file-earmark-text-fill"></i></div>
-                            <div class="stp-doc-body">
-                                <div class="stp-doc-name">Candidate Details</div>
-                                <div class="stp-doc-hint">Click to open in browser</div>
+                        </div>
+                    </div>
+                @endif
+                @if ($candidate->candidate_details_file_path)
+                    <div class="stp-enroll-item">
+                        <div class="stp-enroll-icon" style="background:#f0fdf4;color:#16a34a;"><i class="bi bi-file-earmark-text-fill"></i></div>
+                        <div style="flex:1;min-width:0;">
+                            <div class="stp-enroll-label">Candidate Details File</div>
+                            <div class="stp-enroll-val">
+                                <a href="{{ route('student.files', 'details') }}" target="_blank"
+                                   style="color:#2563eb;text-decoration:none;font-weight:500;display:inline-flex;align-items:center;gap:5px;">
+                                    View File <i class="bi bi-box-arrow-up-right" style="font-size:11px;"></i>
+                                </a>
                             </div>
-                            <i class="bi bi-box-arrow-up-right stp-doc-arrow"></i>
-                        </a>
-                    @endif
-                </div>
-            @endif
-
-            <form method="POST" action="{{ route('student.info.documents') }}" enctype="multipart/form-data">
-                @csrf
-                <div class="stp-form-group">
-                    <label class="stp-label">
-                        Upload / Replace CV
-                        @if ($candidate->cv_file_path)
-                            <span style="font-size:11px;color:var(--orange-text);font-weight:500;margin-left:6px;">Will replace existing</span>
-                        @endif
-                    </label>
-                    <input type="file" name="cv_file" class="stp-input stp-file-input" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
-                </div>
-                <div class="stp-file-hint">Allowed: PDF, DOC, DOCX, JPG, PNG (max 5 MB each)</div>
-                <div style="margin-top:12px;">
-                    <button type="submit" class="stp-btn-primary">
-                        <i class="bi bi-cloud-arrow-up-fill"></i> Upload CV
-                    </button>
-                </div>
-            </form>
-        </div>
-
-        {{-- ── Resumes Section (view-only) ── --}}
-        <div class="stp-card" style="margin-top:16px;">
-            <div class="stp-card-head">
-                <div class="stp-card-title"><i class="bi bi-file-earmark-person-fill"></i> My Resumes</div>
-                <div class="stp-card-hint">Resumes uploaded by your recruiter</div>
+                        </div>
+                    </div>
+                @endif
             </div>
-
-            @if ($candidate->resumes->count() > 0)
-                <div style="overflow-x:auto;">
-                    <table style="width:100%;border-collapse:collapse;font-size:13px;">
-                        <thead>
-                            <tr style="background:var(--stp-bg,#f8fafc);">
-                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Designation</th>
-                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">File</th>
-                                <th style="padding:8px 12px;text-align:left;font-weight:600;border-bottom:1px solid #e2e8f0;">Uploaded</th>
-                                <th style="padding:8px 12px;text-align:center;font-weight:600;border-bottom:1px solid #e2e8f0;">View</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($candidate->resumes as $resume)
-                            <tr style="border-bottom:1px solid #e2e8f0;">
-                                <td style="padding:8px 12px;font-weight:500;">{{ $resume->designation }}</td>
-                                <td style="padding:8px 12px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-                                    {{ $resume->original_filename }}
-                                </td>
-                                <td style="padding:8px 12px;color:#64748b;">{{ $resume->created_at->format('M d, Y') }}</td>
-                                <td style="padding:8px 12px;text-align:center;">
-                                    <a href="{{ route('student.resumes.download', $resume) }}" target="_blank"
-                                        class="stp-btn-secondary" style="padding:4px 10px;font-size:12px;display:inline-flex;align-items:center;gap:4px;">
-                                        <i class="bi bi-box-arrow-up-right"></i>
-                                    </a>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @else
-                <div style="text-align:center;padding:28px 0;color:#94a3b8;">
-                    <i class="bi bi-file-earmark-x" style="font-size:28px;display:block;margin-bottom:6px;"></i>
-                    <div style="font-size:13px;">No resumes uploaded yet.</div>
-                </div>
-            @endif
         </div>
     </div>
 </div>
