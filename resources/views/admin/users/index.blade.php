@@ -67,6 +67,9 @@
                     @php
                         $canEdit = $isAdmin || $isManager || $currentUser->id === $user->id;
                         $canDelete = ($isAdmin || $isManager) && $user->role !== 'admin' && $currentUser->id !== $user->id;
+                        // Report eye: admin sees all non-admin; manager sees own-team recruiters (not self)
+                        $canViewReport = ($isAdmin && $user->role !== 'admin')
+                            || ($isManager && $user->id !== $currentUser->id && $user->team_manager_id === $currentUser->id);
                         $userPayload = [
                             'id'              => $user->id,
                             'name'            => $user->name,
@@ -97,23 +100,31 @@
                         </td>
                         <td class="text-muted text-sm">{{ $user->candidates_count ?? 0 }}</td>
                         <td>
-                            @if ($canEdit)
-                                <button class="btn btn-outline btn-sm"
-                                    data-user="{{ base64_encode(json_encode($userPayload, JSON_UNESCAPED_SLASHES)) }}"
-                                    onclick="editUserFromButton(this)" title="Edit">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                            @endif
-                            @if ($canDelete)
-                                <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}" style="display:inline;"
-                                    onsubmit="return confirm('Delete {{ addslashes($user->name) }}? Their candidates will be reassigned to admin.')">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit" class="btn btn-danger btn-sm" title="Delete">
-                                        <i class="bi bi-trash"></i>
+                            <div class="d-flex gap-4" style="flex-wrap:nowrap;align-items:center;">
+                                @if ($canViewReport)
+                                    <a href="{{ route('admin.users.report', $user) }}"
+                                       class="btn btn-outline btn-sm" title="View monthly report">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                @endif
+                                @if ($canEdit)
+                                    <button class="btn btn-outline btn-sm"
+                                        data-user="{{ base64_encode(json_encode($userPayload, JSON_UNESCAPED_SLASHES)) }}"
+                                        onclick="editUserFromButton(this)" title="Edit">
+                                        <i class="bi bi-pencil"></i>
                                     </button>
-                                </form>
-                            @endif
+                                @endif
+                                @if ($canDelete)
+                                    <form method="POST" action="{{ route('admin.users.destroy', $user->id) }}" style="display:inline;margin:0;"
+                                        onsubmit="return confirm('Delete {{ addslashes($user->name) }}? Their candidates will be reassigned to admin.')">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty

@@ -59,6 +59,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
 
     // Users — view restricted to admin/manager; self-edit accessible to all roles
     Route::get('/users', [UsersController::class, 'index'])->name('users')->middleware('role:admin,manager');
+    Route::get('/users/{user}/report', [UsersController::class, 'report'])->name('users.report')->middleware('role:admin,manager');
     Route::put('/users/{user}', [UsersController::class, 'update'])->name('users.update');
 
     // Audit Logs — accessible to all (controller filters by role)

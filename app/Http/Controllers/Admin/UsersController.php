@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Models\DailyLog;
+use App\Models\Interview;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rule;
 
@@ -48,6 +51,118 @@ class UsersController extends Controller
             'currentUser' => $authUser,
             'isAdmin'     => $isAdmin,
             'isManager'   => $isManager,
+        ]);
+    }
+
+    public function report(Request $request, User $user)
+    {
+        $authUser  = $request->user();
+        $isAdmin   = $authUser->isAdmin();
+        $isManager = $authUser->isManager();
+
+        // Recruiters have no access to any report
+        if ($authUser->isRecruiter()) {
+            abort(403, 'Not authorized.');
+        }
+
+        // Managers can only view their own team recruiters (not themselves, not others)
+        if ($isManager) {
+            if ($user->id === $authUser->id) {
+                abort(403, 'You cannot view your own report.');
+            }
+            if ($user->team_manager_id !== $authUser->id) {
+                abort(403, 'You can only view reports for members of your team.');
+            }
+        }
+
+        // Admin can view any recruiter or manager (not self-blocked — they "own" everything)
+
+        // ── Month selection ──────────────────────────────────────
+        $month = $request->get('month', now()->format('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
+            $month = now()->format('Y-m');
+        }
+        [$year, $mon] = explode('-', $month);
+        $startDate  = Carbon::createFromDate((int) $year, (int) $mon, 1)->startOfDay();
+        $endDate    = $startDate->copy()->endOfMonth()->endOfDay();
+        $daysInMonth = $startDate->daysInMonth;
+
+        // ── Applications / Assistant from daily_logs ─────────────
+        // Sum per day across all candidates managed by this recruiter
+        $rawLogs = DailyLog::where('recruiter_id', $user->id)
+            ->whereBetween('log_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->selectRaw('log_date, SUM(applications) as applications, SUM(assistant_count) as assistant_count, SUM(interview_count) as interview_count')
+            ->groupBy('log_date')
+            ->orderBy('log_date')
+            ->get()
+            ->keyBy(fn ($l) => Carbon::parse($l->log_date)->format('j')); // key by day-of-month (1-31)
+
+        // Build full-month arrays for chart (0 on days with no log)
+        $chartLabels    = [];
+        $chartApps      = [];
+        $chartAssistant = [];
+        $detailRows     = [];
+
+        for ($day = 1; $day <= $daysInMonth; $day++) {
+            $log = $rawLogs->get($day);
+            $chartLabels[]    = $day;
+            $chartApps[]      = $log ? (int) $log->applications    : 0;
+            $chartAssistant[] = $log ? (int) $log->assistant_count : 0;
+            if ($log && ($log->applications > 0 || $log->assistant_count > 0 || $log->interview_count > 0)) {
+                $date = Carbon::createFromDate((int) $year, (int) $mon, $day);
+                $detailRows[] = [
+                    'date'           => $date->format('M d, Y'),
+                    'day_name'       => $date->format('D'),
+                    'applications'   => (int) $log->applications,
+                    'assistant'      => (int) $log->assistant_count,
+                    'interviews'     => (int) $log->interview_count,
+                ];
+            }
+        }
+
+        $totals = [
+            'applications' => array_sum($chartApps),
+            'assistant'    => array_sum($chartAssistant),
+            'log_interviews' => $rawLogs->sum('interview_count'),
+        ];
+
+        // ── Interviews scheduled this month ──────────────────────
+        $interviews = Interview::where('recruiter_id', $user->id)
+            ->whereBetween('scheduled_date', [$startDate->toDateString(), $endDate->toDateString()])
+            ->with('candidate')
+            ->orderBy('scheduled_date')
+            ->orderBy('scheduled_time')
+            ->get();
+
+        // ── Past 13 months dropdown ───────────────────────────────
+        $months = [];
+        for ($i = 0; $i <= 12; $i++) {
+            $m = now()->subMonths($i);
+            $months[$m->format('Y-m')] = $m->format('F Y');
+        }
+
+        AuditLog::log(
+            'viewed',
+            'users',
+            "Viewed monthly report for {$user->name} ({$month})",
+            [],
+            ['viewer' => $authUser->email, 'month' => $month]
+        );
+
+        return view('admin.users.report', [
+            'user'          => $user,
+            'month'         => $month,
+            'months'        => $months,
+            'startDate'     => $startDate,
+            'daysInMonth'   => $daysInMonth,
+            'chartLabels'   => $chartLabels,
+            'chartApps'     => $chartApps,
+            'chartAssistant'=> $chartAssistant,
+            'detailRows'    => $detailRows,
+            'totals'        => $totals,
+            'interviews'    => $interviews,
+            'isAdmin'       => $isAdmin,
+            'isManager'     => $isManager,
         ]);
     }
 
