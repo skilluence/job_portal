@@ -85,16 +85,25 @@
                 @csrf
                 <div class="stp-form-group" style="margin-bottom:12px;">
                     <label class="stp-label">Current Password <span class="stp-required">*</span></label>
-                    <input type="password" name="current_password" class="stp-input" required>
+                    <div class="input-with-icon">
+                        <input type="password" name="current_password" class="stp-input" required>
+                        <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                    </div>
                 </div>
                 <div class="stp-form-grid">
                     <div class="stp-form-group">
                         <label class="stp-label">New Password <span class="stp-required">*</span></label>
-                        <input type="password" name="password" class="stp-input" minlength="8" required>
+                        <div class="input-with-icon">
+                            <input type="password" name="password" class="stp-input" minlength="8" required>
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                     <div class="stp-form-group">
                         <label class="stp-label">Confirm New Password <span class="stp-required">*</span></label>
-                        <input type="password" name="password_confirmation" class="stp-input" minlength="8" required>
+                        <div class="input-with-icon">
+                            <input type="password" name="password_confirmation" class="stp-input" minlength="8" required>
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                 </div>
                 <div style="margin-top:4px;">

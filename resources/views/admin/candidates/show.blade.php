@@ -514,9 +514,13 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                     <span class="badge {{ $typeClass }}">{{ $interviewTypes[$interview->interview_type] ?? $interview->interview_type }}</span>
                                 </td>
                                 <td>
-                                    <span class="badge {{ $interview->interview_status === 'valid' ? 'badge-success' : 'badge-danger' }}">
-                                        {{ ucfirst($interview->interview_status) }}
-                                    </span>
+                                    @if ($interview->interview_status)
+                                        <span class="badge {{ $interview->interview_status === 'valid' ? 'badge-success' : 'badge-danger' }}">
+                                            {{ ucfirst($interview->interview_status) }}
+                                        </span>
+                                    @else
+                                        <span style="color:var(--text-muted);font-size:12px;">—</span>
+                                    @endif
                                 </td>
                                 <td style="max-width:160px;font-size:12px;color:var(--text-secondary);">{{ $interview->remark ?: '—' }}</td>
                                 <td class="text-sm text-muted" style="white-space:nowrap;">

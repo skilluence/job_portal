@@ -39,18 +39,17 @@
         });
     }
 
-    /* ── Password eye toggles ───────────────────────────────────── */
-    document.querySelectorAll('.password-toggle').forEach(function (button) {
-        button.addEventListener('click', function () {
-            var wrapper = button.closest('.input-with-icon');
-            var input = wrapper ? wrapper.querySelector('input') : null;
-            if (!input) return;
-
-            input.type = input.type === 'password' ? 'text' : 'password';
-            button.innerHTML = input.type === 'password'
-                ? '<i class="bi bi-eye"></i>'
-                : '<i class="bi bi-eye-slash"></i>';
-        });
+    /* ── Password eye toggles (event delegation — works for all modals) ── */
+    document.addEventListener('click', function (e) {
+        var button = e.target.closest('.password-toggle');
+        if (!button) return;
+        var wrapper = button.closest('.input-with-icon');
+        var input = wrapper ? wrapper.querySelector('input[type="password"], input[type="text"]') : null;
+        if (!input) return;
+        input.type = input.type === 'password' ? 'text' : 'password';
+        button.innerHTML = input.type === 'password'
+            ? '<i class="bi bi-eye"></i>'
+            : '<i class="bi bi-eye-slash"></i>';
     });
 
     /* ── Global form submit-once protection ─────────────────────── */

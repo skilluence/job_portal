@@ -328,6 +328,12 @@ class ImportExportController extends Controller
     {
         $request->validate(['file' => ['required', 'file', 'max:10240']]);
 
+        $authUser  = $request->user();
+        $isAdmin   = $authUser->isAdmin();
+        $isManager = $authUser->isManager();
+        // Managers can only import recruiter-role users, never admin
+        $allowedRoles = $isAdmin ? ['admin', 'recruiter', 'manager'] : ['recruiter'];
+
         $ext = strtolower($request->file('file')->getClientOriginalExtension());
         if (!in_array($ext, ['csv', 'txt'], true)) {
             return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).']);
@@ -374,8 +380,10 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            if (!in_array($role, ['admin', 'recruiter'], true)) {
-                $errors[] = "Row {$rowNum}: role must be admin or recruiter.";
+            if (!in_array($role, $allowedRoles, true)) {
+                $errors[] = $isAdmin
+                    ? "Row {$rowNum}: role must be admin, manager, or recruiter."
+                    : "Row {$rowNum}: role must be recruiter (managers cannot import admin/manager users).";
                 $skipped++;
                 continue;
             }

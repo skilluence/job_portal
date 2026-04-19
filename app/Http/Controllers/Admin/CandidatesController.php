@@ -291,6 +291,11 @@ class CandidatesController extends Controller
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
             abort(403, 'You are not authorized to view this file.');
         }
+        if ($user->isManager()
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
+            abort(403, 'You are not authorized to view this file.');
+        }
 
         $path = match ($file) {
             'cv'      => $candidate->cv_file_path,
@@ -325,6 +330,11 @@ class CandidatesController extends Controller
     {
         $user = $request->user();
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
+            return response()->json(['message' => 'Not authorized'], 403);
+        }
+        if ($user->isManager()
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
             return response()->json(['message' => 'Not authorized'], 403);
         }
 
@@ -407,6 +417,11 @@ class CandidatesController extends Controller
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
             return response()->json(['message' => 'You are not authorized to view this password.'], 403);
         }
+        if ($user->isManager()
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
+            return response()->json(['message' => 'You are not authorized to view this password.'], 403);
+        }
 
         $validated = $request->validate([
             'current_password' => ['required', 'string'],
@@ -480,10 +495,16 @@ class CandidatesController extends Controller
 
     public function patchField(Request $request, Candidate $candidate)
     {
-        $user    = $request->user();
-        $isAdmin = $user->isAdmin();
+        $user      = $request->user();
+        $isAdmin   = $user->isAdmin();
+        $isManager = $user->isManager();
 
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
+            return response()->json(['message' => 'Not authorized'], 403);
+        }
+        if ($isManager
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
             return response()->json(['message' => 'Not authorized'], 403);
         }
 

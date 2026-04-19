@@ -29,7 +29,7 @@
 </div>
 
 {{-- ── Stat Cards — 3 cards (Daily Target removed) ───────────────────────── --}}
-<div class="stp-stats-row" style="grid-template-columns:repeat(3,1fr);">
+<div class="stp-stats-row">
     <div class="stp-stat-card">
         <div class="stp-stat-icon" style="background:rgba(16,185,129,0.1);color:#10b981;">
             <i class="bi bi-calendar-event-fill"></i>
@@ -70,87 +70,246 @@
 {{-- ── 3-Tab Section ────────────────────────────────────────────────────────── --}}
 <style>
 /* ── Tab shell ─────────────────────────────────────────────── */
-.sdb-tabs       { display:flex; gap:0; border-bottom:2px solid #e2e8f0; }
-.sdb-tab        {
-    padding:11px 22px; font-size:13.5px; font-weight:500; cursor:pointer;
-    color:#64748b; border:none; background:none;
-    border-bottom:2px solid transparent; margin-bottom:-2px;
-    transition:color .15s, border-color .15s; display:flex; align-items:center; gap:7px;
+.sdb-tabs {
+    display: flex; gap: 0;
+    border-bottom: 2px solid #e2e8f0;
+    background: #f8fafc;
+    border-radius: 12px 12px 0 0;
+    overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none;
 }
-.sdb-tab.active { color:#2563eb; border-bottom-color:#2563eb; font-weight:600; }
-.sdb-tab-body   { background:#fff; border:1px solid #e2e8f0; border-top:none; border-radius:0 0 12px 12px; padding:22px; min-height:200px; }
-.sdb-panel      { display:none; }
-.sdb-panel.show { display:block; }
-.sdb-tab-count  { background:#dbeafe; color:#1d4ed8; border-radius:99px; padding:1px 7px; font-size:11px; font-weight:700; }
+.sdb-tabs::-webkit-scrollbar { display: none; }
+.sdb-tab {
+    flex-shrink: 0;
+    padding: 13px 22px; font-size: 13.5px; font-weight: 500; cursor: pointer;
+    color: #64748b; border: none; background: none;
+    border-bottom: 3px solid transparent; margin-bottom: -2px;
+    transition: color .18s, border-color .18s, background .18s;
+    display: flex; align-items: center; gap: 7px;
+    white-space: nowrap;
+}
+.sdb-tab:hover:not(.active) { color: #334155; background: rgba(37,99,235,.04); }
+.sdb-tab.active {
+    color: #2563eb; border-bottom-color: #2563eb; font-weight: 700;
+    background: #fff;
+}
+.sdb-tab-body {
+    background: #fff; border: 1px solid #e2e8f0; border-top: none;
+    border-radius: 0 0 12px 12px; padding: 24px;
+    min-height: 200px;
+}
+.sdb-panel      { display: none; }
+.sdb-panel.show { display: block; }
+.sdb-tab-count  {
+    background: #2563eb; color: #fff;
+    border-radius: 99px; padding: 1px 8px; font-size: 10.5px; font-weight: 700;
+    min-width: 18px; text-align: center;
+}
+.sdb-tab.active .sdb-tab-count { background: #1d4ed8; }
 
-/* ── Tables ─────────────────────────────────────────────────── */
-.sdb-table      { width:100%; border-collapse:collapse; font-size:13.5px; }
-.sdb-table th   {
-    padding:9px 14px; text-align:left; font-weight:600; font-size:11px;
-    text-transform:uppercase; letter-spacing:.5px; color:#94a3b8;
-    border-bottom:2px solid #f1f5f9; background:#fafbfc;
+/* ── Inline info banner ─────────────────────────────────────── */
+.sdb-info-banner {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 11px 14px; background: #eff6ff; border: 1px solid #bfdbfe;
+    border-radius: 8px; margin-bottom: 18px; font-size: 12.5px; color: #1d4ed8;
+    line-height: 1.5;
 }
-.sdb-table td   { padding:12px 14px; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
-.sdb-table tr:last-child td { border-bottom:none; }
-.sdb-empty      { text-align:center; padding:48px 0; color:#94a3b8; }
-.sdb-empty i    { font-size:36px; display:block; margin-bottom:10px; }
-.sdb-empty p    { font-size:14px; margin:0; }
+.sdb-info-banner i { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+/* ── Application log table ──────────────────────────────────── */
+.sdb-table      { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sdb-table thead th {
+    padding: 10px 16px; text-align: left; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .6px; color: #94a3b8;
+    border-bottom: 2px solid #f1f5f9; background: #fafbfc;
+}
+.sdb-table tbody td { padding: 13px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.sdb-table tbody tr:last-child td { border-bottom: none; }
+.sdb-table tfoot td { padding: 12px 16px; background: #f8fafc; font-weight: 700; }
+.sdb-table tbody tr:hover td { background: #fafbfc; }
+.sdb-empty      { text-align: center; padding: 52px 0; color: #94a3b8; }
+.sdb-empty i    { font-size: 40px; display: block; margin-bottom: 12px; opacity: .6; }
+.sdb-empty p    { font-size: 14px; margin: 0; }
+
+/* ── Interview cards (desktop table view) ───────────────────── */
+.sdb-iv-table   { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.sdb-iv-table th {
+    padding: 10px 16px; text-align: left; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .6px; color: #94a3b8;
+    border-bottom: 2px solid #f1f5f9; background: #fafbfc;
+}
+.sdb-iv-table td { padding: 14px 16px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.sdb-iv-table tr:last-child td { border-bottom: none; }
+
+/* ── Company/role in desktop table ─────────────────────────── */
+.iv-company { font-weight: 600; color: #1e293b; font-size: 13.5px; }
+.iv-role    { font-size: 12px; color: #94a3b8; margin-top: 3px; }
+[data-theme="dark"] .iv-company { color: #e2e8f0; }
+
+/* ── Desktop table hover (exclude mobile gradient header) ───── */
+@media (min-width: 641px) {
+    .sdb-iv-table tbody tr:hover td { background: #fafbfc; }
+    [data-theme="dark"] .sdb-iv-table tbody tr:hover td { background: #0f172a; }
+}
+
+/* ── Type badge ─────────────────────────────────────────────── */
+.sdb-type-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 99px; font-size: 12px; font-weight: 600;
+    background: #e0f2fe; color: #0369a1; text-transform: capitalize; white-space: nowrap;
+}
+.sdb-type-badge.on_site   { background: #d1fae5; color: #065f46; }
+.sdb-type-badge.virtual   { background: #e0f2fe; color: #0369a1; }
+.sdb-type-badge.phone     { background: #fef9c3; color: #854d0e; }
 
 /* ── Interview status toggle ─────────────────────────────────── */
-.iv-toggle-wrap   { display:inline-flex; border-radius:8px; overflow:hidden; border:1px solid #e2e8f0; box-shadow:0 1px 3px rgba(0,0,0,.06); }
-.iv-toggle-btn    {
-    padding:6px 14px; font-size:12px; font-weight:500; border:none; cursor:pointer;
-    background:#f8fafc; color:#94a3b8; display:inline-flex; align-items:center; gap:5px;
-    transition:background .15s, color .15s; white-space:nowrap;
+.iv-toggle-wrap {
+    display: inline-flex; border-radius: 8px; overflow: hidden;
+    border: 1.5px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,.06);
 }
-.iv-toggle-btn.active.valid   { background:#dcfce7; color:#16a34a; font-weight:600; }
-.iv-toggle-btn.active.invalid { background:#fee2e2; color:#dc2626; font-weight:600; }
-.iv-toggle-btn:not(.active):hover { background:#f1f5f9; color:#475569; }
-.iv-toggle-btn:disabled { opacity:.55; cursor:not-allowed; }
-.iv-toggle-sep  { width:1px; background:#e2e8f0; flex-shrink:0; }
+.iv-toggle-btn {
+    padding: 7px 16px; font-size: 12.5px; font-weight: 500; border: none; cursor: pointer;
+    background: #f8fafc; color: #94a3b8;
+    display: inline-flex; align-items: center; gap: 5px;
+    transition: background .15s, color .15s; white-space: nowrap;
+}
+.iv-toggle-btn.active.valid   { background: #dcfce7; color: #15803d; font-weight: 700; }
+.iv-toggle-btn.active.invalid { background: #fee2e2; color: #dc2626; font-weight: 700; }
+.iv-toggle-btn:not(.active):hover { background: #f1f5f9; color: #475569; }
+.iv-toggle-btn:disabled { opacity: .5; cursor: not-allowed; }
+.iv-toggle-sep  { width: 1px; background: #e2e8f0; flex-shrink: 0; }
 
 /* saving spinner */
-.iv-saving-dot { display:none; width:6px; height:6px; border-radius:50%; background:currentColor; margin-left:3px; animation:ivPulse 1s infinite; }
-.iv-toggle-btn.saving .iv-saving-dot { display:inline-block; }
+.iv-saving-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-left: 2px; animation: ivPulse 1s infinite; }
+.iv-toggle-btn.saving .iv-saving-dot { display: inline-block; }
 @keyframes ivPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
 
-/* ── Interview status badge ──────────────────────────────────── */
-.iv-badge        { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:99px; font-size:12px; font-weight:600; }
-.iv-badge.valid  { background:#dcfce7; color:#16a34a; }
-.iv-badge.invalid{ background:#fee2e2; color:#dc2626; }
-
 /* ── Doc rows ─────────────────────────────────────────────────── */
-.sdb-doc-row    { display:flex; align-items:center; gap:14px; padding:12px 0; border-bottom:1px solid #f1f5f9; }
-.sdb-doc-row:last-child { border-bottom:none; }
-.sdb-doc-icon   { width:40px;height:40px;border-radius:10px;background:#eff6ff;color:#2563eb;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
-.sdb-doc-body   { flex:1;min-width:0; }
-.sdb-doc-name   { font-weight:600;font-size:13.5px;color:#1e293b; }
-.sdb-doc-meta   { font-size:12px;color:#94a3b8;margin-top:2px; }
+.sdb-doc-row    { display: flex; align-items: center; gap: 14px; padding: 14px 0; border-bottom: 1px solid #f1f5f9; }
+.sdb-doc-row:last-child { border-bottom: none; }
+.sdb-doc-icon   { width: 42px; height: 42px; border-radius: 10px; background: #eff6ff; color: #2563eb; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.sdb-doc-body   { flex: 1; min-width: 0; overflow: hidden; }
+.sdb-doc-name   { font-weight: 600; font-size: 13.5px; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sdb-doc-meta   { font-size: 12px; color: #94a3b8; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sdb-view-btn   {
-    display:inline-flex; align-items:center; gap:5px; padding:5px 14px; border-radius:7px;
-    background:#eff6ff; color:#2563eb; text-decoration:none; font-size:12px; font-weight:500;
-    transition:background .15s; white-space:nowrap;
+    display: inline-flex; align-items: center; gap: 5px; padding: 6px 14px; border-radius: 8px;
+    background: #eff6ff; color: #2563eb; text-decoration: none; font-size: 12px; font-weight: 600;
+    border: 1px solid #bfdbfe; transition: background .15s, border-color .15s; white-space: nowrap;
 }
-.sdb-view-btn:hover { background:#dbeafe; }
+.sdb-view-btn:hover { background: #dbeafe; border-color: #93c5fd; }
 
-/* Dark mode */
-[data-theme="dark"] .sdb-tab-body  { background:#1e293b; border-color:#334155; }
-[data-theme="dark"] .sdb-tab       { color:#94a3b8; }
-[data-theme="dark"] .sdb-table th  { background:#0f172a; color:#64748b; border-color:#1e293b; }
-[data-theme="dark"] .sdb-table td  { border-color:#1e293b; }
-[data-theme="dark"] .sdb-doc-icon  { background:#1e3a5f; }
-[data-theme="dark"] .sdb-doc-name  { color:#e2e8f0; }
-[data-theme="dark"] .iv-toggle-btn { background:#1e293b; border-color:#334155; }
-[data-theme="dark"] .iv-toggle-sep { background:#334155; }
+/* ── Dark mode ─────────────────────────────────────────────── */
+[data-theme="dark"] .sdb-tabs            { background: #0f172a; border-color: #1e293b; }
+[data-theme="dark"] .sdb-tab             { color: #94a3b8; }
+[data-theme="dark"] .sdb-tab.active      { background: #1e293b; color: #60a5fa; border-bottom-color: #3b82f6; }
+[data-theme="dark"] .sdb-tab:hover:not(.active) { background: rgba(255,255,255,.04); }
+[data-theme="dark"] .sdb-tab-body        { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .sdb-table thead th  { background: #0f172a; color: #64748b; border-color: #1e293b; }
+[data-theme="dark"] .sdb-table tbody td  { border-color: #1e293b; }
+[data-theme="dark"] .sdb-table tfoot td  { background: #0f172a; }
+[data-theme="dark"] .sdb-table tbody tr:hover td { background: #0f172a; }
+[data-theme="dark"] .sdb-iv-table th     { background: #0f172a; color: #64748b; border-color: #1e293b; }
+[data-theme="dark"] .sdb-iv-table td     { border-color: #1e293b; }
+[data-theme="dark"] .sdb-doc-icon        { background: #1e3a5f; }
+[data-theme="dark"] .sdb-doc-name        { color: #e2e8f0; }
+[data-theme="dark"] .sdb-doc-row         { border-color: #1e293b; }
+[data-theme="dark"] .iv-toggle-btn       { background: #1e293b; color: #64748b; border-color: #334155; }
+[data-theme="dark"] .iv-toggle-sep       { background: #334155; }
+[data-theme="dark"] .sdb-info-banner     { background: #1e3a5f; border-color: #1d4ed8; color: #93c5fd; }
+
+/* ── Mobile: interview cards ────────────────────────────────── */
+@media (max-width: 640px) {
+    .sdb-iv-table thead { display: none; }
+    .sdb-iv-table tbody { display: flex; flex-direction: column; gap: 14px; }
+    .sdb-iv-table tbody tr {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto auto auto;
+        border: 1px solid #e2e8f0; border-radius: 14px;
+        overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06);
+        background: #fff;
+    }
+    /* Company & Role → full-width header */
+    .sdb-iv-table td:nth-child(1) {
+        grid-column: 1 / -1;
+        background: linear-gradient(135deg, #1e3a6e 0%, #2563eb 100%);
+        padding: 12px 16px; border: none;
+    }
+    .sdb-iv-table td:nth-child(1) .iv-company { color: #fff; font-weight: 700; font-size: 14.5px; }
+    .sdb-iv-table td:nth-child(1) .iv-role    { color: rgba(255,255,255,.75); font-size: 12px; margin-top: 2px; }
+    /* Type → left cell */
+    .sdb-iv-table td:nth-child(2) {
+        grid-column: 1; padding: 12px 14px; border: none;
+        border-bottom: 1px solid #f1f5f9;
+    }
+    /* Scheduled → right cell */
+    .sdb-iv-table td:nth-child(3) {
+        grid-column: 2; padding: 12px 14px; border: none;
+        border-left: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9;
+    }
+    /* Status → full-width footer */
+    .sdb-iv-table td:nth-child(4) {
+        grid-column: 1 / -1; padding: 12px 14px; border: none;
+        background: #f8fafc;
+    }
+    .sdb-iv-table td:nth-child(2)::before,
+    .sdb-iv-table td:nth-child(3)::before,
+    .sdb-iv-table td:nth-child(4)::before {
+        content: attr(data-label);
+        display: block; font-size: 10px; font-weight: 700;
+        color: #94a3b8; text-transform: uppercase; letter-spacing: .6px;
+        margin-bottom: 5px;
+    }
+    /* Full-width toggle on mobile */
+    .sdb-iv-table .iv-toggle-wrap { display: flex; width: 100%; }
+    .sdb-iv-table .iv-toggle-btn  { flex: 1; justify-content: center; padding: 9px 8px; font-size: 13px; }
+    /* Dark mode cards */
+    [data-theme="dark"] .sdb-iv-table tbody tr { background: #1e293b; border-color: #334155; }
+    [data-theme="dark"] .sdb-iv-table td:nth-child(2),
+    [data-theme="dark"] .sdb-iv-table td:nth-child(3) { border-color: #334155; }
+    [data-theme="dark"] .sdb-iv-table td:nth-child(4) { background: #0f172a; }
+}
+
+/* ── Mobile: app log → card rows ────────────────────────────── */
+@media (max-width: 540px) {
+    .sdb-table thead { display: none; }
+    .sdb-table tbody tr {
+        display: flex; flex-direction: row; flex-wrap: wrap; align-items: center;
+        gap: 0; padding: 0;
+        border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px;
+        overflow: hidden;
+    }
+    .sdb-table tbody tr:last-child { margin-bottom: 0; }
+    .sdb-table td { border-bottom: none !important; padding: 12px 14px; }
+    /* Date cell — full width */
+    .sdb-table td:nth-child(1) { width: 100%; border-bottom: 1px solid #f1f5f9 !important; padding-bottom: 10px; }
+    /* Applications + Assistant — half each */
+    .sdb-table td:nth-child(2), .sdb-table td:nth-child(3) { width: 50%; }
+    .sdb-table td:nth-child(2), .sdb-table td:nth-child(3) { text-align: left !important; }
+    .sdb-table td:nth-child(2)::before { content: "Applications"; display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .sdb-table td:nth-child(3)::before { content: "Assistant"; display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .sdb-table td:nth-child(2) span, .sdb-table td:nth-child(3) span { font-size: 20px; }
+    .sdb-table tfoot { display: block; }
+    .sdb-table tfoot tr {
+        display: flex; flex-direction: row; flex-wrap: wrap;
+        border: 2px solid #2563eb; border-radius: 12px; margin-top: 6px; overflow: hidden; background: #eff6ff;
+    }
+    .sdb-table tfoot td { padding: 10px 14px; }
+    .sdb-table tfoot td:nth-child(1) { width: 100%; border-bottom: 1px solid #bfdbfe !important; padding-bottom: 8px; color: #1d4ed8; }
+    .sdb-table tfoot td:nth-child(2), .sdb-table tfoot td:nth-child(3) { width: 50%; background: transparent; }
+    [data-theme="dark"] .sdb-table tbody tr { background: #1e293b; border-color: #334155; }
+    [data-theme="dark"] .sdb-table td:nth-child(1) { border-color: #334155 !important; }
+    [data-theme="dark"] .sdb-table tfoot tr { background: #1e3a5f; border-color: #3b82f6; }
+    [data-theme="dark"] .sdb-table tfoot td:nth-child(1) { border-color: #1d4ed8 !important; color: #93c5fd; }
+}
 </style>
 
-<div class="stp-card" style="padding:0;overflow:hidden;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.06);">
+<div id="sdb-section" class="stp-card" style="padding:0;overflow:hidden;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(37,99,235,.07);">
     <div class="sdb-tabs">
         <button class="sdb-tab active" onclick="switchSdbTab('apps', this)">
-            <i class="bi bi-file-earmark-text"></i> Application &amp; Assistant
+            <i class="bi bi-file-earmark-text-fill"></i> Application &amp; Assistant
         </button>
         <button class="sdb-tab" onclick="switchSdbTab('interviews', this)">
-            <i class="bi bi-calendar-check"></i> Interview
+            <i class="bi bi-calendar-check-fill"></i> Interviews
             @if ($interviews->count())
                 <span class="sdb-tab-count">{{ $interviews->count() }}</span>
             @endif
@@ -221,13 +380,12 @@
                     <p>No interviews scheduled yet.</p>
                 </div>
             @else
-                {{-- Helper note --}}
-                <div style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:#eff6ff;border-radius:8px;margin-bottom:16px;font-size:12.5px;color:#1d4ed8;">
-                    <i class="bi bi-info-circle-fill" style="font-size:14px;flex-shrink:0;"></i>
+                <div class="sdb-info-banner">
+                    <i class="bi bi-info-circle-fill"></i>
                     <span>Tap <strong>Valid</strong> or <strong>Invalid</strong> on any interview to update its status — changes save instantly.</span>
                 </div>
                 <div style="overflow-x:auto;">
-                    <table class="sdb-table">
+                    <table class="sdb-iv-table">
                         <thead>
                             <tr>
                                 <th>Company &amp; Role</th>
@@ -238,21 +396,25 @@
                         </thead>
                         <tbody>
                             @foreach ($interviews as $iv)
-                            @php $isValid = $iv->interview_status === 'valid'; @endphp
+                            @php
+                                $ivStatus = $iv->interview_status; // null | 'valid' | 'invalid'
+                                $typeSlug = str_replace(['_', ' '], '_', strtolower($iv->interview_type ?? ''));
+                            @endphp
                             <tr>
                                 <td>
-                                    <div style="font-weight:600;color:#1e293b;">{{ $iv->company_name }}</div>
-                                    <div style="font-size:12px;color:#94a3b8;margin-top:2px;">{{ $iv->role }}</div>
+                                    <div class="iv-company">{{ $iv->company_name }}</div>
+                                    <div class="iv-role">{{ $iv->role }}</div>
                                 </td>
-                                <td>
-                                    <span style="font-size:12px;padding:3px 10px;border-radius:99px;font-weight:500;
-                                        background:#e0f2fe;color:#0369a1;text-transform:capitalize;white-space:nowrap;">
-                                        {{ str_replace('_', ' ', $iv->interview_type) }}
+                                <td data-label="Type">
+                                    <span class="sdb-type-badge {{ $typeSlug }}">
+                                        {{ ucwords(str_replace('_', ' ', $iv->interview_type)) }}
                                     </span>
                                 </td>
-                                <td style="color:#64748b;font-size:13px;">
+                                <td data-label="Scheduled">
                                     @if ($iv->scheduled_date)
-                                        <div style="font-weight:500;color:#374151;">{{ \Carbon\Carbon::parse($iv->scheduled_date)->format('M d, Y') }}</div>
+                                        <div style="font-weight:600;color:#374151;font-size:13px;">
+                                            {{ \Carbon\Carbon::parse($iv->scheduled_date)->format('M d, Y') }}
+                                        </div>
                                         @if ($iv->scheduled_time)
                                             <div style="font-size:12px;color:#94a3b8;margin-top:2px;">
                                                 {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
@@ -260,25 +422,26 @@
                                             </div>
                                         @endif
                                     @else
-                                        <span style="color:#cbd5e1;">TBD</span>
+                                        <span style="color:#cbd5e1;font-size:13px;">TBD</span>
                                     @endif
                                 </td>
-                                <td>
-                                    {{-- Toggle button: no form submit, pure AJAX --}}
+                                <td data-label="Status">
                                     <div class="iv-toggle-wrap"
                                         data-url="{{ route('student.interviews.status', $iv) }}"
                                         data-token="{{ csrf_token() }}">
                                         <button type="button"
-                                            class="iv-toggle-btn valid {{ $isValid ? 'active' : '' }}"
+                                            class="iv-toggle-btn valid {{ $ivStatus === 'valid' ? 'active' : '' }}"
                                             onclick="updateIvStatus(this,'valid')">
-                                            <i class="bi bi-check-circle-fill"></i> Valid
+                                            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0;"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/></svg>
+                                            Valid
                                             <span class="iv-saving-dot"></span>
                                         </button>
                                         <span class="iv-toggle-sep"></span>
                                         <button type="button"
-                                            class="iv-toggle-btn invalid {{ !$isValid ? 'active' : '' }}"
+                                            class="iv-toggle-btn invalid {{ $ivStatus === 'invalid' ? 'active' : '' }}"
                                             onclick="updateIvStatus(this,'invalid')">
-                                            <i class="bi bi-x-circle-fill"></i> Invalid
+                                            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0;"><path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zM5.354 4.646a.5.5 0 1 0-.708.708L7.293 8l-2.647 2.646a.5.5 0 0 0 .708.708L8 8.707l2.646 2.647a.5.5 0 0 0 .708-.708L8.707 8l2.647-2.646a.5.5 0 0 0-.708-.708L8 7.293 5.354 4.646z"/></svg>
+                                            Invalid
                                             <span class="iv-saving-dot"></span>
                                         </button>
                                     </div>
@@ -347,6 +510,18 @@ function switchSdbTab(tab, btn) {
     document.querySelectorAll('.sdb-panel').forEach(p => p.classList.remove('show'));
     btn.classList.add('active');
     document.getElementById('sdb-' + tab).classList.add('show');
+
+    // Scroll tab button into view (horizontal scroll within tab bar)
+    btn.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+
+    // On mobile: scroll page so the tab content is visible
+    var section = document.getElementById('sdb-section');
+    if (section && window.innerWidth < 768) {
+        setTimeout(function () {
+            var top = section.getBoundingClientRect().top + window.pageYOffset - 12;
+            window.scrollTo({ top: top, behavior: 'smooth' });
+        }, 50);
+    }
 }
 
 /* ── Interview status AJAX toggle ────────────────────────────────────────── */

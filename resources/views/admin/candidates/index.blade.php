@@ -243,7 +243,7 @@ $workAuthOptions = [
                                     ])->values(),
                                 ];
                             @endphp
-                            <div style="display:flex;gap:6px;align-items:center;flex-wrap:nowrap;">
+                            <div class="tbl-actions">
                                 <a href="{{ route('admin.candidates.show', $candidate) }}"
                                    class="btn btn-outline btn-sm" title="View candidate preview">
                                     <i class="bi bi-eye"></i>

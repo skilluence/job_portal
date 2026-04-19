@@ -100,7 +100,7 @@
                         </td>
                         <td class="text-muted text-sm">{{ $user->candidates_count ?? 0 }}</td>
                         <td>
-                            <div class="d-flex gap-4" style="flex-wrap:nowrap;align-items:center;">
+                            <div class="tbl-actions">
                                 @if ($canViewReport)
                                     <a href="{{ route('admin.users.report', $user) }}"
                                        class="btn btn-outline btn-sm" title="View monthly report">
@@ -227,11 +227,17 @@
 
                     <div class="form-group">
                         <label class="form-label">Password <span style="color:var(--red-text)">*</span></label>
-                        <input type="password" name="password" class="form-control" required placeholder="Min 8 characters">
+                        <div class="input-with-icon">
+                            <input type="password" name="password" class="form-control" required placeholder="Min 8 characters">
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password <span style="color:var(--red-text)">*</span></label>
-                        <input type="password" name="password_confirmation" class="form-control" required>
+                        <div class="input-with-icon">
+                            <input type="password" name="password_confirmation" class="form-control" required>
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -302,11 +308,17 @@
                     @endif
                     <div class="form-group">
                         <label class="form-label">New Password <span class="text-muted text-sm">(optional)</span></label>
-                        <input type="password" name="password" class="form-control" placeholder="Min 8 characters">
+                        <div class="input-with-icon">
+                            <input type="password" name="password" class="form-control" placeholder="Min 8 characters">
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password</label>
-                        <input type="password" name="password_confirmation" class="form-control">
+                        <div class="input-with-icon">
+                            <input type="password" name="password_confirmation" class="form-control">
+                            <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
+                        </div>
                     </div>
                 </div>
             </div>

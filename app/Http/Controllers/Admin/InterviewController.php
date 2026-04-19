@@ -46,7 +46,7 @@ class InterviewController extends Controller
         $data['candidate_id']     = $candidate->id;
         $data['recruiter_id']     = $candidate->recruiter_id; // always the candidate's assigned recruiter
         $data['created_by']       = $user->id;
-        $data['interview_status'] = 'valid';
+        $data['interview_status'] = null; // blank by default; updated by admin or candidate
 
         Interview::create($data);
 

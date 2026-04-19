@@ -9,6 +9,27 @@
 .dw-grid-2   { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
 .dw-grid-1   { margin-bottom:20px; }
 
+/* ── Summary stat cards ──────────────────────────────────── */
+.dw-stats-row {
+    display:grid; gap:16px; margin-bottom:20px;
+    grid-template-columns: repeat(4, 1fr);
+}
+.dw-stat-card {
+    background:var(--card-bg); border:1px solid var(--border-color);
+    border-radius:var(--radius); padding:16px 20px;
+    display:flex; align-items:center; gap:14px;
+    transition:box-shadow .15s, background var(--transition);
+}
+.dw-stat-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.07); }
+.dw-stat-icon {
+    width:42px; height:42px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:19px;
+}
+.dw-stat-body { min-width:0; }
+.dw-stat-num  { font-size:26px; font-weight:800; line-height:1; color:var(--text-primary); }
+.dw-stat-lbl  { font-size:12px; color:var(--text-muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
 /* ── Section header ──────────────────────────────────────── */
 .dw-head     { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap; gap:8px; }
 .dw-title    { font-size:15px; font-weight:700; color:var(--text-primary); display:flex; align-items:center; gap:8px; }
@@ -77,34 +98,122 @@
     background:#fff7ed; color:#c2410c; font-weight:600;
 }
 
+/* ── Manager scope cards ──────────────────────────────────── */
+.dw-manager-header {
+    display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:20px;
+}
+.dw-scope-card {
+    background:var(--card-bg); border:1px solid var(--border-color);
+    border-radius:var(--radius); padding:16px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    gap:12px; text-decoration:none;
+    transition:box-shadow .15s, background var(--transition);
+}
+.dw-scope-card:hover { box-shadow:0 2px 12px rgba(0,0,0,.08); text-decoration:none; }
+.dw-scope-num { font-size:32px; font-weight:800; line-height:1; }
+.dw-scope-lbl { font-size:13px; font-weight:600; color:var(--text-primary); margin-top:4px; }
+.dw-scope-sub { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+.dw-scope-icon {
+    width:44px; height:44px; border-radius:10px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:20px;
+}
+
+@media (max-width:900px) {
+    .dw-stats-row { grid-template-columns:repeat(2,1fr); }
+}
 @media (max-width:768px) {
     .dw-grid-2 { grid-template-columns:1fr; }
+    .dw-manager-header { grid-template-columns:1fr; }
+}
+@media (max-width:480px) {
+    .dw-stats-row { grid-template-columns:1fr 1fr; }
 }
 </style>
 
+{{-- ── Summary stat cards (all roles) ─────────────────────────────────────── --}}
+<div class="dw-stats-row">
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#eff6ff;color:#2563eb;">
+            <i class="bi bi-people-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statTotalCandidates) }}</div>
+            <div class="dw-stat-lbl">
+                @if ($isRecruiter) My Candidates
+                @elseif ($isManager) All Candidates
+                @else Total Candidates
+                @endif
+            </div>
+        </div>
+    </div>
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#f0fdf4;color:#16a34a;">
+            <i class="bi bi-person-check-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statActiveCandidates) }}</div>
+            <div class="dw-stat-lbl">Active / Enrolled</div>
+        </div>
+    </div>
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#fef9c3;color:#854d0e;">
+            <i class="bi bi-calendar2-check-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statInterviewsMonth) }}</div>
+            <div class="dw-stat-lbl">Interviews This Month</div>
+        </div>
+    </div>
+    @if ($isRecruiter)
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#f0fdf4;color:#059669;">
+            <i class="bi bi-patch-check-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statValidInterviews) }}</div>
+            <div class="dw-stat-lbl">Valid Interviews (All Time)</div>
+        </div>
+    </div>
+    @else
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#fdf4ff;color:#a21caf;">
+            <i class="bi bi-person-badge-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statTotalRecruiters) }}</div>
+            <div class="dw-stat-lbl">
+                @if ($isManager) Team Recruiters
+                @else Active Recruiters
+                @endif
+            </div>
+        </div>
+    </div>
+    @endif
+</div>
+
 {{-- ── Manager context header ──────────────────────────────────────────── --}}
 @if ($isManager ?? false)
-<div class="content-grid mb-20" style="grid-template-columns:repeat(2,1fr);">
-    <div class="card" style="border-left:4px solid var(--blue);">
-        <div class="card-header" style="padding-bottom:8px;">
-            <div>
-                <div class="card-title" style="font-size:15px;"><i class="bi bi-person-fill" style="color:var(--blue);margin-right:6px;"></i> My Candidates</div>
-                <div class="card-subtitle">Directly assigned to you</div>
-            </div>
-            <a href="{{ route('admin.candidates', ['scope' => 'mine']) }}" class="btn btn-outline btn-sm">View</a>
+<div class="dw-manager-header">
+    <a href="{{ route('admin.candidates', ['scope' => 'mine']) }}" class="dw-scope-card" style="border-left:3px solid var(--blue);">
+        <div>
+            <div class="dw-scope-num" style="color:var(--blue);">{{ $managerMyCandidatesCount }}</div>
+            <div class="dw-scope-lbl">My Candidates</div>
+            <div class="dw-scope-sub">Directly assigned to you</div>
         </div>
-        <div style="font-size:32px;font-weight:700;color:var(--blue);padding:4px 0 2px;">{{ $managerMyCandidatesCount }}</div>
-    </div>
-    <div class="card" style="border-left:4px solid var(--green);">
-        <div class="card-header" style="padding-bottom:8px;">
-            <div>
-                <div class="card-title" style="font-size:15px;"><i class="bi bi-people-fill" style="color:var(--green);margin-right:6px;"></i> Team Candidates</div>
-                <div class="card-subtitle">Through your recruiters</div>
-            </div>
-            <a href="{{ route('admin.candidates', ['scope' => 'team']) }}" class="btn btn-outline btn-sm">View</a>
+        <div class="dw-scope-icon" style="background:#eff6ff;color:#2563eb;">
+            <i class="bi bi-person-fill"></i>
         </div>
-        <div style="font-size:32px;font-weight:700;color:var(--green);padding:4px 0 2px;">{{ $managerAllCandidatesCount }}</div>
-    </div>
+    </a>
+    <a href="{{ route('admin.candidates', ['scope' => 'team']) }}" class="dw-scope-card" style="border-left:3px solid var(--green);">
+        <div>
+            <div class="dw-scope-num" style="color:var(--green);">{{ $managerAllCandidatesCount }}</div>
+            <div class="dw-scope-lbl">Team Candidates</div>
+            <div class="dw-scope-sub">Through your recruiters</div>
+        </div>
+        <div class="dw-scope-icon" style="background:#f0fdf4;color:#16a34a;">
+            <i class="bi bi-people-fill"></i>
+        </div>
+    </a>
 </div>
 @endif
 
@@ -245,9 +354,10 @@
 </div>
 
 {{-- ── Row 2: Top Performance + Attention Required ───────────────────────── --}}
-<div class="dw-grid-2">
+{{-- When recruiter: only Attention Required, full width. Otherwise 2-col grid. --}}
+<div class="{{ $isRecruiter ? 'dw-grid-1' : 'dw-grid-2' }}">
 
-    {{-- Top Performance --}}
+    {{-- Top Performance (admin / manager only) --}}
     @if (!$isRecruiter)
     <div class="card">
         <div class="dw-head">
@@ -303,7 +413,7 @@
     @endif
 
     {{-- Attention Required --}}
-    <div class="card {{ $isRecruiter ? '' : '' }}">
+    <div class="card">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i> Attention Required</div>

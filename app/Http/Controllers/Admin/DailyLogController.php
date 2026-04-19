@@ -68,11 +68,17 @@ class DailyLogController extends Controller
 
     public function update(Request $request, Candidate $candidate, DailyLog $log)
     {
-        $user    = $request->user();
-        $isAdmin = $user->isAdmin();
+        $user      = $request->user();
+        $isAdmin   = $user->isAdmin();
+        $isManager = $user->isManager();
 
         // Access control
         if ($user->isRecruiter() && $candidate->recruiter_id !== $user->id) {
+            return response()->json(['message' => 'Not authorized'], 403);
+        }
+        if ($isManager
+            && $candidate->team_manager_id !== $user->id
+            && !in_array($candidate->recruiter_id, $user->teamMemberIds(), true)) {
             return response()->json(['message' => 'Not authorized'], 403);
         }
 

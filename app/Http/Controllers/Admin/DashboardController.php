@@ -109,6 +109,27 @@ class DashboardController extends Controller
         $managerMyCandidatesCount  = $isManager ? Candidate::where('team_manager_id', $user->id)->count() : 0;
         $managerAllCandidatesCount = $isManager ? Candidate::whereIn('recruiter_id', $teamMemberIds)->count() : 0;
 
+        // ── Summary stats (scoped by role) ────────────────────────────────────
+        $statsQuery = fn () => Candidate::query()
+            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)));
+
+        $statTotalCandidates  = $statsQuery()->count();
+        $statActiveCandidates = $statsQuery()->whereIn('status', ['active', 'enrolled'])->count();
+        $statInterviewsMonth  = Interview::query()
+            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->count();
+        $statValidInterviews  = Interview::where('interview_status', 'valid')
+            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
+            ->count();
+        $statTotalRecruiters  = $isAdmin
+            ? User::recruiters()->active()->count()
+            : ($isManager ? User::recruiters()->active()->whereIn('id', $teamMemberIds)->count() : 0);
+
         return view('admin.dashboard', [
             'todayInterviews'           => $todayInterviews,
             'tomorrowInterviews'        => $tomorrowInterviews,
@@ -123,6 +144,12 @@ class DashboardController extends Controller
             'isRecruiter'               => $isRecruiter,
             'managerMyCandidatesCount'  => $managerMyCandidatesCount,
             'managerAllCandidatesCount' => $managerAllCandidatesCount,
+            // Summary stat cards
+            'statTotalCandidates'       => $statTotalCandidates,
+            'statActiveCandidates'      => $statActiveCandidates,
+            'statInterviewsMonth'       => $statInterviewsMonth,
+            'statValidInterviews'       => $statValidInterviews,
+            'statTotalRecruiters'       => $statTotalRecruiters,
         ]);
     }
 }
