@@ -31,10 +31,6 @@
                 <img src="{{ asset('images/logo-square.webp') }}" alt="Skilluence">
                 <span class="sidebar-logo-text">Skilluence</span>
             </a>
-            <button class="sidebar-toggle" id="sidebarToggle" title="Pin sidebar">
-                <i class="bi bi-layout-sidebar icon-unlock"></i>
-                <i class="bi bi-layout-sidebar-inset icon-lock"></i>
-            </button>
         </div>
 
         <nav class="sidebar-nav">
@@ -92,7 +88,8 @@
     <div class="main-wrapper">
         <header class="main-header">
             <button class="header-sidebar-toggle" id="headerSidebarToggle" title="Toggle sidebar">
-                <i class="bi bi-layout-sidebar"></i>
+                <i class="bi bi-layout-sidebar icon-unlock"></i>
+                <i class="bi bi-layout-sidebar-inset icon-lock"></i>
             </button>
             <div class="header-info">
                 <div class="header-title">@yield('module-title', 'Dashboard')</div>

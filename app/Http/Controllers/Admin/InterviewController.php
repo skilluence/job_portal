@@ -33,7 +33,7 @@ class InterviewController extends Controller
         $data = $request->validate([
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
-            'company_domain'     => ['required', 'url', 'max:500'],
+            'company_domain'     => ['required', 'string', 'max:500'],
             'mail_date'          => ['nullable', 'date'],
             'mail_time'          => ['nullable', 'date_format:H:i'],
             'interview_type'     => ['required', Rule::in(self::TYPES)],
@@ -43,10 +43,22 @@ class InterviewController extends Controller
             'scheduled_timezone' => ['nullable', Rule::in(self::TIMEZONES)],
         ]);
 
+        // Normalise company_domain — prepend https:// if no scheme given
+        if (!empty($data['company_domain']) && !preg_match('#^https?://#i', $data['company_domain'])) {
+            $data['company_domain'] = 'https://' . $data['company_domain'];
+        }
+
         $data['candidate_id']     = $candidate->id;
         $data['recruiter_id']     = $candidate->recruiter_id; // always the candidate's assigned recruiter
         $data['created_by']       = $user->id;
         $data['interview_status'] = null; // blank by default; updated by admin or candidate
+
+        // Non-admin (recruiter/manager) cannot set scheduled fields — only admin/candidate may
+        if (!$isAdmin) {
+            $data['scheduled_date']     = null;
+            $data['scheduled_time']     = null;
+            $data['scheduled_timezone'] = null;
+        }
 
         Interview::create($data);
 
@@ -74,7 +86,7 @@ class InterviewController extends Controller
         $data = $request->validate([
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
-            'company_domain'     => ['required', 'url', 'max:500'],
+            'company_domain'     => ['required', 'string', 'max:500'],
             'mail_date'          => ['nullable', 'date'],
             'mail_time'          => ['nullable', 'date_format:H:i'],
             'interview_type'     => ['required', Rule::in(self::TYPES)],
@@ -83,6 +95,11 @@ class InterviewController extends Controller
             'scheduled_time'     => ['nullable', 'date_format:H:i'],
             'scheduled_timezone' => ['nullable', Rule::in(self::TIMEZONES)],
         ]);
+
+        // Normalise company_domain — prepend https:// if no scheme given
+        if (!empty($data['company_domain']) && !preg_match('#^https?://#i', $data['company_domain'])) {
+            $data['company_domain'] = 'https://' . $data['company_domain'];
+        }
 
         // Handle nullable date/time fields explicitly
         foreach (['mail_date', 'mail_time', 'scheduled_date', 'scheduled_time', 'scheduled_timezone'] as $f) {

@@ -39,7 +39,7 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
     Route::patch('/candidates/{candidate}/interview-status', [CandidatesController::class, 'updateInterviewStatus'])
         ->name('candidates.interview-status');
     Route::get('/candidates/{candidate}/files/{file}', [CandidatesController::class, 'downloadFile'])
-        ->whereIn('file', ['cv', 'details', 'speedy'])
+        ->whereIn('file', ['cv', 'details', 'speedy', 'agreement'])
         ->name('candidates.files');
     Route::get('/candidates/{candidate}/resumes/{resume}', [CandidateResumeController::class, 'download'])
         ->name('candidates.resumes.download');
@@ -94,5 +94,6 @@ Route::prefix('student')->name('student.')->middleware('student.auth')->group(fu
         ->name('files');
     Route::post('/resumes', [StudentResumeController::class, 'store'])->name('resumes.store');
     Route::get('/resumes/{resume}/file', [StudentResumeController::class, 'download'])->name('resumes.download');
-    Route::patch('/interviews/{interview}/status', [StudentInfoController::class, 'updateInterviewStatus'])->name('interviews.status');
+    Route::patch('/interviews/{interview}/status',   [StudentInfoController::class, 'updateInterviewStatus'])->name('interviews.status');
+    Route::patch('/interviews/{interview}/schedule', [StudentInfoController::class, 'updateInterviewSchedule'])->name('interviews.schedule');
 });

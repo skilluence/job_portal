@@ -305,11 +305,37 @@
                     <th>Action</th>
                     <th>Module</th>
                     <th>Description</th>
+                    <th>Status</th>
                     <th>Performed By</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($history as $log)
+                @php
+                    // Derive import status from new_values metadata stored during import
+                    $importedCount = $log->new_values['imported'] ?? null;
+                    $skippedCount  = $log->new_values['skipped']  ?? null;
+                    $hasError      = $log->new_values['has_errors'] ?? false;
+                    if ($log->action === 'imported') {
+                        if ($hasError) {
+                            $statusBadge = 'badge-warning';
+                            $statusLabel = 'Partial';
+                            $statusIcon  = 'bi-exclamation-triangle-fill';
+                        } elseif ($importedCount !== null) {
+                            $statusBadge = 'badge-success';
+                            $statusLabel = 'Success';
+                            $statusIcon  = 'bi-check-circle-fill';
+                        } else {
+                            $statusBadge = 'badge-success';
+                            $statusLabel = 'Done';
+                            $statusIcon  = 'bi-check-circle-fill';
+                        }
+                    } else {
+                        $statusBadge = 'badge-primary';
+                        $statusLabel = 'Done';
+                        $statusIcon  = 'bi-check-circle-fill';
+                    }
+                @endphp
                 <tr>
                     <td class="text-sm text-muted" style="white-space:nowrap;">
                         {{ $log->created_at->format('M d, Y') }}<br>
@@ -322,7 +348,21 @@
                         </span>
                     </td>
                     <td class="text-sm">{{ ucfirst($log->module) }}</td>
-                    <td class="text-sm" style="max-width:320px;">{{ $log->description }}</td>
+                    <td class="text-sm" style="max-width:260px;">
+                        {{ $log->description }}
+                        @if ($importedCount !== null)
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+                                {{ $importedCount }} imported
+                                @if ($skippedCount) · {{ $skippedCount }} skipped @endif
+                            </div>
+                        @endif
+                    </td>
+                    <td>
+                        <span class="badge {{ $statusBadge }}" style="font-size:11px;">
+                            <i class="bi {{ $statusIcon }}" style="font-size:10px;margin-right:2px;"></i>
+                            {{ $statusLabel }}
+                        </span>
+                    </td>
                     <td class="text-sm text-muted">{{ $log->actor_name }}</td>
                 </tr>
                 @empty

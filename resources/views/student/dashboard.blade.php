@@ -269,6 +269,38 @@
     [data-theme="dark"] .sdb-iv-table td:nth-child(4) { background: #0f172a; }
 }
 
+/* ── Schedule edit buttons ──────────────────────────────────── */
+.iv-sched-set-btn, .iv-sched-edit-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 5px 11px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    border: 1.5px solid; cursor: pointer; transition: background .15s, border-color .15s;
+    white-space: nowrap; margin-top: 5px;
+}
+.iv-sched-set-btn  { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+.iv-sched-set-btn:hover  { background: #dbeafe; border-color: #93c5fd; }
+.iv-sched-edit-btn { background: #f8fafc; color: #475569; border-color: #e2e8f0; }
+.iv-sched-edit-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+.iv-sched-save-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    background: #dcfce7; color: #15803d; border: 1.5px solid #bbf7d0;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.iv-sched-save-btn:hover    { background: #bbf7d0; }
+.iv-sched-save-btn:disabled { opacity: .5; cursor: not-allowed; }
+.iv-sched-cancel-btn {
+    display: inline-flex; align-items: center;
+    padding: 5px 12px; border-radius: 7px; font-size: 12px; font-weight: 600;
+    background: #f1f5f9; color: #64748b; border: 1.5px solid #e2e8f0;
+    cursor: pointer; transition: background .15s; white-space: nowrap;
+}
+.iv-sched-cancel-btn:hover { background: #e2e8f0; }
+[data-theme="dark"] .iv-sched-set-btn    { background: #1e3a5f; color: #93c5fd; border-color: #1d4ed8; }
+[data-theme="dark"] .iv-sched-set-btn:hover  { background: #1d4ed8; }
+[data-theme="dark"] .iv-sched-edit-btn   { background: #1e293b; color: #94a3b8; border-color: #334155; }
+[data-theme="dark"] .iv-sched-save-btn   { background: #14532d; color: #86efac; border-color: #166534; }
+[data-theme="dark"] .iv-sched-cancel-btn { background: #1e293b; color: #94a3b8; border-color: #334155; }
+
 /* ── Mobile: app log → card rows ────────────────────────────── */
 @media (max-width: 540px) {
     .sdb-table thead { display: none; }
@@ -377,12 +409,15 @@
             @if ($interviews->isEmpty())
                 <div class="sdb-empty">
                     <i class="bi bi-calendar-x"></i>
-                    <p>No interviews scheduled yet.</p>
+                    <p>No interviews added yet.</p>
                 </div>
             @else
                 <div class="sdb-info-banner">
                     <i class="bi bi-info-circle-fill"></i>
-                    <span>Tap <strong>Valid</strong> or <strong>Invalid</strong> on any interview to update its status — changes save instantly.</span>
+                    <span>
+                        Tap <strong>Valid</strong> or <strong>Invalid</strong> to update the interview status.
+                        Click <strong><i class="bi bi-calendar-plus"></i> Set Schedule</strong> to add date &amp; time.
+                    </span>
                 </div>
                 <div style="overflow-x:auto;">
                     <table class="sdb-iv-table">
@@ -397,10 +432,10 @@
                         <tbody>
                             @foreach ($interviews as $iv)
                             @php
-                                $ivStatus = $iv->interview_status; // null | 'valid' | 'invalid'
+                                $ivStatus = $iv->interview_status;
                                 $typeSlug = str_replace(['_', ' '], '_', strtolower($iv->interview_type ?? ''));
                             @endphp
-                            <tr>
+                            <tr id="iv-row-{{ $iv->id }}">
                                 <td>
                                     <div class="iv-company">{{ $iv->company_name }}</div>
                                     <div class="iv-role">{{ $iv->role }}</div>
@@ -411,19 +446,60 @@
                                     </span>
                                 </td>
                                 <td data-label="Scheduled">
-                                    @if ($iv->scheduled_date)
-                                        <div style="font-weight:600;color:#374151;font-size:13px;">
-                                            {{ \Carbon\Carbon::parse($iv->scheduled_date)->format('M d, Y') }}
-                                        </div>
-                                        @if ($iv->scheduled_time)
-                                            <div style="font-size:12px;color:#94a3b8;margin-top:2px;">
-                                                {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
-                                                {{ $iv->scheduled_timezone }}
+                                    {{-- Display mode --}}
+                                    <div id="iv-sched-display-{{ $iv->id }}">
+                                        @if ($iv->scheduled_date)
+                                            <div style="font-weight:600;color:#374151;font-size:13px;" id="iv-date-text-{{ $iv->id }}">
+                                                {{ $iv->scheduled_date->format('M d, Y') }}
                                             </div>
+                                            @if ($iv->scheduled_time)
+                                                <div style="font-size:12px;color:#94a3b8;margin-top:1px;" id="iv-time-text-{{ $iv->id }}">
+                                                    {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
+                                                    {{ $iv->scheduled_timezone }}
+                                                </div>
+                                            @else
+                                                <div style="font-size:12px;color:#94a3b8;margin-top:1px;" id="iv-time-text-{{ $iv->id }}"></div>
+                                            @endif
+                                            <button type="button" class="iv-sched-edit-btn"
+                                                onclick="openSchedEdit({{ $iv->id }},'{{ $iv->scheduled_date->format('Y-m-d') }}','{{ $iv->scheduled_time ?? '' }}','{{ $iv->scheduled_timezone ?? '' }}')">
+                                                <i class="bi bi-pencil-fill"></i> Edit
+                                            </button>
+                                        @else
+                                            <div id="iv-date-text-{{ $iv->id }}" style="display:none;font-weight:600;color:#374151;font-size:13px;"></div>
+                                            <div id="iv-time-text-{{ $iv->id }}" style="display:none;font-size:12px;color:#94a3b8;margin-top:1px;"></div>
+                                            <button type="button" class="iv-sched-set-btn"
+                                                onclick="openSchedEdit({{ $iv->id }},'','','')">
+                                                <i class="bi bi-calendar-plus"></i> Set Schedule
+                                            </button>
                                         @endif
-                                    @else
-                                        <span style="color:#cbd5e1;font-size:13px;">TBD</span>
-                                    @endif
+                                    </div>
+                                    {{-- Inline edit form (hidden by default) --}}
+                                    <div id="iv-sched-form-{{ $iv->id }}" style="display:none;margin-top:6px;">
+                                        <div style="display:flex;flex-direction:column;gap:6px;min-width:180px;">
+                                            <input type="date" id="iv-date-input-{{ $iv->id }}"
+                                                class="stp-input" style="font-size:12px;padding:5px 8px;height:32px;"
+                                                placeholder="Date">
+                                            <input type="time" id="iv-time-input-{{ $iv->id }}"
+                                                class="stp-input" style="font-size:12px;padding:5px 8px;height:32px;">
+                                            <select id="iv-tz-input-{{ $iv->id }}"
+                                                class="stp-input" style="font-size:12px;padding:5px 8px;height:32px;">
+                                                <option value="">Timezone</option>
+                                                @foreach (['EST','CST','MST','PST','AKST','HST','EDT','CDT','MDT','PDT'] as $tz)
+                                                    <option value="{{ $tz }}">{{ $tz }}</option>
+                                                @endforeach
+                                            </select>
+                                            <div style="display:flex;gap:6px;">
+                                                <button type="button" class="iv-sched-save-btn"
+                                                    onclick="saveSchedEdit({{ $iv->id }},'{{ route('student.interviews.schedule', $iv) }}','{{ csrf_token() }}')">
+                                                    <i class="bi bi-check-lg"></i> Save
+                                                </button>
+                                                <button type="button" class="iv-sched-cancel-btn"
+                                                    onclick="closeSchedEdit({{ $iv->id }})">
+                                                    Cancel
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td data-label="Status">
                                     <div class="iv-toggle-wrap"
@@ -566,6 +642,113 @@ function updateIvStatus(btn, newStatus) {
     })
     .finally(function() {
         btns.forEach(b => { b.disabled = false; b.classList.remove('saving'); });
+    });
+}
+
+/* ── Interview schedule inline edit ─────────────────────────────────────── */
+function openSchedEdit(ivId, date, time, tz) {
+    document.getElementById('iv-sched-display-' + ivId).style.display = 'none';
+    document.getElementById('iv-sched-form-'    + ivId).style.display = 'block';
+
+    var d = document.getElementById('iv-date-input-' + ivId);
+    var t = document.getElementById('iv-time-input-' + ivId);
+    var z = document.getElementById('iv-tz-input-'   + ivId);
+    if (d) d.value = date || '';
+    if (t) t.value = time || '';
+    if (z) z.value = tz   || '';
+}
+
+function closeSchedEdit(ivId) {
+    document.getElementById('iv-sched-form-'    + ivId).style.display = 'none';
+    document.getElementById('iv-sched-display-' + ivId).style.display = 'block';
+}
+
+function saveSchedEdit(ivId, url, token) {
+    var dateInput  = document.getElementById('iv-date-input-' + ivId);
+    var timeInput  = document.getElementById('iv-time-input-' + ivId);
+    var tzInput    = document.getElementById('iv-tz-input-'   + ivId);
+    var formDiv    = document.getElementById('iv-sched-form-' + ivId);
+    var saveBtn    = formDiv ? formDiv.querySelector('.iv-sched-save-btn')   : null;
+    var cancelBtn  = formDiv ? formDiv.querySelector('.iv-sched-cancel-btn') : null;
+
+    var date = dateInput ? dateInput.value.trim() : '';
+    var time = timeInput ? timeInput.value.trim() : '';
+    var tz   = tzInput   ? tzInput.value.trim()   : '';
+
+    if (saveBtn)  { saveBtn.disabled = true;   saveBtn.innerHTML   = '<i class="bi bi-hourglass-split"></i> Saving…'; }
+    if (cancelBtn) cancelBtn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: new URLSearchParams({
+            '_method':            'PATCH',
+            '_token':             token,
+            'scheduled_date':     date,
+            'scheduled_time':     time,
+            'scheduled_timezone': tz,
+        }),
+    })
+    .then(function(res) { return res.json(); })
+    .then(function(data) {
+        if (data.success) {
+            // ── Update displayed date/time texts ──
+            var dateText = document.getElementById('iv-date-text-' + ivId);
+            var timeText = document.getElementById('iv-time-text-' + ivId);
+
+            if (dateText) {
+                if (data.scheduled_date) {
+                    dateText.textContent   = data.scheduled_date;
+                    dateText.style.display = '';
+                } else {
+                    dateText.textContent   = '';
+                    dateText.style.display = 'none';
+                }
+            }
+            if (timeText) {
+                var timeLine = '';
+                if (data.scheduled_time_fmt) timeLine += data.scheduled_time_fmt;
+                if (data.scheduled_timezone) timeLine += (timeLine ? ' ' : '') + data.scheduled_timezone;
+                timeText.textContent   = timeLine;
+                timeText.style.display = (timeLine || data.scheduled_date) ? '' : 'none';
+            }
+
+            // ── Swap Set Schedule ↔ Edit button ──
+            var displayDiv = document.getElementById('iv-sched-display-' + ivId);
+            var oldBtn = displayDiv ? displayDiv.querySelector('.iv-sched-edit-btn, .iv-sched-set-btn') : null;
+            if (oldBtn) {
+                if (data.scheduled_date) {
+                    oldBtn.className = 'iv-sched-edit-btn';
+                    oldBtn.innerHTML = '<i class="bi bi-pencil-fill"></i> Edit';
+                    var rawDate = data.scheduled_date_raw || date;
+                    var rawTime = data.scheduled_time     || time;
+                    var rawTz   = data.scheduled_timezone || tz;
+                    oldBtn.onclick = function () { openSchedEdit(ivId, rawDate, rawTime, rawTz); };
+                } else {
+                    oldBtn.className = 'iv-sched-set-btn';
+                    oldBtn.innerHTML = '<i class="bi bi-calendar-plus"></i> Set Schedule';
+                    oldBtn.onclick   = function () { openSchedEdit(ivId, '', '', ''); };
+                }
+            }
+
+            closeSchedEdit(ivId);
+            showSdbToast('Schedule saved successfully.', 'success');
+        } else {
+            var msg = (data.errors ? Object.values(data.errors).flat().join(' ') : null)
+                   || data.message || data.error || 'Could not save. Try again.';
+            showSdbToast(msg, 'error');
+        }
+    })
+    .catch(function() {
+        showSdbToast('Network error. Please try again.', 'error');
+    })
+    .finally(function() {
+        if (saveBtn)  { saveBtn.disabled = false;  saveBtn.innerHTML   = '<i class="bi bi-check-lg"></i> Save'; }
+        if (cancelBtn) cancelBtn.disabled = false;
     });
 }
 

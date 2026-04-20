@@ -589,7 +589,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                 </div>
 
                 @php
-                $hasAnyDoc = $candidate->cv_file_path || $candidate->candidate_details_file_path || $candidate->speedy_apply_json_path || $candidate->resumes->isNotEmpty();
+                $hasAnyDoc = $candidate->cv_file_path || $candidate->candidate_details_file_path || $candidate->speedy_apply_json_path || $candidate->agreement_file_path || $candidate->resumes->isNotEmpty();
                 @endphp
 
                 @if (!$hasAnyDoc)
@@ -649,6 +649,26 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                 <i class="bi bi-eye"></i> View
                             </a>
                             <a href="{{ route('admin.candidates.files', [$candidate, 'speedy']) }}" download class="btn btn-outline btn-sm">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </div>
+                    </div>
+                    @endif
+
+                    @if ($candidate->agreement_file_path)
+                    <div class="doc-item">
+                        <div class="doc-icon" style="background:#f0fdf4;color:#16a34a;">
+                            <i class="bi bi-file-earmark-check-fill"></i>
+                        </div>
+                        <div class="doc-info">
+                            <div class="doc-name">Agreement</div>
+                            <div class="doc-meta">{{ basename($candidate->agreement_file_path) }}</div>
+                        </div>
+                        <div class="d-flex gap-6">
+                            <a href="{{ route('admin.candidates.files', [$candidate, 'agreement']) }}" target="_blank" rel="noopener" class="btn btn-outline btn-sm">
+                                <i class="bi bi-eye"></i> View
+                            </a>
+                            <a href="{{ route('admin.candidates.files', [$candidate, 'agreement']) }}" download class="btn btn-outline btn-sm">
                                 <i class="bi bi-download"></i>
                             </a>
                         </div>
@@ -757,7 +777,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                     </div>
                     <div class="form-group" style="grid-column:span 2;">
                         <label class="form-label">Company Domain / URL <span style="color:var(--red-text);">*</span></label>
-                        <input type="url" name="company_domain" id="iCompanyDomain" class="form-control" placeholder="https://company.com" maxlength="500" required>
+                        <input type="text" name="company_domain" id="iCompanyDomain" class="form-control" placeholder="https://company.com or www.company.com" maxlength="500" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Interview Type <span style="color:var(--red-text);">*</span></label>
@@ -776,16 +796,17 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                         <label class="form-label">Mail Time</label>
                         <input type="time" name="mail_time" id="iMailTime" class="form-control">
                     </div>
+                    @if ($isAdmin)
                     <div class="form-group">
-                        <label class="form-label">Scheduled Date</label>
+                        <label class="form-label">Scheduled Date <span class="text-muted text-sm">(admin only)</span></label>
                         <input type="date" name="scheduled_date" id="iSchedDate" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Scheduled Time</label>
+                        <label class="form-label">Scheduled Time <span class="text-muted text-sm">(admin only)</span></label>
                         <input type="time" name="scheduled_time" id="iSchedTime" class="form-control">
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Timezone</label>
+                        <label class="form-label">Timezone <span class="text-muted text-sm">(admin only)</span></label>
                         <select name="scheduled_timezone" id="iTimezone" class="form-control">
                             <option value="">Select timezone...</option>
                             @foreach ($timezones as $tz)
@@ -793,6 +814,12 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             @endforeach
                         </select>
                     </div>
+                    @else
+                    {{-- Hidden fields so JS populate works without errors --}}
+                    <input type="hidden" name="scheduled_date"     id="iSchedDate">
+                    <input type="hidden" name="scheduled_time"     id="iSchedTime">
+                    <input type="hidden" name="scheduled_timezone" id="iTimezone">
+                    @endif
                     <div class="form-group" style="grid-column:span 2;">
                         <label class="form-label">Remark</label>
                         <textarea name="remark" id="iRemark" class="form-control" rows="3" placeholder="Additional notes..."></textarea>

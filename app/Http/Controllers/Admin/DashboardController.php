@@ -114,21 +114,31 @@ class DashboardController extends Controller
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
             ->when($isManager,   fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)));
 
-        $statTotalCandidates  = $statsQuery()->count();
         $statActiveCandidates = $statsQuery()->whereIn('status', ['active', 'enrolled'])->count();
-        $statInterviewsMonth  = Interview::query()
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
-            ->whereMonth('created_at', now()->month)
-            ->whereYear('created_at', now()->year)
-            ->count();
-        $statValidInterviews  = Interview::where('interview_status', 'valid')
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
-            ->count();
-        $statTotalRecruiters  = $isAdmin
+
+        // Today's interviews count (scoped)
+        $statTodayInterviews = $todayInterviews->count();
+
+        // Active recruiters (scoped)
+        $statTotalRecruiters = $isAdmin
             ? User::recruiters()->active()->count()
             : ($isManager ? User::recruiters()->active()->whereIn('id', $teamMemberIds)->count() : 0);
+
+        // Pending applications count (reuse existing pendingCandidates collection)
+        $statPendingCount = $pendingCandidates->count();
+
+        // ── Trending Domains (top 5 domains with most valid interviews) ────────
+        $trendingDomains = Interview::where('interviews.interview_status', 'valid')
+            ->when($isRecruiter, fn ($q) => $q->where('interviews.recruiter_id', $user->id))
+            ->when($isManager,   fn ($q) => $q->whereIn('interviews.recruiter_id', $teamMemberIds))
+            ->join('candidates', 'interviews.candidate_id', '=', 'candidates.id')
+            ->whereNotNull('candidates.domain')
+            ->where('candidates.domain', '!=', '')
+            ->selectRaw('candidates.domain, COUNT(*) as cnt')
+            ->groupBy('candidates.domain')
+            ->orderByDesc('cnt')
+            ->limit(5)
+            ->get();
 
         return view('admin.dashboard', [
             'todayInterviews'           => $todayInterviews,
@@ -145,11 +155,12 @@ class DashboardController extends Controller
             'managerMyCandidatesCount'  => $managerMyCandidatesCount,
             'managerAllCandidatesCount' => $managerAllCandidatesCount,
             // Summary stat cards
-            'statTotalCandidates'       => $statTotalCandidates,
             'statActiveCandidates'      => $statActiveCandidates,
-            'statInterviewsMonth'       => $statInterviewsMonth,
-            'statValidInterviews'       => $statValidInterviews,
+            'statTodayInterviews'       => $statTodayInterviews,
             'statTotalRecruiters'       => $statTotalRecruiters,
+            'statPendingCount'          => $statPendingCount,
+            // Trending domains
+            'trendingDomains'           => $trendingDomains,
         ]);
     }
 }

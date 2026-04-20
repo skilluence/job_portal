@@ -9,6 +9,7 @@ use App\Models\DailyLog;
 use App\Models\Interview;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
@@ -112,6 +113,22 @@ class CandidatesController extends Controller
 
         $data = $request->validate($this->validationRules($isAdmin, $isManager, null));
 
+        // Admin/Manager must assign candidate to exactly one (recruiter OR manager)
+        if ($isAdmin) {
+            $hasRecruiter = !empty($data['recruiter_id']);
+            $hasManager   = !empty($data['team_manager_id']);
+            if (!$hasRecruiter && !$hasManager) {
+                return back()->withInput()->withErrors([
+                    'recruiter_id' => 'Please assign the candidate to a Recruiter or a Team Manager.',
+                ]);
+            }
+            if ($hasRecruiter && $hasManager) {
+                return back()->withInput()->withErrors([
+                    'recruiter_id' => 'Assign to either a Recruiter or a Team Manager — not both.',
+                ]);
+            }
+        }
+
         $data['email_id'] = strtolower($data['email_id']);
         $data['full_name'] = $this->buildFullName($data);
 
@@ -145,11 +162,12 @@ class CandidatesController extends Controller
             }
         }
 
-        $candidate = Candidate::create($data);
-
-        // Handle file uploads
-        $this->handleFileUploads($request, $candidate);
-        $this->handleResumeUploads($request, $candidate);
+        $candidate = DB::transaction(function () use ($data, $request) {
+            $candidate = Candidate::create($data);
+            $this->handleFileUploads($request, $candidate);
+            $this->handleResumeUploads($request, $candidate);
+            return $candidate;
+        });
 
         AuditLog::log(
             'created',
@@ -256,7 +274,7 @@ class CandidatesController extends Controller
             abort(403, 'You are not authorized to delete this candidate.');
         }
 
-        foreach (['cv_file_path', 'speedy_apply_json_path'] as $field) {
+        foreach (['cv_file_path', 'speedy_apply_json_path', 'agreement_file_path'] as $field) {
             if ($candidate->$field) {
                 Storage::disk('local')->delete($candidate->$field);
             }
@@ -298,10 +316,11 @@ class CandidatesController extends Controller
         }
 
         $path = match ($file) {
-            'cv'      => $candidate->cv_file_path,
-            'details' => $candidate->candidate_details_file_path,
-            'speedy'  => $candidate->speedy_apply_json_path,
-            default   => null,
+            'cv'        => $candidate->cv_file_path,
+            'details'   => $candidate->candidate_details_file_path,
+            'speedy'    => $candidate->speedy_apply_json_path,
+            'agreement' => $candidate->agreement_file_path,
+            default     => null,
         };
 
         if (!$path || !Storage::disk('local')->exists($path)) {
@@ -610,6 +629,7 @@ class CandidatesController extends Controller
             'github_url'                  => ['nullable', 'url', 'max:255'],
             'linkedin_url'                => ['nullable', 'url', 'max:255'],
             'speedy_apply_json'           => ['nullable', 'file', 'mimes:json,txt', 'max:2048'],
+            'agreement_file'              => ['nullable', 'file', 'mimes:pdf,doc,docx,jpg,jpeg,png', 'max:5120'],
 
             // Education
             'masters_university'   => ['nullable', 'string', 'max:255'],
@@ -661,7 +681,15 @@ class CandidatesController extends Controller
             $candidate->update(['speedy_apply_json_path' => $path]);
         }
 
-        unset($data['cv_file'], $data['speedy_apply_json']);
+        if ($request->hasFile('agreement_file')) {
+            if ($candidate->agreement_file_path) {
+                Storage::disk('local')->delete($candidate->agreement_file_path);
+            }
+            $path = $request->file('agreement_file')->store("candidates/{$candidate->id}/agreement", 'local');
+            $candidate->update(['agreement_file_path' => $path]);
+        }
+
+        unset($data['cv_file'], $data['speedy_apply_json'], $data['agreement_file']);
     }
 
     private function handleResumeUploads(Request $request, Candidate $candidate): void

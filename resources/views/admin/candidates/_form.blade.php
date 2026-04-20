@@ -373,6 +373,25 @@
         </button>
     </div>
 
+    <div class="form-section-title" style="margin-top:20px;">Agreement Document</div>
+    <div class="form-group">
+        <label class="form-label">Agreement File
+            <span class="text-muted text-sm">(PDF, Word, or Image — max 5 MB)</span>
+        </label>
+        @if ($isEdit && isset($candidate) && $candidate->agreement_file_path)
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:8px 12px;background:var(--main-bg);border:1px solid var(--border-color);border-radius:var(--radius-sm);">
+                <i class="bi bi-file-earmark-check-fill" style="color:#16a34a;font-size:16px;"></i>
+                <span class="text-sm" style="flex:1;">Agreement on file</span>
+                <a href="{{ route('admin.candidates.files', [$candidate, 'agreement']) }}" target="_blank"
+                   class="btn btn-outline btn-sm" style="padding:3px 10px;">
+                    <i class="bi bi-eye"></i> View
+                </a>
+            </div>
+        @endif
+        <input type="file" name="agreement_file" id="{{ $prefix }}_agreement_file"
+            class="form-control" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png">
+    </div>
+
     <div class="form-group" style="margin-top:16px;">
         <label class="form-label">Notes for Recruiter</label>
         <textarea name="recruiter_notes" id="{{ $prefix }}_recruiter_notes" class="form-control" rows="3"

@@ -43,11 +43,19 @@ class ImportExportController extends Controller
                 'visa_immigration_status', 'work_auth_status',
                 'no_of_applications', 'status', 'recruiter', 'team_manager', 'portal_login_password',
             ]);
+            // Example row 1 — assigned via recruiter (team_manager left blank)
             fputcsv($fh, [
                 'John', 'Smith', 'john@example.com', '+1 (555) 123-4567',
                 'Java', 'Spring Boot', 'New York', 'NY', '10001',
                 'h1b', 'already_obtained',
-                '3', 'active', 'Demo Recruiter', 'Demo Manager', 'password123',
+                '3', 'active', 'Demo Recruiter', '', 'password123',
+            ]);
+            // Example row 2 — assigned via team_manager only (recruiter left blank)
+            fputcsv($fh, [
+                'Jane', 'Doe', 'jane@example.com', '+1 (555) 987-6543',
+                'Data Science', 'Python', 'Austin', 'TX', '73301',
+                'opt_f1', 'not_applied',
+                '2', 'active', '', 'Demo Manager', 'password456',
             ]);
             fclose($fh);
         };
@@ -228,28 +236,44 @@ class ImportExportController extends Controller
                 continue;
             }
 
-            $recruiterName = trim($d['recruiter'] ?? '');
-            $recruiterId   = $recruiterName !== '' ? (int) ($recruiterMap[strtolower($recruiterName)] ?? 0) : 0;
+            // ── Recruiter / Team Manager — exactly one must be set ────────────
+            $recruiterName   = trim($d['recruiter']     ?? '');
+            $teamManagerName = trim($d['team_manager']  ?? '');
 
-            if ($recruiterId <= 0) {
-                $errors[] = "Row {$rowNum}: recruiter '{$recruiterName}' not found. Check the name matches an existing recruiter.";
+            $hasRecruiter   = $recruiterName   !== '';
+            $hasManager     = $teamManagerName !== '';
+
+            if ($hasRecruiter && $hasManager) {
+                $errors[] = "Row {$rowNum}: provide either 'recruiter' OR 'team_manager', not both.";
                 $skipped++;
                 continue;
             }
 
-            // Resolve team manager from CSV column, or auto-derive from recruiter's own manager
-            $teamManagerName = trim($d['team_manager'] ?? '');
-            $teamManagerId   = null;
-            if ($teamManagerName !== '') {
-                $teamManagerId = (int) ($managerMap[strtolower($teamManagerName)] ?? 0) ?: null;
-                if (!$teamManagerId) {
-                    $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found. Check the name matches an existing team manager.";
+            if (!$hasRecruiter && !$hasManager) {
+                $errors[] = "Row {$rowNum}: either 'recruiter' or 'team_manager' is required.";
+                $skipped++;
+                continue;
+            }
+
+            $recruiterId   = null;
+            $teamManagerId = null;
+
+            if ($hasRecruiter) {
+                $recruiterId = (int) ($recruiterMap[strtolower($recruiterName)] ?? 0) ?: null;
+                if (!$recruiterId) {
+                    $errors[] = "Row {$rowNum}: recruiter '{$recruiterName}' not found.";
                     $skipped++;
                     continue;
                 }
-            } else {
-                // Auto-derive: use the recruiter's own assigned team manager
+                // Auto-derive team manager from recruiter's assigned manager
                 $teamManagerId = $recruiterTeamManagers[$recruiterId] ?? null;
+            } else {
+                $teamManagerId = (int) ($managerMap[strtolower($teamManagerName)] ?? 0) ?: null;
+                if (!$teamManagerId) {
+                    $errors[] = "Row {$rowNum}: team_manager '{$teamManagerName}' not found.";
+                    $skipped++;
+                    continue;
+                }
             }
 
             // Helper: treat empty string as null for optional fields
@@ -283,7 +307,11 @@ class ImportExportController extends Controller
 
         fclose($fh);
 
-        AuditLog::log('imported', 'candidates', "Imported {$imported} candidate(s) from CSV ({$skipped} skipped)", [], ['imported' => $imported, 'skipped' => $skipped]);
+        AuditLog::log('imported', 'candidates', "Imported {$imported} candidate(s) from CSV ({$skipped} skipped)", [], [
+            'imported'   => $imported,
+            'skipped'    => $skipped,
+            'has_errors' => count($errors) > 0,
+        ]);
 
         $message = "Successfully imported {$imported} candidate(s).";
         if ($skipped > 0) {
@@ -485,7 +513,11 @@ class ImportExportController extends Controller
 
         fclose($fh);
 
-        AuditLog::log('imported', 'recruiters', "Imported {$imported} user(s) from CSV ({$skipped} skipped)", [], ['imported' => $imported, 'skipped' => $skipped]);
+        AuditLog::log('imported', 'recruiters', "Imported {$imported} user(s) from CSV ({$skipped} skipped)", [], [
+            'imported'   => $imported,
+            'skipped'    => $skipped,
+            'has_errors' => count($errors) > 0,
+        ]);
 
         $message = "Successfully imported {$imported} user(s).";
         if ($skipped > 0) {

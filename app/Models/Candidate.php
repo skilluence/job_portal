@@ -82,6 +82,7 @@ class Candidate extends Model
         'login_password_plain',
         'cv_file_path',
         'candidate_details_file_path',
+        'agreement_file_path',
     ];
 
     protected $hidden = [

@@ -136,16 +136,11 @@
 <div class="dw-stats-row">
     <div class="dw-stat-card">
         <div class="dw-stat-icon" style="background:#eff6ff;color:#2563eb;">
-            <i class="bi bi-people-fill"></i>
+            <i class="bi bi-calendar2-event-fill"></i>
         </div>
         <div class="dw-stat-body">
-            <div class="dw-stat-num">{{ number_format($statTotalCandidates) }}</div>
-            <div class="dw-stat-lbl">
-                @if ($isRecruiter) My Candidates
-                @elseif ($isManager) All Candidates
-                @else Total Candidates
-                @endif
-            </div>
+            <div class="dw-stat-num">{{ number_format($statTodayInterviews) }}</div>
+            <div class="dw-stat-lbl">Today's Interviews</div>
         </div>
     </div>
     <div class="dw-stat-card">
@@ -154,29 +149,9 @@
         </div>
         <div class="dw-stat-body">
             <div class="dw-stat-num">{{ number_format($statActiveCandidates) }}</div>
-            <div class="dw-stat-lbl">Active / Enrolled</div>
+            <div class="dw-stat-lbl">Active Candidates</div>
         </div>
     </div>
-    <div class="dw-stat-card">
-        <div class="dw-stat-icon" style="background:#fef9c3;color:#854d0e;">
-            <i class="bi bi-calendar2-check-fill"></i>
-        </div>
-        <div class="dw-stat-body">
-            <div class="dw-stat-num">{{ number_format($statInterviewsMonth) }}</div>
-            <div class="dw-stat-lbl">Interviews This Month</div>
-        </div>
-    </div>
-    @if ($isRecruiter)
-    <div class="dw-stat-card">
-        <div class="dw-stat-icon" style="background:#f0fdf4;color:#059669;">
-            <i class="bi bi-patch-check-fill"></i>
-        </div>
-        <div class="dw-stat-body">
-            <div class="dw-stat-num">{{ number_format($statValidInterviews) }}</div>
-            <div class="dw-stat-lbl">Valid Interviews (All Time)</div>
-        </div>
-    </div>
-    @else
     <div class="dw-stat-card">
         <div class="dw-stat-icon" style="background:#fdf4ff;color:#a21caf;">
             <i class="bi bi-person-badge-fill"></i>
@@ -190,7 +165,100 @@
             </div>
         </div>
     </div>
-    @endif
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#fff7ed;color:#c2410c;">
+            <i class="bi bi-hourglass-split"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statPendingCount) }}</div>
+            <div class="dw-stat-lbl">Pending Applications</div>
+        </div>
+    </div>
+</div>
+
+{{-- ── Pending Applications (moved to top) ─────────────────────────────── --}}
+<div class="dw-grid-1">
+    <div class="card">
+        <div class="dw-head">
+            <div>
+                <div class="dw-title"><i class="bi bi-hourglass-split" style="color:#f59e0b;"></i> Pending Applications</div>
+                <div class="dw-sub">
+                    Candidates who haven't met their daily application target
+                    @if ($pendingDays > 1)
+                        <span style="margin-left:6px;">({{ $pendingDays }}-day period)</span>
+                    @endif
+                </div>
+            </div>
+            {{-- Date filter form --}}
+            <form method="GET" action="{{ route('admin.dashboard') }}" class="dw-filter-bar">
+                <input type="date" name="pend_date" class="form-control"
+                    value="{{ $pendingDateStr }}"
+                    style="width:150px;"
+                    title="Start date">
+                <span class="dw-filter-sep">to</span>
+                <input type="date" name="pend_date_end" class="form-control"
+                    value="{{ $pendingDateEndStr ?? '' }}"
+                    style="width:150px;"
+                    title="End date (leave blank for single day)">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="bi bi-funnel-fill"></i> Filter
+                </button>
+                @if ($pendingDateEndStr)
+                    <a href="{{ route('admin.dashboard', ['pend_date' => today()->toDateString()]) }}"
+                        class="btn btn-outline btn-sm" title="Reset to today">
+                        <i class="bi bi-x-circle"></i>
+                    </a>
+                @endif
+            </form>
+        </div>
+
+        @if ($pendingCandidates->isEmpty())
+            <div class="dw-empty">
+                <i class="bi bi-check2-circle" style="color:#16a34a;opacity:1;"></i>
+                <p style="color:#16a34a;font-weight:500;">All candidates met their application targets for this period!</p>
+            </div>
+        @else
+            <div style="overflow-x:auto;">
+                <table class="dw-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            @if (!$isRecruiter)<th>Recruiter</th>@endif
+                            <th style="text-align:right;">Daily Target</th>
+                            <th style="text-align:right;">Period Target</th>
+                            <th style="text-align:right;">Logged</th>
+                            <th style="text-align:right;">Pending</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($pendingCandidates as $c)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.candidates.show', $c) }}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                                    {{ $c->full_name }}
+                                </a>
+                            </td>
+                            @if (!$isRecruiter)
+                                <td class="text-sm text-muted">{{ $c->recruiter?->name ?? '—' }}</td>
+                            @endif
+                            <td style="text-align:right;"><span class="text-sm text-muted">{{ number_format($c->no_of_applications) }}/day</span></td>
+                            <td style="text-align:right;"><span class="badge badge-target">{{ number_format($c->pending_target) }}</span></td>
+                            <td style="text-align:right;"><span class="badge badge-logged">{{ number_format($c->pending_logged) }}</span></td>
+                            <td style="text-align:right;"><span class="badge badge-gap">–{{ number_format($c->pending_gap) }}</span></td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                    <tfoot>
+                        <tr style="border-top:2px solid var(--border);">
+                            <td colspan="{{ $isRecruiter ? 3 : 4 }}" style="text-align:right;font-weight:600;font-size:12px;color:var(--text-muted);padding:8px 10px;">Totals</td>
+                            <td style="text-align:right;padding:8px 10px;"><span class="badge badge-logged">{{ number_format($pendingCandidates->sum('pending_logged')) }}</span></td>
+                            <td style="text-align:right;padding:8px 10px;"><span class="badge badge-gap">–{{ number_format($pendingCandidates->sum('pending_gap')) }}</span></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        @endif
+    </div>
 </div>
 
 {{-- ── Manager context header ──────────────────────────────────────────── --}}
@@ -219,148 +287,10 @@
 </div>
 @endif
 
-{{-- ── Row 1: Today & Tomorrow Interviews (full width) ──────────────────── --}}
-<div class="dw-grid-1">
-    <div class="card">
-        <div class="dw-head">
-            <div>
-                <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
-                <div class="dw-sub">Today and tomorrow's scheduled interviews</div>
-            </div>
-            <span class="badge badge-primary">
-                {{ $todayInterviews->count() + $tomorrowInterviews->count() }} total
-            </span>
-        </div>
+{{-- ── Row 2: Top Performance (all roles) + Attention Required ─────────────── --}}
+<div class="dw-grid-2">
 
-        <div class="dw-day-tabs">
-            <button class="dw-day-tab active" onclick="switchDayTab('today', this)">
-                Today
-                @if ($todayInterviews->count())
-                    <span class="badge badge-primary" style="margin-left:5px;font-size:11px;">{{ $todayInterviews->count() }}</span>
-                @endif
-            </button>
-            <button class="dw-day-tab" onclick="switchDayTab('tomorrow', this)">
-                Tomorrow
-                @if ($tomorrowInterviews->count())
-                    <span class="badge badge-info" style="margin-left:5px;font-size:11px;">{{ $tomorrowInterviews->count() }}</span>
-                @endif
-            </button>
-        </div>
-
-        {{-- Today panel --}}
-        <div id="panel-today" class="dw-day-panel show">
-            @if ($todayInterviews->isEmpty())
-                <div class="dw-empty"><i class="bi bi-calendar-x"></i><p>No interviews scheduled for today.</p></div>
-            @else
-                <div style="overflow-x:auto;">
-                    <table class="dw-table">
-                        <thead>
-                            <tr>
-                                <th>Candidate</th>
-                                <th>Company</th>
-                                <th>Type</th>
-                                <th>Scheduled At</th>
-                                @if(!$isRecruiter)<th>Recruiter</th>@endif
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($todayInterviews as $iv)
-                            <tr>
-                                <td>
-                                    @if ($iv->candidate)
-                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;">
-                                            {{ $iv->candidate->full_name }}
-                                        </a>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td class="text-sm">{{ $iv->company_name }}</td>
-                                <td>
-                                    <span class="badge badge-info" style="font-size:11px;text-transform:capitalize;">
-                                        {{ str_replace('_', ' ', $iv->interview_type) }}
-                                    </span>
-                                </td>
-                                <td class="text-sm text-muted">
-                                    @if ($iv->scheduled_time)
-                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
-                                        @if ($iv->scheduled_timezone) <span style="font-size:11px;">{{ $iv->scheduled_timezone }}</span>@endif
-                                    @else
-                                        <span style="opacity:.5;">TBD</span>
-                                    @endif
-                                </td>
-                                @if(!$isRecruiter)
-                                    <td class="text-sm text-muted">{{ $iv->recruiter?->name ?? '—' }}</td>
-                                @endif
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-
-        {{-- Tomorrow panel --}}
-        <div id="panel-tomorrow" class="dw-day-panel">
-            @if ($tomorrowInterviews->isEmpty())
-                <div class="dw-empty"><i class="bi bi-calendar-check"></i><p>No interviews scheduled for tomorrow.</p></div>
-            @else
-                <div style="overflow-x:auto;">
-                    <table class="dw-table">
-                        <thead>
-                            <tr>
-                                <th>Candidate</th>
-                                <th>Company</th>
-                                <th>Type</th>
-                                <th>Scheduled At</th>
-                                @if(!$isRecruiter)<th>Recruiter</th>@endif
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach ($tomorrowInterviews as $iv)
-                            <tr>
-                                <td>
-                                    @if ($iv->candidate)
-                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;">
-                                            {{ $iv->candidate->full_name }}
-                                        </a>
-                                    @else
-                                        <span class="text-muted">—</span>
-                                    @endif
-                                </td>
-                                <td class="text-sm">{{ $iv->company_name }}</td>
-                                <td>
-                                    <span class="badge badge-info" style="font-size:11px;text-transform:capitalize;">
-                                        {{ str_replace('_', ' ', $iv->interview_type) }}
-                                    </span>
-                                </td>
-                                <td class="text-sm text-muted">
-                                    @if ($iv->scheduled_time)
-                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
-                                        @if ($iv->scheduled_timezone) <span style="font-size:11px;">{{ $iv->scheduled_timezone }}</span>@endif
-                                    @else
-                                        <span style="opacity:.5;">TBD</span>
-                                    @endif
-                                </td>
-                                @if(!$isRecruiter)
-                                    <td class="text-sm text-muted">{{ $iv->recruiter?->name ?? '—' }}</td>
-                                @endif
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            @endif
-        </div>
-    </div>
-</div>
-
-{{-- ── Row 2: Top Performance + Attention Required ───────────────────────── --}}
-{{-- When recruiter: only Attention Required, full width. Otherwise 2-col grid. --}}
-<div class="{{ $isRecruiter ? 'dw-grid-1' : 'dw-grid-2' }}">
-
-    {{-- Top Performance (admin / manager only) --}}
-    @if (!$isRecruiter)
+    {{-- Top Performance --}}
     <div class="card">
         <div class="dw-head">
             <div>
@@ -412,7 +342,6 @@
             </table>
         @endif
     </div>
-    @endif
 
     {{-- Attention Required --}}
     <div class="card">
@@ -463,104 +392,176 @@
     </div>
 </div>
 
-{{-- ── Row 3: Pending Applications (full width) ───────────────────────────── --}}
-<div class="dw-grid-1">
+{{-- ── Row 3: Trending Domains + Interviews side-by-side ─────────────────── --}}
+<div class="dw-grid-2">
+
+    {{-- Trending Domains --}}
     <div class="card">
         <div class="dw-head">
             <div>
-                <div class="dw-title"><i class="bi bi-hourglass-split" style="color:#f59e0b;"></i> Pending Applications</div>
-                <div class="dw-sub">
-                    Candidates who haven't met their daily application target
-                    @if ($pendingDays > 1)
-                        <span style="margin-left:6px;">({{ $pendingDays }}-day period)</span>
-                    @endif
-                </div>
+                <div class="dw-title"><i class="bi bi-graph-up-arrow" style="color:#8b5cf6;"></i> Trending Domains</div>
+                <div class="dw-sub">Top 5 domains by valid interview count</div>
             </div>
-            {{-- Date filter form --}}
-            <form method="GET" action="{{ route('admin.dashboard') }}" class="dw-filter-bar">
-                <input type="date" name="pend_date" class="form-control"
-                    value="{{ $pendingDateStr }}"
-                    style="width:150px;"
-                    title="Start date">
-                <span class="dw-filter-sep">to</span>
-                <input type="date" name="pend_date_end" class="form-control"
-                    value="{{ $pendingDateEndStr ?? '' }}"
-                    style="width:150px;"
-                    title="End date (leave blank for single day)">
-                <button type="submit" class="btn btn-primary btn-sm">
-                    <i class="bi bi-funnel-fill"></i> Filter
-                </button>
-                @if ($pendingDateEndStr)
-                    <a href="{{ route('admin.dashboard', ['pend_date' => today()->toDateString()]) }}"
-                        class="btn btn-outline btn-sm" title="Reset to today">
-                        <i class="bi bi-x-circle"></i>
-                    </a>
-                @endif
-            </form>
         </div>
 
-        @if ($pendingCandidates->isEmpty())
-            <div class="dw-empty">
-                <i class="bi bi-check2-circle" style="color:#16a34a;opacity:1;"></i>
-                <p style="color:#16a34a;font-weight:500;">
-                    All candidates met their application targets for this period!
-                </p>
-            </div>
+        @if ($trendingDomains->isEmpty())
+            <div class="dw-empty"><i class="bi bi-pie-chart"></i><p>No domain data yet.</p></div>
         @else
-            <div style="overflow-x:auto;">
-                <table class="dw-table">
-                    <thead>
-                        <tr>
-                            <th>Candidate</th>
-                            @if (!$isRecruiter)<th>Recruiter</th>@endif
-                            <th style="text-align:right;">Daily Target</th>
-                            <th style="text-align:right;">Period Target</th>
-                            <th style="text-align:right;">Logged</th>
-                            <th style="text-align:right;">Pending</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach ($pendingCandidates as $c)
-                        <tr>
-                            <td>
-                                <a href="{{ route('admin.candidates.show', $c) }}" style="font-weight:600;color:var(--text-primary);text-decoration:none;">
-                                    {{ $c->full_name }}
-                                </a>
-                            </td>
-                            @if (!$isRecruiter)
-                                <td class="text-sm text-muted">{{ $c->recruiter?->name ?? '—' }}</td>
-                            @endif
-                            <td style="text-align:right;">
-                                <span class="text-sm text-muted">{{ number_format($c->no_of_applications) }}/day</span>
-                            </td>
-                            <td style="text-align:right;">
-                                <span class="badge badge-target">{{ number_format($c->pending_target) }}</span>
-                            </td>
-                            <td style="text-align:right;">
-                                <span class="badge badge-logged">{{ number_format($c->pending_logged) }}</span>
-                            </td>
-                            <td style="text-align:right;">
-                                <span class="badge badge-gap">–{{ number_format($c->pending_gap) }}</span>
-                            </td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr style="border-top:2px solid var(--border-color);">
-                            <td colspan="{{ $isRecruiter ? 3 : 4 }}" style="text-align:right;font-weight:600;font-size:12px;color:var(--text-muted);padding:8px 10px;">
-                                Totals
-                            </td>
-                            <td style="text-align:right;padding:8px 10px;">
-                                <span class="badge badge-logged">{{ number_format($pendingCandidates->sum('pending_logged')) }}</span>
-                            </td>
-                            <td style="text-align:right;padding:8px 10px;">
-                                <span class="badge badge-gap">–{{ number_format($pendingCandidates->sum('pending_gap')) }}</span>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+            @php $maxCnt = $trendingDomains->max('cnt'); @endphp
+            <table class="dw-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Domain</th>
+                        <th style="text-align:right;">Valid Interviews</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($trendingDomains as $idx => $td)
+                    <tr>
+                        <td>
+                            <span class="dw-rank {{ $idx === 0 ? 'gold' : ($idx === 1 ? 'silver' : ($idx === 2 ? 'bronze' : '')) }}">
+                                {{ $idx + 1 }}
+                            </span>
+                        </td>
+                        <td>
+                            <div style="font-weight:600;font-size:13px;">{{ $td->domain }}</div>
+                            <div style="margin-top:5px;height:5px;border-radius:99px;background:var(--border-color);overflow:hidden;">
+                                <div style="height:100%;border-radius:99px;background:#8b5cf6;width:{{ $maxCnt > 0 ? round(($td->cnt / $maxCnt) * 100) : 0 }}%;"></div>
+                            </div>
+                        </td>
+                        <td style="text-align:right;">
+                            <span class="badge" style="background:#f3f4ff;color:#4f46e5;font-size:13px;font-weight:700;">
+                                {{ number_format($td->cnt) }}
+                            </span>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
         @endif
+    </div>
+
+    {{-- Interviews (Today & Tomorrow) --}}
+    <div class="card">
+        <div class="dw-head">
+            <div>
+                <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
+                <div class="dw-sub">Today and tomorrow's scheduled interviews</div>
+            </div>
+            <span class="badge badge-primary">
+                {{ $todayInterviews->count() + $tomorrowInterviews->count() }} total
+            </span>
+        </div>
+
+        <div class="dw-day-tabs">
+            <button class="dw-day-tab active" onclick="switchDayTab('today', this)">
+                Today
+                @if ($todayInterviews->count())
+                    <span class="badge badge-primary" style="margin-left:5px;font-size:11px;">{{ $todayInterviews->count() }}</span>
+                @endif
+            </button>
+            <button class="dw-day-tab" onclick="switchDayTab('tomorrow', this)">
+                Tomorrow
+                @if ($tomorrowInterviews->count())
+                    <span class="badge badge-info" style="margin-left:5px;font-size:11px;">{{ $tomorrowInterviews->count() }}</span>
+                @endif
+            </button>
+        </div>
+
+        {{-- Today panel --}}
+        <div id="panel-today" class="dw-day-panel show">
+            @if ($todayInterviews->isEmpty())
+                <div class="dw-empty"><i class="bi bi-calendar-x"></i><p>No interviews today.</p></div>
+            @else
+                <div style="overflow-x:auto;">
+                    <table class="dw-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Company</th>
+                                <th>Time</th>
+                                @if(!$isRecruiter)<th>Recruiter</th>@endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($todayInterviews as $iv)
+                            <tr>
+                                <td>
+                                    @if ($iv->candidate)
+                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;font-size:12px;">
+                                            {{ $iv->candidate->full_name }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
+                                <td class="text-sm text-muted" style="font-size:12px;">
+                                    @if ($iv->scheduled_time)
+                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
+                                        @if ($iv->scheduled_timezone)<span style="font-size:11px;"> {{ $iv->scheduled_timezone }}</span>@endif
+                                    @else
+                                        <span style="opacity:.5;">TBD</span>
+                                    @endif
+                                </td>
+                                @if(!$isRecruiter)
+                                    <td class="text-sm text-muted" style="font-size:12px;">{{ $iv->recruiter?->name ?? '—' }}</td>
+                                @endif
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
+
+        {{-- Tomorrow panel --}}
+        <div id="panel-tomorrow" class="dw-day-panel">
+            @if ($tomorrowInterviews->isEmpty())
+                <div class="dw-empty"><i class="bi bi-calendar-check"></i><p>No interviews tomorrow.</p></div>
+            @else
+                <div style="overflow-x:auto;">
+                    <table class="dw-table">
+                        <thead>
+                            <tr>
+                                <th>Candidate</th>
+                                <th>Company</th>
+                                <th>Time</th>
+                                @if(!$isRecruiter)<th>Recruiter</th>@endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach ($tomorrowInterviews as $iv)
+                            <tr>
+                                <td>
+                                    @if ($iv->candidate)
+                                        <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="font-weight:600;color:var(--blue);text-decoration:none;font-size:12px;">
+                                            {{ $iv->candidate->full_name }}
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
+                                <td class="text-sm text-muted" style="font-size:12px;">
+                                    @if ($iv->scheduled_time)
+                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
+                                        @if ($iv->scheduled_timezone)<span style="font-size:11px;"> {{ $iv->scheduled_timezone }}</span>@endif
+                                    @else
+                                        <span style="opacity:.5;">TBD</span>
+                                    @endif
+                                </td>
+                                @if(!$isRecruiter)
+                                    <td class="text-sm text-muted" style="font-size:12px;">{{ $iv->recruiter?->name ?? '—' }}</td>
+                                @endif
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            @endif
+        </div>
     </div>
 </div>
 

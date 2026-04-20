@@ -27,23 +27,49 @@ class StudentInfoController extends Controller
     {
         $candidate = $this->student();
 
-        $old = $candidate->only(['full_name', 'first_name', 'middle_name', 'last_name', 'email_id', 'phone_number', 'linkedin_url', 'city', 'state_province', 'zip_code']);
-
-        $data = $request->validate([
-            'first_name'     => ['required', 'string', 'max:100'],
-            'last_name'      => ['required', 'string', 'max:100'],
-            'email_id'       => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
-            'phone_number'   => ['nullable', 'string', 'max:30'],
-            'linkedin_url'   => ['nullable', 'url', 'max:255'],
-            'city'           => ['nullable', 'string', 'max:100'],
-            'state_province' => ['nullable', 'string', 'max:5'],
-            'zip_code'       => ['nullable', 'string', 'max:20'],
+        $old = $candidate->only([
+            'full_name', 'first_name', 'middle_name', 'last_name',
+            'email_id', 'phone_number', 'linkedin_url',
+            'date_of_birth', 'gender', 'nationality',
+            'domain', 'sub_domain', 'date_of_arrival_usa',
+            'current_salary', 'expected_salary',
+            'street_address', 'apartment_unit', 'city', 'state_province', 'zip_code', 'country',
+            'visa_immigration_status', 'work_auth_status', 'visa_expiry_date',
+            'open_to_relocation', 'preferred_city',
         ]);
 
-        // Build full_name from parts (middle name not editable by student)
+        $data = $request->validate([
+            'first_name'              => ['required', 'string', 'max:100'],
+            'middle_name'             => ['nullable', 'string', 'max:100'],
+            'last_name'               => ['required', 'string', 'max:100'],
+            'email_id'                => ['required', 'email', 'max:255', Rule::unique('candidates', 'email_id')->ignore($candidate->id)],
+            'phone_number'            => ['nullable', 'string', 'max:30'],
+            'linkedin_url'            => ['nullable', 'url', 'max:255'],
+            'date_of_birth'           => ['nullable', 'date'],
+            'gender'                  => ['nullable', 'string', Rule::in(['male', 'female', 'other', 'prefer_not_to_say', ''])],
+            'nationality'             => ['nullable', 'string', 'max:100'],
+            'domain'                  => ['nullable', 'string', 'max:100'],
+            'sub_domain'              => ['nullable', 'string', 'max:500'],
+            'date_of_arrival_usa'     => ['nullable', 'date'],
+            'current_salary'          => ['nullable', 'numeric', 'min:0'],
+            'expected_salary'         => ['nullable', 'numeric', 'min:0'],
+            'street_address'          => ['nullable', 'string', 'max:255'],
+            'apartment_unit'          => ['nullable', 'string', 'max:50'],
+            'city'                    => ['nullable', 'string', 'max:100'],
+            'state_province'          => ['nullable', 'string', 'max:5'],
+            'zip_code'                => ['nullable', 'string', 'max:20'],
+            'country'                 => ['nullable', 'string', 'max:100'],
+            'visa_immigration_status' => ['nullable', 'string', Rule::in(['us_citizen', 'green_card', 'h1b', 'h4_ead', 'opt_f1', 'stem_opt', 'cpt', 'l1', 'tn_visa', 'other', ''])],
+            'work_auth_status'        => ['nullable', 'string', Rule::in(['applied_pending', 'not_applied', 'already_obtained', ''])],
+            'visa_expiry_date'        => ['nullable', 'date'],
+            'open_to_relocation'      => ['nullable', 'boolean'],
+            'preferred_city'          => ['nullable', 'string', 'max:100'],
+        ]);
+
+        // Build full_name from all three name parts
         $data['full_name'] = trim(implode(' ', array_filter([
             $data['first_name'],
-            $candidate->middle_name,
+            $data['middle_name'] ?? '',
             $data['last_name'],
         ])));
 
@@ -115,6 +141,54 @@ class StudentInfoController extends Controller
         AuditLog::log('updated', 'student_auth', "Student changed portal password: {$candidate->full_name}");
 
         return back()->with('success', 'Password updated successfully.');
+    }
+
+    public function updateInterviewSchedule(Request $request, Interview $interview)
+    {
+        $candidate = Candidate::findOrFail(session('student_id'));
+
+        if ($interview->candidate_id !== $candidate->id) {
+            return $request->wantsJson()
+                ? response()->json(['error' => 'Not authorized'], 403)
+                : abort(403, 'Not authorized.');
+        }
+
+        $data = $request->validate([
+            'scheduled_date'     => ['nullable', 'date'],
+            'scheduled_time'     => ['nullable', 'date_format:H:i'],
+            'scheduled_timezone' => ['nullable', 'string', 'max:20'],
+        ]);
+
+        // Treat blank strings as null
+        foreach ($data as $key => $val) {
+            if ($val === '') $data[$key] = null;
+        }
+
+        $old = $interview->only(['scheduled_date', 'scheduled_time', 'scheduled_timezone']);
+        $interview->update($data);
+
+        AuditLog::log(
+            'updated',
+            'interviews',
+            "Student set interview schedule: {$candidate->full_name} — {$interview->company_name}",
+            $old,
+            $data
+        );
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'success'            => true,
+                'scheduled_date'     => $interview->scheduled_date?->format('M d, Y'),
+                'scheduled_date_raw' => $interview->scheduled_date?->format('Y-m-d'),
+                'scheduled_time'     => $interview->scheduled_time,
+                'scheduled_time_fmt' => $interview->scheduled_time
+                    ? \Carbon\Carbon::parse($interview->scheduled_time)->format('h:i A')
+                    : null,
+                'scheduled_timezone' => $interview->scheduled_timezone,
+            ]);
+        }
+
+        return back()->with('success', 'Interview schedule updated.');
     }
 
     public function updateInterviewStatus(Request $request, Interview $interview)

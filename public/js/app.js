@@ -1016,6 +1016,23 @@
             return;
         }
 
+        // Recruiter / Manager mutual exclusion check (admin only)
+        var recruiterHidden = document.getElementById(prefix + '_recruiter_id');
+        var managerHidden   = document.getElementById(prefix + '_team_manager_id');
+        if (recruiterHidden && managerHidden) {
+            var hasRec = (recruiterHidden.value || '').trim() !== '';
+            var hasMgr = (managerHidden.value   || '').trim() !== '';
+            if (!hasRec && !hasMgr) {
+                var portalTab = document.getElementById(prefix + '_tab_portal');
+                if (portalTab) {
+                    var tabGroup2 = modal.querySelector('.modal-tabs');
+                    if (tabGroup2) window.switchModalTab(tabGroup2.id, prefix + '_tab_portal');
+                }
+                window.showToast('Please assign the candidate to a Recruiter or a Team Manager.', 'error');
+                return;
+            }
+        }
+
         // Auto-flush any typed-but-not-confirmed subdomain text
         var subInput  = document.getElementById(prefix + '_subdomain_input');
         var subHidden = document.getElementById(prefix + '_sub_domain');
