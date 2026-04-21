@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Hash;
  *   - 1 manager  (manager@test.skilluence.com)
  *   - 1 recruiter (recruiter@test.skilluence.com)  → assigned to that manager
  *   - 3 candidates assigned to that recruiter
- *   - Daily logs spread across the current month (with real applications / assistant values)
+ *   - Daily logs spread across the current month (with real applications / assisment values)
  *   - 2 interviews in the current month with recruiter_id set correctly
  *
  * After running, visit: /admin/users/{recruiter_id}/report
@@ -90,9 +90,9 @@ class ReportTestSeeder extends Seeder
         $mon  = (int) $now->format('n');
 
         $logDays = [
-            // [day, apps, assistant, remark]
+            // [day, apps, assisment, remark]
             [1,  5,  3, 'Sent batch applications on day 1.'],
-            [2,  8,  5, 'Used AI assistant heavily today.'],
+            [2,  8,  5, 'Used AI assisment heavily today.'],
             [3,  4,  2, 'Slower day.'],
             [5,  12, 7, 'High-volume application day.'],
             [6,  6,  4, 'Follow-ups sent.'],
@@ -197,7 +197,7 @@ class ReportTestSeeder extends Seeder
         $totalApps  = array_sum(array_column($logDays, 1)) * count($candidates);
         $totalAsst  = array_sum(array_column($logDays, 2)) * count($candidates);
         $this->command->info("     Applications : {$totalApps}  (sum across all candidates × days)");
-        $this->command->info("     Assistant    : {$totalAsst}");
+        $this->command->info("     Assisment    : {$totalAsst}");
         $this->command->info("     Interviews   : 3  (scheduled this month)");
     }
 }

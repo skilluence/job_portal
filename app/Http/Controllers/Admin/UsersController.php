@@ -87,7 +87,7 @@ class UsersController extends Controller
         $endDate    = $startDate->copy()->endOfMonth()->endOfDay();
         $daysInMonth = $startDate->daysInMonth;
 
-        // ── Applications / Assistant from daily_logs ─────────────
+        // ── Applications / Assisment from daily_logs ─────────────
         // Sum per day across all candidates managed by this recruiter
         $rawLogs = DailyLog::where('recruiter_id', $user->id)
             ->whereBetween('log_date', [$startDate->toDateString(), $endDate->toDateString()])
@@ -100,21 +100,21 @@ class UsersController extends Controller
         // Build full-month arrays for chart (0 on days with no log)
         $chartLabels    = [];
         $chartApps      = [];
-        $chartAssistant = [];
+        $chartAssisment = [];
         $detailRows     = [];
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $log = $rawLogs->get($day);
             $chartLabels[]    = $day;
             $chartApps[]      = $log ? (int) $log->applications    : 0;
-            $chartAssistant[] = $log ? (int) $log->assistant_count : 0;
+            $chartAssisment[] = $log ? (int) $log->assistant_count : 0;
             if ($log && ($log->applications > 0 || $log->assistant_count > 0 || $log->interview_count > 0)) {
                 $date = Carbon::createFromDate((int) $year, (int) $mon, $day);
                 $detailRows[] = [
                     'date'           => $date->format('M d, Y'),
                     'day_name'       => $date->format('D'),
                     'applications'   => (int) $log->applications,
-                    'assistant'      => (int) $log->assistant_count,
+                    'assisment'      => (int) $log->assistant_count,
                     'interviews'     => (int) $log->interview_count,
                 ];
             }
@@ -122,7 +122,7 @@ class UsersController extends Controller
 
         $totals = [
             'applications' => array_sum($chartApps),
-            'assistant'    => array_sum($chartAssistant),
+            'assisment'    => array_sum($chartAssisment),
             'log_interviews' => $rawLogs->sum('interview_count'),
         ];
 
@@ -163,7 +163,7 @@ class UsersController extends Controller
             'daysInMonth'   => $daysInMonth,
             'chartLabels'   => $chartLabels,
             'chartApps'     => $chartApps,
-            'chartAssistant'=> $chartAssistant,
+            'chartAssisment'=> $chartAssisment,
             'detailRows'    => $detailRows,
             'totals'        => $totals,
             'interviews'    => $interviews,

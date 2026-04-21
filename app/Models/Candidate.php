@@ -67,6 +67,7 @@ class Candidate extends Model
         // Professional
         'github_url',
         'linkedin_url',
+        'portfolio_url',
         'speedy_apply_json_path',
         'recruiter_notes',
 

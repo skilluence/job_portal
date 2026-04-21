@@ -293,12 +293,15 @@
                     } catch (_) {}
                 }
             }
-        }).catch(function () {
+        }).catch(function (error) {
             // Revert on error
             badge.className = 'badge ' + STATUS_BADGES[oldStatus];
             badge.textContent = oldStatus.charAt(0).toUpperCase() + oldStatus.slice(1);
             cell.dataset.currentStatus = oldStatus;
             cell.style.opacity = '';
+            if (window.showToast) {
+                window.showToast(error && error.message ? error.message : 'Could not update status.', 'error');
+            }
         });
     }
 
@@ -813,11 +816,12 @@
         // ── Marketing
         setVal('edit_marketing_phone',         candidate.marketing_phone || '');
         setVal('edit_marketing_email',         candidate.marketing_email || '');
-        setVal('edit_marketing_email_password','');
+        setVal('edit_marketing_email_password', candidate.marketing_email_password || '');
         setVal('edit_marketing_linkedin_id',   candidate.marketing_linkedin_id || '');
-        setVal('edit_marketing_linkedin_password', '');
+        setVal('edit_marketing_linkedin_password', candidate.marketing_linkedin_password || '');
         setVal('edit_github_url',              candidate.github_url || '');
         setVal('edit_linkedin_url',            candidate.linkedin_url || '');
+        setVal('edit_portfolio_url',           candidate.portfolio_url || '');
         setDocReplaceHint('edit_speedy_hint',  candidate.speedy_file_url, 'Speedy Apply JSON');
 
         // ── Education

@@ -9,58 +9,106 @@ use App\Models\Interview;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $user          = $request->user();
-        $isAdmin       = $user->isAdmin();
-        $isRecruiter   = $user->isRecruiter();
-        $isManager     = $user->isManager();
+        $user = $request->user();
+        $isAdmin = $user->isAdmin();
+        $isRecruiter = $user->isRecruiter();
+        $isManager = $user->isManager();
         $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
-        // ── Widget 1 – Today & Tomorrow Interviews ────────────────────────────
-        $today    = today()->toDateString();
-        $tomorrow = today()->addDay()->toDateString();
+        // Widget 1: Today/Tomorrow interviews in India timezone order.
+        $dashboardTimezone = 'Asia/Kolkata';
+        $todayKey = now($dashboardTimezone)->format('Y-m-d');
+        $tomorrowKey = now($dashboardTimezone)->addDay()->format('Y-m-d');
 
-        $interviewBaseQuery = fn () => Interview::query()
+        $upcomingInterviews = Interview::query()
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
+            ->when($isManager, fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
             ->with(['candidate:id,full_name', 'recruiter:id,name'])
-            ->orderBy('scheduled_time');
-
-        $todayInterviews    = $interviewBaseQuery()->whereDate('scheduled_date', $today)->get();
-        $tomorrowInterviews = $interviewBaseQuery()->whereDate('scheduled_date', $tomorrow)->get();
-
-        // ── Widget 2 – Top Performance Recruiter (by valid interview count) ───
-        $validInterviewCounts = Interview::where('interview_status', 'valid')
-            ->selectRaw('recruiter_id, COUNT(*) as cnt')
-            ->groupBy('recruiter_id')
-            ->pluck('cnt', 'recruiter_id');
-
-        $topRecruiters = User::recruiters()->active()
-            ->when($isManager, fn ($q) => $q->whereIn('id', $teamMemberIds))
-            ->withCount('candidates')
+            ->whereNotNull('scheduled_date')
             ->get()
-            ->map(fn ($r) => tap($r, fn ($r) => $r->valid_interview_count = (int) ($validInterviewCounts[$r->id] ?? 0)))
+            ->map(function (Interview $interview) use ($dashboardTimezone) {
+                $scheduledAtUtc = $this->interviewUtcTimestamp($interview);
+                $interview->dashboard_sort_ts = $scheduledAtUtc?->getTimestamp();
+                $interview->has_precise_time = !empty($interview->scheduled_time);
+
+                if ($scheduledAtUtc) {
+                    $dashboardMoment = $scheduledAtUtc->copy()->setTimezone($dashboardTimezone);
+                    $interview->dashboard_date_key = $dashboardMoment->format('Y-m-d');
+                    $interview->dashboard_display_date = $dashboardMoment->format('M d, Y');
+                    $interview->dashboard_display_time = $interview->scheduled_time
+                        ? $dashboardMoment->format('h:i A')
+                        : 'TBD';
+                    $interview->dashboard_display_timezone = $dashboardMoment->format('T');
+                } else {
+                    $interview->dashboard_date_key = $interview->scheduled_date?->format('Y-m-d');
+                    $interview->dashboard_display_date = $interview->scheduled_date?->format('M d, Y');
+                    $interview->dashboard_display_time = 'TBD';
+                    $interview->dashboard_display_timezone = strtoupper((string) $interview->scheduled_timezone) ?: null;
+                }
+
+                return $interview;
+            });
+
+        $todayInterviews = $this->sortDashboardInterviews(
+            $upcomingInterviews->where('dashboard_date_key', $todayKey)
+        );
+
+        $tomorrowInterviews = $this->sortDashboardInterviews(
+            $upcomingInterviews->where('dashboard_date_key', $tomorrowKey)
+        );
+
+        // Widget 2: Top performance recruiter (by valid interview count).
+        $validInterviewCounts = Interview::where('interview_status', 'valid')
+            ->selectRaw('COALESCE(recruiter_id, created_by) as performer_id, COUNT(*) as cnt')
+            ->where(function ($q) {
+                $q->whereNotNull('recruiter_id')
+                    ->orWhereNotNull('created_by');
+            })
+            ->groupBy('performer_id')
+            ->pluck('cnt', 'performer_id');
+
+        $candidateOwnershipCounts = Candidate::query()
+            ->selectRaw('COALESCE(recruiter_id, team_manager_id) as owner_id, COUNT(*) as cnt')
+            ->where(function ($q) {
+                $q->whereNotNull('recruiter_id')
+                    ->orWhereNotNull('team_manager_id');
+            })
+            ->groupBy('owner_id')
+            ->pluck('cnt', 'owner_id');
+
+        $topPerformers = User::query()
+            ->whereIn('role', ['recruiter', 'manager'])
+            ->active()
+            ->select(['id', 'name', 'role'])
+            ->get()
+            ->map(function ($member) use ($validInterviewCounts, $candidateOwnershipCounts) {
+                $member->valid_interview_count = (int) ($validInterviewCounts[$member->id] ?? 0);
+                $member->performance_candidates_count = (int) ($candidateOwnershipCounts[$member->id] ?? 0);
+                return $member;
+            })
             ->sortByDesc('valid_interview_count')
             ->take(10)
             ->values();
 
-        // ── Widget 3 – Pending Applications ───────────────────────────────────
-        $pendingDateStr    = $request->get('pend_date', today()->toDateString());
+        // Widget 3: Pending applications.
+        $pendingDateStr = $request->get('pend_date', today()->toDateString());
         $pendingDateEndStr = $request->get('pend_date_end');
 
         try {
             $pendingStart = Carbon::parse($pendingDateStr)->startOfDay();
-            $pendingEnd   = $pendingDateEndStr
+            $pendingEnd = $pendingDateEndStr
                 ? Carbon::parse($pendingDateEndStr)->endOfDay()
                 : $pendingStart->copy()->endOfDay();
         } catch (\Exception $e) {
-            $pendingStart      = Carbon::today();
-            $pendingEnd        = Carbon::today()->endOfDay();
-            $pendingDateStr    = today()->toDateString();
+            $pendingStart = Carbon::today();
+            $pendingEnd = Carbon::today()->endOfDay();
+            $pendingDateStr = today()->toDateString();
             $pendingDateEndStr = null;
         }
 
@@ -74,63 +122,60 @@ class DashboardController extends Controller
         $pendingCandidates = Candidate::whereIn('status', ['active', 'enrolled'])
             ->where('no_of_applications', '>', 0)
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
+            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
             ->with('recruiter:id,name')
             ->get(['id', 'full_name', 'no_of_applications', 'recruiter_id'])
             ->map(function ($c) use ($logSums, $pendingDays) {
-                $target            = $c->no_of_applications * $pendingDays;
-                $logged            = (int) ($logSums[$c->id] ?? 0);
+                $target = $c->no_of_applications * $pendingDays;
+                $logged = (int) ($logSums[$c->id] ?? 0);
                 $c->pending_target = $target;
                 $c->pending_logged = $logged;
-                $c->pending_gap    = max(0, $target - $logged);
+                $c->pending_gap = max(0, $target - $logged);
                 return $c;
             })
             ->filter(fn ($c) => $c->pending_gap > 0)
             ->sortByDesc('pending_gap')
             ->values();
 
-        // ── Widget 4 – Attention Required ────────────────────────────────────
+        // Widget 4: Attention required.
         $twentyDaysAgo = today()->subDays(20)->toDateString();
 
-        $recentlyInterviewedIds = Interview::where('created_at', '>=', $twentyDaysAgo)
+        $recentlyInterviewedIds = Interview::whereDate('created_at', '>=', $twentyDaysAgo)
             ->pluck('candidate_id')
             ->unique()
             ->toArray();
 
         $attentionCandidates = Candidate::whereIn('status', ['active', 'enrolled'])
+            ->whereDate('created_at', '<=', $twentyDaysAgo)
             ->whereNotIn('id', $recentlyInterviewedIds)
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
+            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
             ->with('recruiter:id,name')
             ->orderBy('created_at')
             ->get(['id', 'full_name', 'status', 'recruiter_id', 'created_at', 'domain']);
 
-        // ── Manager header stat counts ────────────────────────────────────────
-        $managerMyCandidatesCount  = $isManager ? Candidate::where('team_manager_id', $user->id)->count() : 0;
+        // Manager header stats.
+        $managerMyCandidatesCount = $isManager ? Candidate::where('team_manager_id', $user->id)->count() : 0;
         $managerAllCandidatesCount = $isManager ? Candidate::whereIn('recruiter_id', $teamMemberIds)->count() : 0;
 
-        // ── Summary stats (scoped by role) ────────────────────────────────────
+        // Summary stats (scoped by role).
         $statsQuery = fn () => Candidate::query()
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)));
+            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)));
 
         $statActiveCandidates = $statsQuery()->whereIn('status', ['active', 'enrolled'])->count();
-
-        // Today's interviews count (scoped)
         $statTodayInterviews = $todayInterviews->count();
 
-        // Active recruiters (scoped)
         $statTotalRecruiters = $isAdmin
             ? User::recruiters()->active()->count()
             : ($isManager ? User::recruiters()->active()->whereIn('id', $teamMemberIds)->count() : 0);
 
-        // Pending applications count (reuse existing pendingCandidates collection)
         $statPendingCount = $pendingCandidates->count();
 
-        // ── Trending Domains (top 5 domains with most valid interviews) ────────
+        // Trending domains.
         $trendingDomains = Interview::where('interviews.interview_status', 'valid')
             ->when($isRecruiter, fn ($q) => $q->where('interviews.recruiter_id', $user->id))
-            ->when($isManager,   fn ($q) => $q->whereIn('interviews.recruiter_id', $teamMemberIds))
+            ->when($isManager, fn ($q) => $q->whereIn('interviews.recruiter_id', $teamMemberIds))
             ->join('candidates', 'interviews.candidate_id', '=', 'candidates.id')
             ->whereNotNull('candidates.domain')
             ->where('candidates.domain', '!=', '')
@@ -141,26 +186,81 @@ class DashboardController extends Controller
             ->get();
 
         return view('admin.dashboard', [
-            'todayInterviews'           => $todayInterviews,
-            'tomorrowInterviews'        => $tomorrowInterviews,
-            'topRecruiters'             => $topRecruiters,
-            'pendingCandidates'         => $pendingCandidates,
-            'pendingDateStr'            => $pendingDateStr,
-            'pendingDateEndStr'         => $pendingDateEndStr,
-            'pendingDays'               => $pendingDays,
-            'attentionCandidates'       => $attentionCandidates,
-            'isAdmin'                   => $isAdmin,
-            'isManager'                 => $isManager,
-            'isRecruiter'               => $isRecruiter,
-            'managerMyCandidatesCount'  => $managerMyCandidatesCount,
+            'todayInterviews' => $todayInterviews,
+            'tomorrowInterviews' => $tomorrowInterviews,
+            'dashboardTimezone' => $dashboardTimezone,
+            'topPerformers' => $topPerformers,
+            'pendingCandidates' => $pendingCandidates,
+            'pendingDateStr' => $pendingDateStr,
+            'pendingDateEndStr' => $pendingDateEndStr,
+            'pendingDays' => $pendingDays,
+            'attentionCandidates' => $attentionCandidates,
+            'isAdmin' => $isAdmin,
+            'isManager' => $isManager,
+            'isRecruiter' => $isRecruiter,
+            'managerMyCandidatesCount' => $managerMyCandidatesCount,
             'managerAllCandidatesCount' => $managerAllCandidatesCount,
-            // Summary stat cards
-            'statActiveCandidates'      => $statActiveCandidates,
-            'statTodayInterviews'       => $statTodayInterviews,
-            'statTotalRecruiters'       => $statTotalRecruiters,
-            'statPendingCount'          => $statPendingCount,
-            // Trending domains
-            'trendingDomains'           => $trendingDomains,
+            'statActiveCandidates' => $statActiveCandidates,
+            'statTodayInterviews' => $statTodayInterviews,
+            'statTotalRecruiters' => $statTotalRecruiters,
+            'statPendingCount' => $statPendingCount,
+            'trendingDomains' => $trendingDomains,
         ]);
+    }
+
+    private function sortDashboardInterviews(Collection $interviews): Collection
+    {
+        return $interviews->sort(function (Interview $a, Interview $b) {
+            $aTs = $a->dashboard_sort_ts;
+            $bTs = $b->dashboard_sort_ts;
+
+            if ($aTs === null && $bTs === null) {
+                return $a->id <=> $b->id;
+            }
+            if ($aTs === null) {
+                return 1;
+            }
+            if ($bTs === null) {
+                return -1;
+            }
+            if ($aTs !== $bTs) {
+                return $aTs <=> $bTs;
+            }
+            if ($a->has_precise_time !== $b->has_precise_time) {
+                return $a->has_precise_time ? -1 : 1;
+            }
+
+            return $a->id <=> $b->id;
+        })->values();
+    }
+
+    private function interviewUtcTimestamp(Interview $interview): ?Carbon
+    {
+        if (!$interview->scheduled_date) {
+            return null;
+        }
+
+        $sourceTimezone = $this->timezoneAbbreviationToIana($interview->scheduled_timezone);
+        $timePart = $interview->scheduled_time ? substr((string) $interview->scheduled_time, 0, 5) : '00:00';
+        $scheduledString = $interview->scheduled_date->format('Y-m-d') . ' ' . $timePart;
+
+        try {
+            return Carbon::createFromFormat('Y-m-d H:i', $scheduledString, $sourceTimezone)->utc();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function timezoneAbbreviationToIana(?string $abbr): string
+    {
+        return match (strtoupper((string) $abbr)) {
+            'EST', 'EDT' => 'America/New_York',
+            'CST', 'CDT' => 'America/Chicago',
+            'MST', 'MDT' => 'America/Denver',
+            'PST', 'PDT' => 'America/Los_Angeles',
+            'AKST' => 'America/Anchorage',
+            'HST' => 'Pacific/Honolulu',
+            default => config('app.timezone', 'UTC'),
+        };
     }
 }

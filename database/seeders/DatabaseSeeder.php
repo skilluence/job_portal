@@ -14,6 +14,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (!app()->environment('local')) {
+            return;
+        }
+
         User::updateOrCreate(
             ['email' => 'rahil@skilluence.com'],
             [
@@ -24,5 +28,7 @@ class DatabaseSeeder extends Seeder
                 'team_manager_id' => null,
             ]
         );
+
+        $this->call(ReportTestSeeder::class);
     }
 }

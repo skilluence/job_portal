@@ -295,7 +295,7 @@
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Top Performance</div>
-                <div class="dw-sub">Ranked by valid interview count</div>
+                <div class="dw-sub">Ranked by valid interview count across recruiters and managers</div>
             </div>
             <select class="dw-top-select" onchange="filterTopRecruiters(this.value)">
                 <option value="5">Top 5</option>
@@ -303,19 +303,19 @@
             </select>
         </div>
 
-        @if ($topRecruiters->isEmpty())
-            <div class="dw-empty"><i class="bi bi-person-dash"></i><p>No recruiter data available.</p></div>
+        @if ($topPerformers->isEmpty())
+            <div class="dw-empty"><i class="bi bi-person-dash"></i><p>No performance data available.</p></div>
         @else
             <table class="dw-table">
                 <thead>
                     <tr>
                         <th>#</th>
-                        <th>Recruiter</th>
+                        <th>Team Member</th>
                         <th style="text-align:right;">Valid Interviews</th>
                     </tr>
                 </thead>
                 <tbody id="topRecruiterRows">
-                    @foreach ($topRecruiters as $index => $r)
+                    @foreach ($topPerformers as $index => $r)
                     <tr class="top-rec-row" data-rank="{{ $index + 1 }}">
                         <td>
                             <span class="dw-rank {{ $index === 0 ? 'gold' : ($index === 1 ? 'silver' : ($index === 2 ? 'bronze' : '')) }}">
@@ -327,7 +327,9 @@
                                 <div class="avatar-sm">{{ $r->initials }}</div>
                                 <div>
                                     <div class="avatar-name">{{ $r->name }}</div>
-                                    <div class="avatar-sub">{{ $r->candidates_count }} candidate{{ $r->candidates_count !== 1 ? 's' : '' }}</div>
+                                    <div class="avatar-sub">
+                                        {{ $r->role_label }} • {{ $r->performance_candidates_count }} candidate{{ $r->performance_candidates_count !== 1 ? 's' : '' }}
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -447,7 +449,10 @@
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
-                <div class="dw-sub">Today and tomorrow's scheduled interviews</div>
+                <div class="dw-sub">
+                    Today and tomorrow's interviews sorted by India time
+                    ({{ \Carbon\Carbon::now($dashboardTimezone ?? 'Asia/Kolkata')->format('T') }}).
+                </div>
             </div>
             <span class="badge badge-primary">
                 {{ $todayInterviews->count() + $tomorrowInterviews->count() }} total
@@ -480,7 +485,7 @@
                             <tr>
                                 <th>Candidate</th>
                                 <th>Company</th>
-                                <th>Time</th>
+                                <th>Time ({{ \Carbon\Carbon::now($dashboardTimezone ?? 'Asia/Kolkata')->format('T') }})</th>
                                 @if(!$isRecruiter)<th>Recruiter</th>@endif
                             </tr>
                         </thead>
@@ -498,11 +503,14 @@
                                 </td>
                                 <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
                                 <td class="text-sm text-muted" style="font-size:12px;">
-                                    @if ($iv->scheduled_time)
-                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
-                                        @if ($iv->scheduled_timezone)<span style="font-size:11px;"> {{ $iv->scheduled_timezone }}</span>@endif
-                                    @else
-                                        <span style="opacity:.5;">TBD</span>
+                                    {{ $iv->dashboard_display_time ?? 'TBD' }}
+                                    @if ($iv->dashboard_display_timezone)
+                                        <span style="font-size:11px;"> {{ $iv->dashboard_display_timezone }}</span>
+                                    @endif
+                                    @if ($iv->scheduled_timezone)
+                                        <div style="font-size:10.5px;opacity:.65;line-height:1.2;margin-top:2px;">
+                                            Source: {{ strtoupper($iv->scheduled_timezone) }}
+                                        </div>
                                     @endif
                                 </td>
                                 @if(!$isRecruiter)
@@ -527,7 +535,7 @@
                             <tr>
                                 <th>Candidate</th>
                                 <th>Company</th>
-                                <th>Time</th>
+                                <th>Time ({{ \Carbon\Carbon::now($dashboardTimezone ?? 'Asia/Kolkata')->format('T') }})</th>
                                 @if(!$isRecruiter)<th>Recruiter</th>@endif
                             </tr>
                         </thead>
@@ -545,11 +553,14 @@
                                 </td>
                                 <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
                                 <td class="text-sm text-muted" style="font-size:12px;">
-                                    @if ($iv->scheduled_time)
-                                        {{ \Carbon\Carbon::parse($iv->scheduled_time)->format('h:i A') }}
-                                        @if ($iv->scheduled_timezone)<span style="font-size:11px;"> {{ $iv->scheduled_timezone }}</span>@endif
-                                    @else
-                                        <span style="opacity:.5;">TBD</span>
+                                    {{ $iv->dashboard_display_time ?? 'TBD' }}
+                                    @if ($iv->dashboard_display_timezone)
+                                        <span style="font-size:11px;"> {{ $iv->dashboard_display_timezone }}</span>
+                                    @endif
+                                    @if ($iv->scheduled_timezone)
+                                        <div style="font-size:10.5px;opacity:.65;line-height:1.2;margin-top:2px;">
+                                            Source: {{ strtoupper($iv->scheduled_timezone) }}
+                                        </div>
                                     @endif
                                 </td>
                                 @if(!$isRecruiter)

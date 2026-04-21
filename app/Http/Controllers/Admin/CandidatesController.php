@@ -11,6 +11,7 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 
@@ -112,6 +113,15 @@ class CandidatesController extends Controller
         $isManager = $user->isManager();
 
         $data = $request->validate($this->validationRules($isAdmin, $isManager, null));
+        if (!$this->portfolioColumnExists()) {
+            unset($data['portfolio_url']);
+        }
+
+        if (!$isAdmin && (($data['status'] ?? 'active') === 'inactive')) {
+            return back()->withInput()->withErrors([
+                'status' => 'Only admin can deactivate candidates.',
+            ]);
+        }
 
         // Admin/Manager must assign candidate to exactly one (recruiter OR manager)
         if ($isAdmin) {
@@ -198,11 +208,23 @@ class CandidatesController extends Controller
         }
 
         $data = $request->validate($this->validationRules($isAdmin, $isManager, $candidate->id));
+        if (!$this->portfolioColumnExists()) {
+            unset($data['portfolio_url']);
+        }
 
         $old = $candidate->toArray();
 
         $data['email_id']  = strtolower($data['email_id']);
         $data['full_name'] = $this->buildFullName($data);
+
+        if (
+            !$isAdmin
+            && $this->isActivationRestrictedTransition($candidate->status, (string) ($data['status'] ?? $candidate->status))
+        ) {
+            return back()->withInput()->withErrors([
+                'status' => 'Only admin can activate or deactivate candidates.',
+            ]);
+        }
 
         // no_of_applications: only admin can change; others keep existing value
         if (!$isAdmin) {
@@ -363,6 +385,10 @@ class CandidatesController extends Controller
 
         $oldStatus = $candidate->status;
         $newStatus = $data['status'];
+
+        if (!$user->isAdmin() && $this->isActivationRestrictedTransition($oldStatus, $newStatus)) {
+            return response()->json(['message' => 'Only admin can activate or deactivate candidates.'], 403);
+        }
 
         $candidate->update(['status' => $newStatus]);
 
@@ -547,9 +573,20 @@ class CandidatesController extends Controller
             'bachelors_university', 'bachelors_program', 'bachelors_start', 'bachelors_end', 'bachelors_country',
             'github_url', 'linkedin_url', 'recruiter_notes', 'no_of_applications', 'status', 'interview_status',
         ];
+        if ($this->portfolioColumnExists()) {
+            $allowed[] = 'portfolio_url';
+        }
 
         if (!in_array($field, $allowed)) {
             return response()->json(['message' => 'Field not editable'], 422);
+        }
+
+        if (
+            $field === 'status'
+            && !$isAdmin
+            && $this->isActivationRestrictedTransition((string) $candidate->status, (string) $value)
+        ) {
+            return response()->json(['message' => 'Only admin can activate or deactivate candidates.'], 403);
         }
 
         $candidate->$field = $value ?: null;
@@ -571,6 +608,26 @@ class CandidatesController extends Controller
 
     // ── Private helpers ──────────────────────────────────────────────
 
+    private function isActivationRestrictedTransition(string $oldStatus, string $newStatus): bool
+    {
+        if ($oldStatus === $newStatus) {
+            return false;
+        }
+
+        return in_array($newStatus, ['active', 'inactive'], true) || $oldStatus === 'inactive';
+    }
+
+    private function portfolioColumnExists(): bool
+    {
+        static $hasColumn = null;
+
+        if ($hasColumn === null) {
+            $hasColumn = Schema::hasColumn('candidates', 'portfolio_url');
+        }
+
+        return $hasColumn;
+    }
+
     private function buildFullName(array $data): string
     {
         $parts = array_filter([
@@ -584,7 +641,7 @@ class CandidatesController extends Controller
 
     private function validationRules(bool $isAdmin, bool $isManager, ?int $ignoreId): array
     {
-        return [
+        $rules = [
             // Personal Info
             'first_name'           => ['required', 'string', 'max:100'],
             'middle_name'          => ['nullable', 'string', 'max:100'],
@@ -661,6 +718,12 @@ class CandidatesController extends Controller
             'resumes.*.designation' => ['nullable', 'string', 'max:255'],
             'resumes.*.file'        => ['nullable', 'file', 'mimes:pdf,doc,docx', 'max:5120'],
         ];
+
+        if ($this->portfolioColumnExists()) {
+            $rules['portfolio_url'] = ['nullable', 'url', 'max:255'];
+        }
+
+        return $rules;
     }
 
     private function handleFileUploads(Request $request, Candidate $candidate, array &$data = []): void

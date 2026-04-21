@@ -28,7 +28,7 @@ class StudentAuth
         if ($candidate->status === 'inactive') {
             session()->forget('student_id');
 
-            return redirect()->route('student.login')->with('error', 'Your portal account is inactive.');
+            return redirect()->route('student.login')->with('error', 'Your portal access has been deactivated.');
         }
 
         return $next($request);

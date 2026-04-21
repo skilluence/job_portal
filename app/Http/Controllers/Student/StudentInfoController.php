@@ -170,21 +170,22 @@ class StudentInfoController extends Controller
         AuditLog::log(
             'updated',
             'interviews',
-            "Student set interview schedule: {$candidate->full_name} — {$interview->company_name}",
+            "Student set interview schedule: {$candidate->full_name} - {$interview->company_name}",
             $old,
             $data
         );
 
         if ($request->wantsJson()) {
+            [$displayDate, $displayTime, $displayTimezone] = $this->candidateDisplaySchedule($candidate, $interview);
+
             return response()->json([
                 'success'            => true,
-                'scheduled_date'     => $interview->scheduled_date?->format('M d, Y'),
+                'scheduled_date'     => $displayDate,
                 'scheduled_date_raw' => $interview->scheduled_date?->format('Y-m-d'),
                 'scheduled_time'     => $interview->scheduled_time,
-                'scheduled_time_fmt' => $interview->scheduled_time
-                    ? \Carbon\Carbon::parse($interview->scheduled_time)->format('h:i A')
-                    : null,
-                'scheduled_timezone' => $interview->scheduled_timezone,
+                'scheduled_time_fmt' => $displayTime,
+                'scheduled_timezone' => $displayTimezone,
+                'source_timezone'    => $interview->scheduled_timezone,
             ]);
         }
 
@@ -221,6 +222,81 @@ class StudentInfoController extends Controller
         }
 
         return back()->with('success', 'Interview status updated.');
+    }
+
+    private function candidateDisplaySchedule(Candidate $candidate, Interview $interview): array
+    {
+        if (!$interview->scheduled_date || !$interview->scheduled_time) {
+            return [null, null, null];
+        }
+
+        $candidateTimezone = $this->resolveCandidateTimezone($candidate);
+        $sourceTimezone = $this->timezoneAbbreviationToIana($interview->scheduled_timezone);
+        $scheduledString = $interview->scheduled_date->format('Y-m-d') . ' ' . substr((string) $interview->scheduled_time, 0, 5);
+
+        try {
+            $candidateMoment = \Carbon\Carbon::createFromFormat('Y-m-d H:i', $scheduledString, $sourceTimezone)
+                ->setTimezone($candidateTimezone);
+
+            return [
+                $candidateMoment->format('M d, Y'),
+                $candidateMoment->format('h:i A'),
+                $candidateMoment->format('T'),
+            ];
+        } catch (\Throwable) {
+            return [
+                $interview->scheduled_date?->format('M d, Y'),
+                $interview->scheduled_time ? \Carbon\Carbon::parse($interview->scheduled_time)->format('h:i A') : null,
+                $interview->scheduled_timezone,
+            ];
+        }
+    }
+
+    private function resolveCandidateTimezone(Candidate $candidate): string
+    {
+        $state = strtoupper((string) ($candidate->state_province ?? ''));
+
+        $stateToTimezone = [
+            'CT' => 'America/New_York', 'DE' => 'America/New_York', 'DC' => 'America/New_York',
+            'FL' => 'America/New_York', 'GA' => 'America/New_York', 'ME' => 'America/New_York',
+            'MD' => 'America/New_York', 'MA' => 'America/New_York', 'NH' => 'America/New_York',
+            'NJ' => 'America/New_York', 'NY' => 'America/New_York', 'NC' => 'America/New_York',
+            'OH' => 'America/New_York', 'PA' => 'America/New_York', 'RI' => 'America/New_York',
+            'SC' => 'America/New_York', 'VT' => 'America/New_York', 'VA' => 'America/New_York',
+            'WV' => 'America/New_York',
+            'AL' => 'America/Chicago', 'AR' => 'America/Chicago', 'IL' => 'America/Chicago',
+            'IA' => 'America/Chicago', 'KS' => 'America/Chicago', 'KY' => 'America/Chicago',
+            'LA' => 'America/Chicago', 'MI' => 'America/Chicago', 'MN' => 'America/Chicago',
+            'MS' => 'America/Chicago', 'MO' => 'America/Chicago', 'NE' => 'America/Chicago',
+            'ND' => 'America/Chicago', 'OK' => 'America/Chicago', 'TN' => 'America/Chicago',
+            'TX' => 'America/Chicago', 'WI' => 'America/Chicago', 'SD' => 'America/Chicago',
+            'AZ' => 'America/Phoenix', 'CO' => 'America/Denver', 'ID' => 'America/Denver',
+            'NM' => 'America/Denver', 'MT' => 'America/Denver', 'UT' => 'America/Denver',
+            'WY' => 'America/Denver',
+            'CA' => 'America/Los_Angeles', 'NV' => 'America/Los_Angeles',
+            'OR' => 'America/Los_Angeles', 'WA' => 'America/Los_Angeles',
+            'AK' => 'America/Anchorage',
+            'HI' => 'Pacific/Honolulu',
+        ];
+
+        if ($state && isset($stateToTimezone[$state])) {
+            return $stateToTimezone[$state];
+        }
+
+        return config('app.timezone', 'UTC');
+    }
+
+    private function timezoneAbbreviationToIana(?string $abbr): string
+    {
+        return match (strtoupper((string) $abbr)) {
+            'EST', 'EDT' => 'America/New_York',
+            'CST', 'CDT' => 'America/Chicago',
+            'MST', 'MDT' => 'America/Denver',
+            'PST', 'PDT' => 'America/Los_Angeles',
+            'AKST'       => 'America/Anchorage',
+            'HST'        => 'Pacific/Honolulu',
+            default      => config('app.timezone', 'UTC'),
+        };
     }
 
     public function downloadFile(string $file)

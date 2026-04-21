@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 @section('title', $user->name . ' — Monthly Report')
 @section('module-title', 'Monthly Report')
-@section('module-description', 'Applications, assistant activity, and scheduled interviews for the selected month.')
+@section('module-description', 'Applications, assisment activity, and scheduled interviews for the selected month.')
 @section('content')
 
 <style>
@@ -173,8 +173,8 @@
             <i class="bi bi-people-fill" style="color:var(--purple-text);"></i>
         </div>
         <div class="rpt-stat-body">
-            <div class="rpt-stat-val" style="color:var(--purple-text);">{{ $totals['assistant'] }}</div>
-            <div class="rpt-stat-lbl">Assistant</div>
+            <div class="rpt-stat-val" style="color:var(--purple-text);">{{ $totals['assisment'] }}</div>
+            <div class="rpt-stat-lbl">Assisment</div>
         </div>
     </div>
     <div class="rpt-stat">
@@ -200,7 +200,7 @@
 {{-- ── Tabs ─────────────────────────────────────────────────────── --}}
 <div class="rpt-tabs">
     <button type="button" class="rpt-tab active" id="tabBtnApps" onclick="switchRptTab('apps')">
-        <i class="bi bi-bar-chart-fill"></i> Applications &amp; Assistant
+        <i class="bi bi-bar-chart-fill"></i> Applications &amp; Assisment
     </button>
     <button type="button" class="rpt-tab" id="tabBtnInterviews" onclick="switchRptTab('interviews')">
         <i class="bi bi-calendar2-check-fill"></i> Interviews
@@ -212,10 +212,10 @@
 
 <div class="rpt-tab-body">
 
-    {{-- ════ TAB: Applications & Assistant ════ --}}
+    {{-- ════ TAB: Applications & Assisment ════ --}}
     <div id="tabApps" class="rpt-tab-panel active">
 
-        @if ($totals['applications'] === 0 && $totals['assistant'] === 0)
+        @if ($totals['applications'] === 0 && $totals['assisment'] === 0)
             <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
                 <i class="bi bi-bar-chart" style="font-size:36px;margin-bottom:12px;display:block;opacity:.4;"></i>
                 <div style="font-size:14px;font-weight:500;">No activity recorded</div>
@@ -243,7 +243,7 @@
                                 <span style="color:var(--blue);">●</span> Applications
                             </th>
                             <th style="text-align:center;">
-                                <span style="color:var(--purple-text);">●</span> Assistant
+                                <span style="color:var(--purple-text);">●</span> Assisment
                             </th>
                             <th style="text-align:center;">
                                 <span style="color:var(--green-text);">●</span> Interviews
@@ -263,8 +263,8 @@
                                 @endif
                             </td>
                             <td style="text-align:center;">
-                                @if ($row['assistant'] > 0)
-                                    <span class="badge" style="background:var(--purple-light);color:var(--purple-text);min-width:32px;">{{ $row['assistant'] }}</span>
+                                @if ($row['assisment'] > 0)
+                                    <span class="badge" style="background:var(--purple-light);color:var(--purple-text);min-width:32px;">{{ $row['assisment'] }}</span>
                                 @else
                                     <span style="color:var(--text-muted);font-size:12px;">—</span>
                                 @endif
@@ -285,7 +285,7 @@
                                 Total ({{ count($detailRows) }} active day{{ count($detailRows) !== 1 ? 's' : '' }})
                             </td>
                             <td style="text-align:center;"><span class="badge badge-info" style="min-width:32px;font-weight:700;">{{ $totals['applications'] }}</span></td>
-                            <td style="text-align:center;"><span class="badge" style="background:var(--purple-light);color:var(--purple-text);min-width:32px;font-weight:700;">{{ $totals['assistant'] }}</span></td>
+                            <td style="text-align:center;"><span class="badge" style="background:var(--purple-light);color:var(--purple-text);min-width:32px;font-weight:700;">{{ $totals['assisment'] }}</span></td>
                             <td style="text-align:center;"><span class="badge badge-success" style="min-width:32px;font-weight:700;">{{ $totals['log_interviews'] }}</span></td>
                         </tr>
                     </tfoot>
@@ -420,8 +420,8 @@
                     borderSkipped: 'bottom',
                 },
                 {
-                    label: 'Assistant',
-                    data: @json($chartAssistant),
+                    label: 'Assisment',
+                    data: @json($chartAssisment),
                     backgroundColor: 'rgba(139,92,246,0.75)',
                     borderColor: '#8b5cf6',
                     borderWidth: 0,

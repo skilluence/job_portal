@@ -89,7 +89,7 @@ class DailyLogController extends Controller
             $fields['remark'] = $request->input('remark');
         }
 
-        // applications/assistant/interview: only admin
+        // applications/assisment/interview: only admin
         if ($isAdmin) {
             if ($request->has('applications'))    $fields['applications']    = (int) $request->input('applications');
             if ($request->has('assistant_count')) $fields['assistant_count'] = (int) $request->input('assistant_count');

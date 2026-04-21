@@ -45,7 +45,7 @@ class StudentAuthController extends Controller
 
         if ($candidate->status === 'inactive') {
             return back()
-                ->withErrors(['email' => 'Your account is inactive. Please contact your recruiter.'])
+                ->with('error', 'Your portal access has been deactivated. Please contact your recruiter.')
                 ->withInput(['email' => $request->email]);
         }
 

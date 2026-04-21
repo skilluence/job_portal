@@ -27,7 +27,7 @@ $interviewTypes = ['phone_call' => 'Phone Call', 'virtual' => 'Virtual', 'on_sit
 $timezones = ['EST','CST','MST','PST','AKST','HST','EDT','CDT','MDT','PDT'];
 
 $totalApps       = $dailyLogs->sum('applications');
-$totalAssistant  = $dailyLogs->sum('assistant_count');
+$totalAssisment  = $dailyLogs->sum('assistant_count');
 $totalInterviews = $dailyLogs->sum('interview_count');
 @endphp
 
@@ -305,6 +305,8 @@ $totalInterviews = $dailyLogs->sum('interview_count');
             @include('admin.candidates._preview_field', ['field'=>'marketing_phone','label'=>'Mkt Phone','value'=>$candidate->marketing_phone,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'marketing_email','label'=>'Mkt Email','value'=>$candidate->marketing_email,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'marketing_linkedin_id','label'=>'LinkedIn ID','value'=>$candidate->marketing_linkedin_id,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'marketing_email_password','label'=>'Email Password','value'=>$candidate->marketing_email_password])
+            @include('admin.candidates._preview_field', ['field'=>'marketing_linkedin_password','label'=>'LinkedIn Password','value'=>$candidate->marketing_linkedin_password])
 
             {{-- ---- Education ---- --}}
             <div class="profile-section-title">Education — Masters</div>
@@ -368,8 +370,8 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                     <div class="summary-stat-lbl">Total Applications</div>
                 </div>
                 <div class="summary-stat">
-                    <div class="summary-stat-val" style="color:var(--purple-text);">{{ $totalAssistant }}</div>
-                    <div class="summary-stat-lbl">Total Assistant</div>
+                    <div class="summary-stat-val" style="color:var(--purple-text);">{{ $totalAssisment }}</div>
+                    <div class="summary-stat-lbl">Total Assisment</div>
                 </div>
                 <div class="summary-stat">
                     <div class="summary-stat-val" style="color:var(--green-text);">{{ $totalInterviews }}</div>
@@ -397,7 +399,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             <tr>
                                 <th>Date</th>
                                 <th style="width:80px;">Apps</th>
-                                <th style="width:80px;">Assistant</th>
+                                <th style="width:80px;">Assisment</th>
                                 <th style="width:80px;">Interviews</th>
                                 <th>Remark</th>
                                 <th>Added By</th>
@@ -726,7 +728,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             value="0" min="0" max="9999" required>
                     </div>
                     <div class="form-group mb-0">
-                        <label class="form-label">Assistant <span style="color:var(--red-text)">*</span></label>
+                        <label class="form-label">Assisment <span style="color:var(--red-text)">*</span></label>
                         <input type="number" name="assistant_count" class="form-control"
                             value="0" min="0" max="9999" required>
                     </div>

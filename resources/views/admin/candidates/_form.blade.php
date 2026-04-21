@@ -247,10 +247,15 @@
             <input type="url" name="github_url" id="{{ $prefix }}_github_url" class="form-control"
                 placeholder="https://github.com/username">
         </div>
-        <div class="form-group" style="grid-column:span 2;">
+        <div class="form-group">
             <label class="form-label">LinkedIn URL</label>
             <input type="url" name="linkedin_url" id="{{ $prefix }}_linkedin_url" class="form-control"
                 placeholder="https://linkedin.com/in/username">
+        </div>
+        <div class="form-group">
+            <label class="form-label">Portfolio URL</label>
+            <input type="url" name="portfolio_url" id="{{ $prefix }}_portfolio_url" class="form-control"
+                placeholder="https://portfolio.example.com">
         </div>
     </div>
 
