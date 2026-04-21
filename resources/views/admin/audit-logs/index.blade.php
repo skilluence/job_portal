@@ -120,24 +120,116 @@ td:last-child .audit-changes-wrap .audit-changes-tooltip {
                             @php
                                 $oldVals  = is_array($log->old_values) ? $log->old_values : [];
                                 $newVals  = is_array($log->new_values) ? $log->new_values : [];
-                                $skipKeys = ['password','login_password','login_password_plain','email_password','linkedin_password','remember_token','updated_at','created_at'];
-                                $allKeys  = array_diff(
-                                    array_unique(array_merge(array_keys($oldVals), array_keys($newVals))),
-                                    $skipKeys
-                                );
-                                // Helper: convert any value to a display string
-                                $toStr = fn($v) => is_array($v) || is_object($v)
-                                    ? json_encode($v, JSON_UNESCAPED_UNICODE)
-                                    : (string) ($v ?? '');
+                                $skipKeys = [
+                                    'password', 'login_password', 'login_password_plain',
+                                    'email_password', 'linkedin_password', 'remember_token',
+                                    'updated_at', 'created_at', 'deleted_at',
+                                ];
+
+                                // For updates, compare keys that actually came in new_values.
+                                // This avoids noisy "-> cleared" rows for untouched fields.
+                                $keysSource = !empty($newVals) ? array_keys($newVals) : array_keys($oldVals);
+                                $allKeys = array_values(array_diff($keysSource, $skipKeys));
+
+                                $labelMap = [
+                                    'id' => 'Record ID',
+                                    'candidate_id' => 'Candidate ID',
+                                    'recruiter_id' => 'Recruiter ID',
+                                    'team_manager_id' => 'Team Manager ID',
+                                    'created_by' => 'Created By',
+                                    'full_name' => 'Full Name',
+                                    'email_id' => 'Email',
+                                    'phone_number' => 'Phone',
+                                    'sub_domain' => 'Sub Domain',
+                                    'no_of_applications' => 'Applications Target',
+                                    'interviews_count' => 'Interviews Count',
+                                    'interview_status' => 'Interview Status',
+                                    'scheduled_date' => 'Scheduled Date',
+                                    'scheduled_time' => 'Scheduled Time',
+                                    'scheduled_timezone' => 'Scheduled Timezone',
+                                    'marketing_email_password' => 'Marketing Email Password',
+                                    'marketing_linkedin_password' => 'Marketing LinkedIn Password',
+                                ];
+
+                                $formatLabel = function (string $key) use ($labelMap): string {
+                                    if (isset($labelMap[$key])) {
+                                        return $labelMap[$key];
+                                    }
+                                    return ucwords(str_replace('_', ' ', $key));
+                                };
+
+                                $formatValue = function ($value, string $key = '') {
+                                    if ($value === null) {
+                                        return null;
+                                    }
+
+                                    if (is_bool($value)) {
+                                        return $value ? 'Yes' : 'No';
+                                    }
+
+                                    if (is_array($value)) {
+                                        if ($key === 'resumes') {
+                                            $count = count($value);
+                                            return $count . ' resume ' . ($count === 1 ? 'entry' : 'entries');
+                                        }
+                                        return Str::limit(json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 80);
+                                    }
+
+                                    $text = trim((string) $value);
+                                    if ($text === '') {
+                                        return null;
+                                    }
+
+                                    // Humanize common coded values
+                                    if (in_array($key, ['status', 'interview_status', 'interview_type', 'actor_type', 'module', 'action', 'visa_immigration_status', 'work_auth_status'], true)) {
+                                        return ucwords(str_replace('_', ' ', $text));
+                                    }
+
+                                    // Convert IDs to a cleaner display
+                                    if ($key !== 'id' && str_ends_with($key, '_id') && ctype_digit($text)) {
+                                        return '#' . $text;
+                                    }
+
+                                    // Handle JSON-ish strings
+                                    if (($text[0] ?? '') === '{' || ($text[0] ?? '') === '[') {
+                                        $decoded = json_decode($text, true);
+                                        if (json_last_error() === JSON_ERROR_NONE) {
+                                            if ($key === 'resumes' && is_array($decoded)) {
+                                                $count = count($decoded);
+                                                return $count . ' resume ' . ($count === 1 ? 'entry' : 'entries');
+                                            }
+                                            return Str::limit(json_encode($decoded, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), 80);
+                                        }
+                                    }
+
+                                    // Normalize date & datetime values
+                                    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $text)) {
+                                        try {
+                                            return \Carbon\Carbon::parse($text)->format('M d, Y');
+                                        } catch (\Throwable) {
+                                        }
+                                    }
+                                    if (preg_match('/^\d{4}-\d{2}-\d{2}T/', $text)) {
+                                        try {
+                                            return \Carbon\Carbon::parse($text)->format('M d, Y');
+                                        } catch (\Throwable) {
+                                        }
+                                    }
+
+                                    return Str::limit($text, 80);
+                                };
+
                                 $diffs = [];
                                 foreach ($allKeys as $key) {
                                     $old = array_key_exists($key, $oldVals) ? $oldVals[$key] : null;
                                     $new = array_key_exists($key, $newVals) ? $newVals[$key] : null;
-                                    if ($toStr($old) !== $toStr($new)) {
-                                        $diffs[] = ['key' => $key, 'old' => $toStr($old), 'new' => $toStr($new)];
+                                    $oldText = $formatValue($old, $key);
+                                    $newText = $formatValue($new, $key);
+                                    if (($oldText ?? '') !== ($newText ?? '')) {
+                                        $diffs[] = ['key' => $key, 'old' => $oldText, 'new' => $newText];
                                     }
                                 }
-                                $hasChanges = !empty($diffs) || !empty($allKeys);
+                                $hasChanges = !empty($diffs);
                             @endphp
                             @if ($hasChanges)
                                 @php
@@ -146,24 +238,30 @@ td:last-child .audit-changes-wrap .audit-changes-tooltip {
                                     if (!empty($diffs)) {
                                         foreach ($diffs as $diff) {
                                             $changeHtml .= '<div style="margin-bottom:4px;">';
-                                            $changeHtml .= '<span style="color:#475569;font-weight:600;font-size:11px;text-transform:capitalize;">' . e(str_replace('_', ' ', $diff['key'])) . ':</span><br>';
-                                            if ($diff['old'] !== '') {
+                                            $changeHtml .= '<span style="color:#475569;font-weight:600;font-size:11px;">' . e($formatLabel($diff['key'])) . ':</span><br>';
+                                            if (!empty($diff['old']) && !empty($diff['new'])) {
                                                 $changeHtml .= '<span style="color:#dc2626;background:#fef2f2;padding:1px 4px;border-radius:3px;font-size:11px;">' . e(Str::limit($diff['old'], 50)) . '</span>';
                                                 $changeHtml .= '<span style="color:#94a3b8;font-size:11px;"> → </span>';
-                                            }
-                                            if ($diff['new'] !== '') {
                                                 $changeHtml .= '<span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">' . e(Str::limit($diff['new'], 50)) . '</span>';
+                                            } elseif (empty($diff['old']) && !empty($diff['new'])) {
+                                                $changeHtml .= '<span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">Set to ' . e(Str::limit($diff['new'], 50)) . '</span>';
+                                            } elseif (!empty($diff['old']) && empty($diff['new'])) {
+                                                $changeHtml .= '<span style="color:#dc2626;background:#fef2f2;padding:1px 4px;border-radius:3px;font-size:11px;">Removed (' . e(Str::limit($diff['old'], 50)) . ')</span>';
                                             } else {
-                                                $changeHtml .= '<span style="color:#94a3b8;font-style:italic;font-size:11px;">cleared</span>';
+                                                $changeHtml .= '<span style="color:#94a3b8;font-style:italic;font-size:11px;">No visible change</span>';
                                             }
                                             $changeHtml .= '</div>';
                                         }
                                     } else {
                                         $showVals = array_intersect_key($newVals ?: $oldVals, array_flip($allKeys));
                                         foreach ($showVals as $key => $val) {
+                                            $formatted = $formatValue($val, (string) $key);
+                                            if (empty($formatted)) {
+                                                continue;
+                                            }
                                             $changeHtml .= '<div style="margin-bottom:4px;">';
-                                            $changeHtml .= '<span style="color:#475569;font-weight:600;font-size:11px;text-transform:capitalize;">' . e(str_replace('_', ' ', $key)) . ':</span><br>';
-                                            $changeHtml .= '<span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">' . e(Str::limit($toStr($val), 50)) . '</span>';
+                                            $changeHtml .= '<span style="color:#475569;font-weight:600;font-size:11px;">' . e($formatLabel((string) $key)) . ':</span><br>';
+                                            $changeHtml .= '<span style="color:#16a34a;background:#f0fdf4;padding:1px 4px;border-radius:3px;font-size:11px;">' . e(Str::limit($formatted, 50)) . '</span>';
                                             $changeHtml .= '</div>';
                                         }
                                     }

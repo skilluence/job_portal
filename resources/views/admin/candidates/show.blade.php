@@ -348,15 +348,15 @@ $totalInterviews = $dailyLogs->sum('interview_count');
     {{-- ===== RIGHT PANEL ===== --}}
     <div class="preview-right">
         <div class="page-tabs" role="tablist">
-            <button class="page-tab active" onclick="switchTab('logs', this)" role="tab">
+            <button class="page-tab active" data-tab="logs" onclick="switchTab('logs', this)" role="tab">
                 <i class="bi bi-journal-text"></i> Daily Logs
                 <span class="badge badge-neutral" style="margin-left:4px;font-size:10px;">{{ $dailyLogs->count() }}</span>
             </button>
-            <button class="page-tab" onclick="switchTab('interviews', this)" role="tab">
+            <button class="page-tab" data-tab="interviews" onclick="switchTab('interviews', this)" role="tab">
                 <i class="bi bi-briefcase"></i> Interviews
                 <span class="badge badge-neutral" style="margin-left:4px;font-size:10px;">{{ $interviews->count() }}</span>
             </button>
-            <button class="page-tab" onclick="switchTab('documents', this)" role="tab">
+            <button class="page-tab" data-tab="documents" onclick="switchTab('documents', this)" role="tab">
                 <i class="bi bi-folder2-open"></i> Documents
             </button>
         </div>
@@ -556,6 +556,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                             <i class="bi bi-pencil"></i>
                                         </button>
                                         <form method="POST" action="{{ route('admin.candidates.interviews.destroy', [$candidate, $interview]) }}"
+                                              class="interview-delete-form"
                                               onsubmit="return confirm('Delete this interview?')" style="display:inline;">
                                             @csrf @method('DELETE')
                                             <button type="submit" class="btn btn-danger btn-sm" title="Delete">
@@ -939,11 +940,28 @@ function saveFieldEdit(field) {
 }
 
 // ── Tab switching ──────────────────────────────────────────────────
-function switchTab(name, btn) {
+const TAB_STORAGE_KEY = 'candidate_preview_active_tab_{{ $candidate->id }}';
+
+function persistActiveTab(name) {
+    try {
+        sessionStorage.setItem(TAB_STORAGE_KEY, name);
+    } catch (e) {}
+}
+
+function activateTab(name) {
+    const panel = document.getElementById('tab-' + name);
+    const button = document.querySelector('.page-tab[data-tab="' + name + '"]');
+    if (!panel || !button) return;
+
     document.querySelectorAll('.page-tab-panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.page-tab').forEach(b => b.classList.remove('active'));
-    document.getElementById('tab-' + name).classList.add('active');
-    btn.classList.add('active');
+    panel.classList.add('active');
+    button.classList.add('active');
+    persistActiveTab(name);
+}
+
+function switchTab(name, btn) {
+    activateTab(name);
 }
 
 // ── Daily Log Modal ────────────────────────────────────────────────
@@ -1100,6 +1118,29 @@ function showToast(msg, type = 'success') {
 
 // Auto-dismiss flash toasts
 window.addEventListener('DOMContentLoaded', () => {
+    // Restore active tab after page refresh/redirect.
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedTab = urlParams.get('tab');
+    const savedTab = (() => {
+        try {
+            return sessionStorage.getItem(TAB_STORAGE_KEY);
+        } catch (e) {
+            return null;
+        }
+    })();
+    const tabToActivate = ['logs', 'interviews', 'documents'].includes(requestedTab)
+        ? requestedTab
+        : (['logs', 'interviews', 'documents'].includes(savedTab) ? savedTab : 'logs');
+    activateTab(tabToActivate);
+
+    const interviewForm = document.getElementById('interviewForm');
+    if (interviewForm) {
+        interviewForm.addEventListener('submit', () => persistActiveTab('interviews'));
+    }
+    document.querySelectorAll('.interview-delete-form').forEach(form => {
+        form.addEventListener('submit', () => persistActiveTab('interviews'));
+    });
+
     const flash = document.getElementById('flashToast');
     if (flash) {
         setTimeout(() => {

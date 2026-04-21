@@ -59,6 +59,12 @@
 .dw-table td { padding:9px 10px; border-bottom:1px solid var(--border-color); vertical-align:middle; }
 .dw-table tr:last-child td { border-bottom:none; }
 .dw-table tr:hover td { background:var(--hover-bg,rgba(0,0,0,.025)); }
+.dw-time-main { font-size:12px; font-weight:600; color:var(--text-primary); line-height:1.2; white-space:nowrap; }
+.dw-time-zone {
+    display:inline-flex; align-items:center; margin-left:5px; padding:1px 6px;
+    border-radius:999px; background:#eff6ff; color:#1d4ed8; font-size:10px; font-weight:700;
+}
+.dw-time-sub { margin-top:3px; font-size:10.5px; color:var(--text-muted); line-height:1.2; }
 
 /* ── Top performer dropdown ──────────────────────────────── */
 .dw-top-select {
@@ -191,6 +197,7 @@
             </div>
             {{-- Date filter form --}}
             <form method="GET" action="{{ route('admin.dashboard') }}" class="dw-filter-bar">
+                <input type="hidden" name="perf_month" value="{{ $performanceMonth ?? now()->format('Y-m') }}">
                 <input type="date" name="pend_date" class="form-control"
                     value="{{ $pendingDateStr }}"
                     style="width:150px;"
@@ -204,7 +211,7 @@
                     <i class="bi bi-funnel-fill"></i> Filter
                 </button>
                 @if ($pendingDateEndStr)
-                    <a href="{{ route('admin.dashboard', ['pend_date' => today()->toDateString()]) }}"
+                    <a href="{{ route('admin.dashboard', ['pend_date' => today()->toDateString(), 'perf_month' => $performanceMonth ?? now()->format('Y-m')]) }}"
                         class="btn btn-outline btn-sm" title="Reset to today">
                         <i class="bi bi-x-circle"></i>
                     </a>
@@ -295,12 +302,30 @@
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-trophy-fill" style="color:#f59e0b;"></i> Top Performance</div>
-                <div class="dw-sub">Ranked by valid interview count across recruiters and managers</div>
+                <div class="dw-sub">
+                    Ranked by valid interview count across recruiters and managers
+                    for {{ $performanceMonths[$performanceMonth] ?? $performanceMonth }}
+                </div>
             </div>
-            <select class="dw-top-select" onchange="filterTopRecruiters(this.value)">
-                <option value="5">Top 5</option>
-                <option value="10">Top 10</option>
-            </select>
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <form method="GET" action="{{ route('admin.dashboard') }}" id="perfMonthForm">
+                    <input type="hidden" name="pend_date" value="{{ $pendingDateStr }}">
+                    @if ($pendingDateEndStr)
+                        <input type="hidden" name="pend_date_end" value="{{ $pendingDateEndStr }}">
+                    @endif
+                    <select name="perf_month" class="dw-top-select" onchange="document.getElementById('perfMonthForm').submit()">
+                        @foreach ($performanceMonths as $value => $label)
+                            <option value="{{ $value }}" @selected(($performanceMonth ?? now()->format('Y-m')) === $value)>
+                                {{ $label }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+                <select class="dw-top-select" onchange="filterTopRecruiters(this.value)">
+                    <option value="5">Top 5</option>
+                    <option value="10">Top 10</option>
+                </select>
+            </div>
         </div>
 
         @if ($topPerformers->isEmpty())
@@ -346,7 +371,7 @@
     </div>
 
     {{-- Attention Required --}}
-    <div class="card">
+    <div class="card" style="margin-top:0;">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i> Attention Required</div>
@@ -445,7 +470,7 @@
     </div>
 
     {{-- Interviews (Today & Tomorrow) --}}
-    <div class="card">
+    <div class="card" style="margin-top: 0;">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
@@ -486,6 +511,7 @@
                                 <th>Candidate</th>
                                 <th>Company</th>
                                 <th>Time ({{ \Carbon\Carbon::now($dashboardTimezone ?? 'Asia/Kolkata')->format('T') }})</th>
+                                <th>Candidate Time</th>
                                 @if(!$isRecruiter)<th>Recruiter</th>@endif
                             </tr>
                         </thead>
@@ -502,15 +528,26 @@
                                     @endif
                                 </td>
                                 <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
-                                <td class="text-sm text-muted" style="font-size:12px;">
-                                    {{ $iv->dashboard_display_time ?? 'TBD' }}
-                                    @if ($iv->dashboard_display_timezone)
-                                        <span style="font-size:11px;"> {{ $iv->dashboard_display_timezone }}</span>
+                                <td>
+                                    <div class="dw-time-main">
+                                        {{ $iv->dashboard_display_time ?? 'TBD' }}
+                                        @if ($iv->dashboard_display_timezone)
+                                            <span class="dw-time-zone">{{ $iv->dashboard_display_timezone }}</span>
+                                        @endif
+                                    </div>
+                                    @if ($iv->dashboard_display_date)
+                                        <div class="dw-time-sub">{{ $iv->dashboard_display_date }}</div>
                                     @endif
-                                    @if ($iv->scheduled_timezone)
-                                        <div style="font-size:10.5px;opacity:.65;line-height:1.2;margin-top:2px;">
-                                            Source: {{ strtoupper($iv->scheduled_timezone) }}
-                                        </div>
+                                </td>
+                                <td>
+                                    <div class="dw-time-main">
+                                        {{ $iv->source_display_time ?? 'TBD' }}
+                                        @if ($iv->source_display_timezone)
+                                            <span class="dw-time-zone">{{ strtoupper($iv->source_display_timezone) }}</span>
+                                        @endif
+                                    </div>
+                                    @if ($iv->source_display_date)
+                                        <div class="dw-time-sub">{{ $iv->source_display_date }}</div>
                                     @endif
                                 </td>
                                 @if(!$isRecruiter)
@@ -536,6 +573,7 @@
                                 <th>Candidate</th>
                                 <th>Company</th>
                                 <th>Time ({{ \Carbon\Carbon::now($dashboardTimezone ?? 'Asia/Kolkata')->format('T') }})</th>
+                                <th>Candidate Time</th>
                                 @if(!$isRecruiter)<th>Recruiter</th>@endif
                             </tr>
                         </thead>
@@ -552,15 +590,26 @@
                                     @endif
                                 </td>
                                 <td class="text-sm" style="font-size:12px;">{{ $iv->company_name }}</td>
-                                <td class="text-sm text-muted" style="font-size:12px;">
-                                    {{ $iv->dashboard_display_time ?? 'TBD' }}
-                                    @if ($iv->dashboard_display_timezone)
-                                        <span style="font-size:11px;"> {{ $iv->dashboard_display_timezone }}</span>
+                                <td>
+                                    <div class="dw-time-main">
+                                        {{ $iv->dashboard_display_time ?? 'TBD' }}
+                                        @if ($iv->dashboard_display_timezone)
+                                            <span class="dw-time-zone">{{ $iv->dashboard_display_timezone }}</span>
+                                        @endif
+                                    </div>
+                                    @if ($iv->dashboard_display_date)
+                                        <div class="dw-time-sub">{{ $iv->dashboard_display_date }}</div>
                                     @endif
-                                    @if ($iv->scheduled_timezone)
-                                        <div style="font-size:10.5px;opacity:.65;line-height:1.2;margin-top:2px;">
-                                            Source: {{ strtoupper($iv->scheduled_timezone) }}
-                                        </div>
+                                </td>
+                                <td>
+                                    <div class="dw-time-main">
+                                        {{ $iv->source_display_time ?? 'TBD' }}
+                                        @if ($iv->source_display_timezone)
+                                            <span class="dw-time-zone">{{ strtoupper($iv->source_display_timezone) }}</span>
+                                        @endif
+                                    </div>
+                                    @if ($iv->source_display_date)
+                                        <div class="dw-time-sub">{{ $iv->source_display_date }}</div>
                                     @endif
                                 </td>
                                 @if(!$isRecruiter)

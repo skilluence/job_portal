@@ -951,15 +951,16 @@
     }
 
     /* ── Flash toast auto-dismiss ───────────────────────────────── */
-    var flashToast = document.getElementById('flashToast');
-    if (flashToast) {
+    ['flashToast', 'errorToast'].forEach(function (toastId) {
+        var toastNode = document.getElementById(toastId);
+        if (!toastNode) return;
         setTimeout(function () {
-            flashToast.style.opacity = '0';
+            toastNode.style.opacity = '0';
             setTimeout(function () {
-                if (flashToast.parentNode) flashToast.parentNode.removeChild(flashToast);
+                if (toastNode.parentNode) toastNode.parentNode.removeChild(toastNode);
             }, 400);
         }, 4000);
-    }
+    });
 
     /* ── Programmatic toast (success / error) ───────────────────── */
     window.showToast = function (message, type) {

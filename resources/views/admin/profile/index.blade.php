@@ -10,6 +10,15 @@
     <div class="toast toast-success"><i class="bi bi-check-circle-fill"></i><span>{{ session('success') }}</span></div>
 </div>
 @endif
+@if(session('error'))
+<div class="toast-container" id="errorToast">
+    <div class="toast toast-error"><i class="bi bi-exclamation-circle-fill"></i><span>{{ session('error') }}</span></div>
+</div>
+@endif
+
+@php
+    $canEditEmail = (bool) ($user?->isAdmin());
+@endphp
 
 {{-- Profile Hero --}}
 <div class="profile-hero-card mb-24">
@@ -33,14 +42,26 @@
         <div class="card-header">
             <div>
                 <div class="card-title"><i class="bi bi-person-fill" style="color:var(--blue);margin-right:6px;"></i>Edit Profile</div>
-                <div class="card-subtitle">Update your name and email address</div>
+                <div class="card-subtitle">
+                    @if ($canEditEmail)
+                        Update your name and email address
+                    @else
+                        Update your name. Email can be changed by admin only.
+                    @endif
+                </div>
             </div>
         </div>
 
         @if($errors->hasAny(['name','email']))
         <div class="alert alert-error mb-16">
             <i class="bi bi-exclamation-circle-fill" style="flex-shrink:0;"></i>
-            <div>@foreach($errors->only(['name','email']) as $e)<div>{{ $e }}</div>@endforeach</div>
+            <div>
+                @foreach (['name', 'email'] as $errorField)
+                    @foreach ($errors->get($errorField) as $message)
+                        <div>{{ $message }}</div>
+                    @endforeach
+                @endforeach
+            </div>
         </div>
         @endif
 
@@ -54,7 +75,15 @@
             <div class="form-group">
                 <label class="form-label">Email Address <span style="color:var(--red-text)">*</span></label>
                 <input type="email" name="email" class="form-control"
-                       value="{{ old('email', $user?->email) }}" required placeholder="your@email.com">
+                       value="{{ $canEditEmail ? old('email', $user?->email) : ($user?->email) }}"
+                       placeholder="your@email.com"
+                       {{ $canEditEmail ? 'required' : 'readonly' }}
+                       style="{{ $canEditEmail ? '' : 'background:var(--main-bg);cursor:not-allowed;' }}">
+                @if (!$canEditEmail)
+                    <div class="text-sm text-muted" style="margin-top:6px;">
+                        <i class="bi bi-lock-fill"></i> Only admin can change email address.
+                    </div>
+                @endif
             </div>
             <div class="form-group">
                 <label class="form-label">Role</label>

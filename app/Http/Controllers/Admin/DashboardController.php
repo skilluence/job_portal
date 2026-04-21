@@ -25,6 +25,18 @@ class DashboardController extends Controller
         $dashboardTimezone = 'Asia/Kolkata';
         $todayKey = now($dashboardTimezone)->format('Y-m-d');
         $tomorrowKey = now($dashboardTimezone)->addDay()->format('Y-m-d');
+        $performanceMonth = (string) $request->get('perf_month', now()->format('Y-m'));
+        if (!preg_match('/^\d{4}-\d{2}$/', $performanceMonth)) {
+            $performanceMonth = now()->format('Y-m');
+        }
+        [$performanceYear, $performanceMon] = explode('-', $performanceMonth);
+        $performanceStart = Carbon::createFromDate((int) $performanceYear, (int) $performanceMon, 1)->startOfDay();
+        $performanceEnd = $performanceStart->copy()->endOfMonth()->endOfDay();
+        $performanceMonths = [];
+        for ($i = 0; $i <= 12; $i++) {
+            $monthCursor = now()->subMonths($i);
+            $performanceMonths[$monthCursor->format('Y-m')] = $monthCursor->format('F Y');
+        }
 
         $upcomingInterviews = Interview::query()
             ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
@@ -36,6 +48,8 @@ class DashboardController extends Controller
                 $scheduledAtUtc = $this->interviewUtcTimestamp($interview);
                 $interview->dashboard_sort_ts = $scheduledAtUtc?->getTimestamp();
                 $interview->has_precise_time = !empty($interview->scheduled_time);
+                $sourceTimezone = strtoupper((string) $interview->scheduled_timezone) ?: null;
+                $sourceTimezoneIana = $this->timezoneAbbreviationToIana($sourceTimezone);
 
                 if ($scheduledAtUtc) {
                     $dashboardMoment = $scheduledAtUtc->copy()->setTimezone($dashboardTimezone);
@@ -45,11 +59,21 @@ class DashboardController extends Controller
                         ? $dashboardMoment->format('h:i A')
                         : 'TBD';
                     $interview->dashboard_display_timezone = $dashboardMoment->format('T');
+
+                    $sourceMoment = $scheduledAtUtc->copy()->setTimezone($sourceTimezoneIana);
+                    $interview->source_display_date = $sourceMoment->format('M d, Y');
+                    $interview->source_display_time = $interview->scheduled_time
+                        ? $sourceMoment->format('h:i A')
+                        : 'TBD';
+                    $interview->source_display_timezone = $sourceTimezone ?: $sourceMoment->format('T');
                 } else {
                     $interview->dashboard_date_key = $interview->scheduled_date?->format('Y-m-d');
                     $interview->dashboard_display_date = $interview->scheduled_date?->format('M d, Y');
                     $interview->dashboard_display_time = 'TBD';
-                    $interview->dashboard_display_timezone = strtoupper((string) $interview->scheduled_timezone) ?: null;
+                    $interview->dashboard_display_timezone = $sourceTimezone;
+                    $interview->source_display_date = $interview->scheduled_date?->format('M d, Y');
+                    $interview->source_display_time = $this->formatDashboardTime($interview->scheduled_time) ?: 'TBD';
+                    $interview->source_display_timezone = $sourceTimezone;
                 }
 
                 return $interview;
@@ -65,6 +89,10 @@ class DashboardController extends Controller
 
         // Widget 2: Top performance recruiter (by valid interview count).
         $validInterviewCounts = Interview::where('interview_status', 'valid')
+            ->whereBetween('scheduled_date', [
+                $performanceStart->toDateString(),
+                $performanceEnd->toDateString(),
+            ])
             ->selectRaw('COALESCE(recruiter_id, created_by) as performer_id, COUNT(*) as cnt')
             ->where(function ($q) {
                 $q->whereNotNull('recruiter_id')
@@ -155,7 +183,9 @@ class DashboardController extends Controller
             ->get(['id', 'full_name', 'status', 'recruiter_id', 'created_at', 'domain']);
 
         // Manager header stats.
-        $managerMyCandidatesCount = $isManager ? Candidate::where('team_manager_id', $user->id)->count() : 0;
+        $managerMyCandidatesCount = $isManager
+            ? Candidate::where('team_manager_id', $user->id)->whereNull('recruiter_id')->count()
+            : 0;
         $managerAllCandidatesCount = $isManager ? Candidate::whereIn('recruiter_id', $teamMemberIds)->count() : 0;
 
         // Summary stats (scoped by role).
@@ -190,6 +220,8 @@ class DashboardController extends Controller
             'tomorrowInterviews' => $tomorrowInterviews,
             'dashboardTimezone' => $dashboardTimezone,
             'topPerformers' => $topPerformers,
+            'performanceMonth' => $performanceMonth,
+            'performanceMonths' => $performanceMonths,
             'pendingCandidates' => $pendingCandidates,
             'pendingDateStr' => $pendingDateStr,
             'pendingDateEndStr' => $pendingDateEndStr,
@@ -262,5 +294,20 @@ class DashboardController extends Controller
             'HST' => 'Pacific/Honolulu',
             default => config('app.timezone', 'UTC'),
         };
+    }
+
+    private function formatDashboardTime(?string $time): ?string
+    {
+        if (empty($time)) {
+            return null;
+        }
+
+        $normalizedTime = substr((string) $time, 0, 5);
+
+        try {
+            return Carbon::createFromFormat('H:i', $normalizedTime)->format('h:i A');
+        } catch (\Throwable) {
+            return trim((string) $time) ?: null;
+        }
     }
 }

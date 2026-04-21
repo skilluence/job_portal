@@ -44,12 +44,16 @@ class CandidatesController extends Controller
         $managerTeamCount = 0;
         $managerAllCount  = 0;
         if ($isManager) {
-            $managerMyCount   = Candidate::where('team_manager_id', $user->id)->count();
+            $managerMyCount   = Candidate::where('team_manager_id', $user->id)
+                ->whereNull('recruiter_id')
+                ->count();
             $managerTeamCount = Candidate::whereIn('recruiter_id', $teamMemberIds)->count();
-            // All = distinct union (avoids double-counting candidates with both fields set)
+            // All = directly assigned to manager OR assigned to their recruiters.
             $managerAllCount  = Candidate::where(function ($q) use ($user, $teamMemberIds) {
-                $q->where('team_manager_id', $user->id)
-                  ->orWhereIn('recruiter_id', $teamMemberIds);
+                $q->where(function ($q2) use ($user) {
+                    $q2->where('team_manager_id', $user->id)
+                        ->whereNull('recruiter_id');
+                })->orWhereIn('recruiter_id', $teamMemberIds);
             })->count();
         }
 
@@ -57,13 +61,16 @@ class CandidatesController extends Controller
             ->when($user->isRecruiter(), fn ($q) => $q->where('recruiter_id', $user->id))
             ->when($isManager, function ($q) use ($user, $teamMemberIds, $scope) {
                 if ($scope === 'mine') {
-                    $q->where('team_manager_id', $user->id);
+                    $q->where('team_manager_id', $user->id)
+                        ->whereNull('recruiter_id');
                 } elseif ($scope === 'team') {
                     $q->whereIn('recruiter_id', $teamMemberIds);
                 } else {
                     $q->where(function ($q2) use ($user, $teamMemberIds) {
-                        $q2->where('team_manager_id', $user->id)
-                           ->orWhereIn('recruiter_id', $teamMemberIds);
+                        $q2->where(function ($q3) use ($user) {
+                            $q3->where('team_manager_id', $user->id)
+                                ->whereNull('recruiter_id');
+                        })->orWhereIn('recruiter_id', $teamMemberIds);
                     });
                 }
             })
@@ -153,12 +160,14 @@ class CandidatesController extends Controller
             $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
             $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
         } elseif ($isManager) {
-            $data['team_manager_id'] = $user->id;
             $recruiter = !empty($data['recruiter_id']) ? (int) $data['recruiter_id'] : 0;
             if ($recruiter && in_array($recruiter, $user->teamMemberIds(), true)) {
                 $data['recruiter_id'] = $recruiter;
+                $data['team_manager_id'] = null;
             } else {
                 $data['recruiter_id'] = null;
+                // Manager direct assignment
+                $data['team_manager_id'] = $user->id;
             }
         } else {
             $data['recruiter_id']    = $user->id;
@@ -236,12 +245,18 @@ class CandidatesController extends Controller
             $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
             $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
         } elseif ($isManager) {
-            $data['team_manager_id'] = $user->id; // always the manager themselves
             $recruiter = !empty($data['recruiter_id']) ? (int) $data['recruiter_id'] : 0;
             if ($recruiter && in_array($recruiter, $user->teamMemberIds(), true)) {
                 $data['recruiter_id'] = $recruiter;
+                $data['team_manager_id'] = null;
+            } elseif (!empty($data['team_manager_id']) && (int) $data['team_manager_id'] === (int) $user->id) {
+                // Explicitly moved to manager direct assignment
+                $data['recruiter_id'] = null;
+                $data['team_manager_id'] = $user->id;
             } else {
+                // Keep existing assignment when manager didn't change owner fields.
                 $data['recruiter_id'] = $candidate->recruiter_id;
+                $data['team_manager_id'] = $candidate->team_manager_id;
             }
         } else {
             $data['recruiter_id']    = $candidate->recruiter_id;

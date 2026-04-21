@@ -19,16 +19,43 @@ class ProfileController extends Controller
     public function update(Request $request)
     {
         $user = Auth::user();
+        $isAdmin = $user->isAdmin();
 
-        $request->validate([
+        $rules = [
             'name'  => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-        ]);
+        ];
+
+        if ($isAdmin) {
+            $rules['email'] = 'required|email|unique:users,email,' . $user->id;
+        } else {
+            $rules['email'] = 'nullable|email';
+        }
+
+        $request->validate($rules);
+
+        if (
+            !$isAdmin
+            && $request->filled('email')
+            && strcasecmp(trim((string) $request->email), (string) $user->email) !== 0
+        ) {
+            return back()
+                ->with('error', 'Only admin can change email address.')
+                ->withInput();
+        }
 
         $old = ['name' => $user->name, 'email' => $user->email];
-        $user->update(['name' => $request->name, 'email' => $request->email]);
+        $newValues = [
+            'name' => $request->name,
+            'email' => $user->email,
+        ];
 
-        AuditLog::log('updated', 'profile', "Profile updated: {$user->name}", $old, ['name' => $request->name, 'email' => $request->email]);
+        if ($isAdmin) {
+            $newValues['email'] = strtolower((string) $request->email);
+        }
+
+        $user->update($newValues);
+
+        AuditLog::log('updated', 'profile', "Profile updated: {$user->name}", $old, $newValues);
 
         return back()->with('success', 'Profile updated successfully.');
     }

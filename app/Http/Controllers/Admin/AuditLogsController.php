@@ -13,7 +13,10 @@ class AuditLogsController extends Controller
         $user          = $request->user();
         $search        = trim((string) $request->get('search'));
         $action        = $request->get('action');
-        $tab           = $request->get('tab', 'recruiters');
+        $tab           = $request->get('tab', 'all');
+        if (!in_array($tab, ['all', 'recruiters', 'students'], true)) {
+            $tab = 'all';
+        }
         $isRecruiter   = $user->isRecruiter();
         $isManager     = $user->isManager();
         $teamMemberIds = $isManager ? $user->teamMemberIds() : [];

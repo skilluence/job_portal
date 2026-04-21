@@ -59,6 +59,7 @@
                     <th>Team Manager</th>
                     <th>Status</th>
                     <th>Candidates</th>
+                    <th>Created At</th>
                     <th>Actions</th>
                 </tr>
             </thead>
@@ -99,6 +100,12 @@
                             </span>
                         </td>
                         <td class="text-muted text-sm">{{ $user->candidates_count ?? 0 }}</td>
+                        <td class="text-sm">
+                            <div>{{ $user->created_at?->format('M d, Y') ?? '-' }}</div>
+                            @if ($user->created_at)
+                                <div class="text-muted" style="font-size:11px;">{{ $user->created_at->format('h:i A') }}</div>
+                            @endif
+                        </td>
                         <td>
                             <div class="tbl-actions">
                                 @if ($canViewReport)
@@ -129,7 +136,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <div class="page-empty mb-0">
                                 <i class="bi bi-person-check"></i>
                                 <p>No users found{{ ($search || $role) ? ' matching your filters' : '' }}.</p>

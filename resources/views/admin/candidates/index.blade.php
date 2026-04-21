@@ -128,7 +128,7 @@ $workAuthOptions = [
                     <th>Status</th>
                     <th style="width:50px;">Apps</th>
                     <th>Recruiter</th>
-                    <th>Documents</th>
+                    <th>Created At</th>
                     <th style="width:90px;">Actions</th>
                 </tr>
             </thead>
@@ -167,22 +167,21 @@ $workAuthOptions = [
                             <i class="bi bi-pencil-fill td-status-hint"></i>
                         </td>
                         <td>{{ $candidate->no_of_applications }}</td>
-                        <td class="text-muted text-sm">{{ $candidate->recruiter?->name ?? '-' }}</td>
-                        <td>
-                            <div class="d-flex gap-4" style="flex-wrap:wrap;">
-                                @if ($candidate->cv_file_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'cv']) }}" target="_blank" rel="noopener" title="View CV">CV</a>
-                                @endif
-                                @if ($candidate->candidate_details_file_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'details']) }}" target="_blank" rel="noopener" title="View Details">Details</a>
-                                @endif
-                                @if ($candidate->speedy_apply_json_path)
-                                    <a class="btn btn-outline btn-sm" href="{{ route('admin.candidates.files', [$candidate, 'speedy']) }}" target="_blank" rel="noopener" title="Speedy Apply">JSON</a>
-                                @endif
-                                @if (!$candidate->cv_file_path && !$candidate->candidate_details_file_path && !$candidate->speedy_apply_json_path)
-                                    <span class="text-muted text-sm">-</span>
-                                @endif
-                            </div>
+                        <td class="text-muted text-sm">
+                            @if ($candidate->recruiter)
+                                {{ $candidate->recruiter->name }}
+                            @elseif ($candidate->teamManager)
+                                {{ $candidate->teamManager->name }}
+                                <span style="display:block;font-size:11px;color:var(--text-muted);">Team Manager</span>
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td class="text-sm">
+                            <div>{{ $candidate->created_at?->format('M d, Y') ?? '-' }}</div>
+                            @if ($candidate->created_at)
+                                <div class="text-muted" style="font-size:11px;">{{ $candidate->created_at->format('h:i A') }}</div>
+                            @endif
                         </td>
                         <td>
                             @php
