@@ -112,51 +112,178 @@ class ImportExportController extends Controller
         $callback = function () use ($dateFrom, $dateTo, $status, $recruiterId) {
             $fh = fopen('php://output', 'w');
             fputcsv($fh, [
-                'full_name', 'first_name', 'last_name', 'email_id', 'phone_number',
-                'domain', 'sub_domain', 'city', 'state_province', 'zip_code', 'country',
-                'visa_immigration_status', 'work_auth_status',
-                'no_of_applications', 'interviews_count', 'status', 'recruiter',
-                'github_url', 'linkedin_url', 'portfolio_url',
-                'masters_university', 'masters_program', 'masters_country',
-                'bachelors_university', 'bachelors_program', 'bachelors_country',
+                'id',
+                'full_name',
+                'first_name',
+                'middle_name',
+                'last_name',
+                'date_of_birth',
+                'gender',
+                'nationality',
+                'email_id',
+                'phone_number',
+                'domain',
+                'sub_domain',
+                'ssn',
+                'date_of_arrival_usa',
+                'current_salary',
+                'expected_salary',
+                'street_address',
+                'apartment_unit',
+                'city',
+                'state_province',
+                'zip_code',
+                'country',
+                'visa_immigration_status',
+                'work_auth_status',
+                'open_to_relocation',
+                'preferred_city',
+                'visa_expiry_date',
+                'marketing_phone',
+                'marketing_email',
+                'marketing_email_password',
+                'marketing_linkedin_id',
+                'marketing_linkedin_password',
+                'github_url',
+                'linkedin_url',
+                'portfolio_url',
+                'masters_university',
+                'masters_program',
+                'masters_start',
+                'masters_end',
+                'masters_country',
+                'bachelors_university',
+                'bachelors_program',
+                'bachelors_start',
+                'bachelors_end',
+                'bachelors_country',
+                'recruiter_notes',
+                'no_of_applications',
+                'interviews_count',
+                'status',
+                'interview_status',
+                'recruiter_id',
+                'recruiter_name',
+                'team_manager_id',
+                'team_manager_name',
+                'created_by',
+                'created_by_name',
+                'enrollment_date',
+                'sales_agent',
+                'linkedin_id',
+                'linkedin_password',
+                'email_password',
+                'linkedin_updated',
+                'address',
+                'profile',
+                'notes',
+                'cv_document_url',
+                'candidate_details_document_url',
+                'speedy_apply_json_document_url',
+                'agreement_document_url',
+                'resume_document_urls',
+                'cv_file_path',
+                'candidate_details_file_path',
+                'speedy_apply_json_path',
+                'agreement_file_path',
                 'created_at',
+                'updated_at',
             ]);
 
-            Candidate::with('recruiter')
+            Candidate::with([
+                'recruiter:id,name',
+                'teamManager:id,name',
+                'creator:id,name',
+                'resumes:id,candidate_id,designation,file_path,original_filename',
+            ])
                 ->when($dateFrom,    fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
                 ->when($dateTo,      fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
                 ->when($status,      fn ($q) => $q->where('status', $status))
                 ->when($recruiterId, fn ($q) => $q->where('recruiter_id', (int) $recruiterId))
                 ->chunk(300, function ($candidates) use ($fh) {
                     foreach ($candidates as $c) {
+                        $resumeDocumentUrls = $c->resumes->map(function ($resume) use ($c) {
+                            $url = route('admin.candidates.resumes.download', [$c, $resume]);
+                            return trim(($resume->designation ?: 'Resume') . ': ' . $url);
+                        })->implode(' | ');
+
                         fputcsv($fh, [
+                            $c->id,
                             $c->full_name,
                             $c->first_name,
+                            $c->middle_name,
                             $c->last_name,
+                            $c->date_of_birth?->format('Y-m-d'),
+                            $c->gender,
+                            $c->nationality,
                             $c->email_id,
                             $c->phone_number,
                             $c->domain,
                             $c->sub_domain,
+                            $c->ssn,
+                            $c->date_of_arrival_usa?->format('Y-m-d'),
+                            $c->current_salary,
+                            $c->expected_salary,
+                            $c->street_address,
+                            $c->apartment_unit,
                             $c->city,
                             $c->state_province,
                             $c->zip_code,
                             $c->country,
                             $c->visa_immigration_status,
                             $c->work_auth_status,
-                            $c->no_of_applications,
-                            $c->interviews_count,
-                            $c->status,
-                            $c->recruiter?->name,
+                            $c->open_to_relocation ? 'Yes' : 'No',
+                            $c->preferred_city,
+                            $c->visa_expiry_date?->format('Y-m-d'),
+                            $c->marketing_phone,
+                            $c->marketing_email,
+                            $c->marketing_email_password,
+                            $c->marketing_linkedin_id,
+                            $c->marketing_linkedin_password,
                             $c->github_url,
                             $c->linkedin_url,
                             $c->portfolio_url,
                             $c->masters_university,
                             $c->masters_program,
+                            $c->masters_start?->format('Y-m-d'),
+                            $c->masters_end?->format('Y-m-d'),
                             $c->masters_country,
                             $c->bachelors_university,
                             $c->bachelors_program,
+                            $c->bachelors_start?->format('Y-m-d'),
+                            $c->bachelors_end?->format('Y-m-d'),
                             $c->bachelors_country,
+                            $c->recruiter_notes,
+                            $c->no_of_applications,
+                            $c->interviews_count,
+                            $c->status,
+                            $c->interview_status,
+                            $c->recruiter_id,
+                            $c->recruiter?->name,
+                            $c->team_manager_id,
+                            $c->teamManager?->name,
+                            $c->created_by,
+                            $c->creator?->name,
+                            $c->enrollment_date,
+                            $c->sales_agent,
+                            $c->linkedin_id,
+                            $c->linkedin_password,
+                            $c->email_password,
+                            $c->linkedin_updated,
+                            $c->address,
+                            $c->profile,
+                            $c->notes,
+                            $c->cv_file_path ? route('admin.candidates.files', [$c, 'cv']) : '',
+                            $c->candidate_details_file_path ? route('admin.candidates.files', [$c, 'details']) : '',
+                            $c->speedy_apply_json_path ? route('admin.candidates.files', [$c, 'speedy']) : '',
+                            $c->agreement_file_path ? route('admin.candidates.files', [$c, 'agreement']) : '',
+                            $resumeDocumentUrls,
+                            $c->cv_file_path,
+                            $c->candidate_details_file_path,
+                            $c->speedy_apply_json_path,
+                            $c->agreement_file_path,
                             $c->created_at?->format('Y-m-d H:i:s'),
+                            $c->updated_at?->format('Y-m-d H:i:s'),
                         ]);
                     }
                 });
@@ -465,22 +592,31 @@ class ImportExportController extends Controller
 
     public function exportRecruiters(Request $request)
     {
-        $dateFrom = $request->input('date_from');
-        $dateTo   = $request->input('date_to');
-        $role     = $request->input('role');
-        $status   = $request->input('status');
+        $dateFrom   = $request->input('date_from');
+        $dateTo     = $request->input('date_to');
+        $roleFilter = strtolower((string) $request->input('role_filter', $request->input('role', 'all')));
+        $status     = $request->input('status');
+
+        $allowedRoleFilters = ['all', 'manager', 'recruiter'];
+        if (!in_array($roleFilter, $allowedRoleFilters, true)) {
+            $roleFilter = 'all';
+        }
+
+        $exportRoles = match ($roleFilter) {
+            'manager' => ['manager'],
+            'recruiter' => ['recruiter'],
+            default => ['manager', 'recruiter'],
+        };
 
         $parts = array_filter([
             $dateFrom ? "from:{$dateFrom}" : null,
             $dateTo   ? "to:{$dateTo}"     : null,
-            $role     ? "role:{$role}"     : null,
+            "role_filter:{$roleFilter}",
             $status   ? "status:{$status}" : null,
         ]);
-        $desc = 'Exported recruiters as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
+        $desc = 'Exported recruiters/team managers as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
 
         AuditLog::log('exported', 'recruiters', $desc);
-
-        $allowedRoles = ['recruiter', 'admin'];
 
         $headers = [
             'Content-Type'        => 'text/csv; charset=UTF-8',
@@ -489,23 +625,29 @@ class ImportExportController extends Controller
             'Expires'             => '0',
         ];
 
-        $callback = function () use ($dateFrom, $dateTo, $role, $status, $allowedRoles) {
+        $callback = function () use ($dateFrom, $dateTo, $status, $exportRoles) {
             $fh = fopen('php://output', 'w');
-            fputcsv($fh, ['name', 'email', 'role', 'status', 'candidates_count', 'created_at']);
+            fputcsv($fh, ['name', 'email', 'role', 'status', 'team_manager', 'candidates_count', 'created_at']);
 
-            User::withCount('candidates')
-                ->whereIn('role', $role && in_array($role, $allowedRoles) ? [$role] : $allowedRoles)
+            User::with(['teamManager:id,name'])
+                ->withCount(['candidates', 'managedCandidates'])
+                ->whereIn('role', $exportRoles)
                 ->when($status,   fn ($q) => $q->where('status', $status))
                 ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
                 ->when($dateTo,   fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
                 ->chunk(300, function ($users) use ($fh) {
                     foreach ($users as $user) {
+                        $candidateCount = $user->role === 'manager'
+                            ? (int) ($user->managed_candidates_count ?? 0)
+                            : (int) ($user->candidates_count ?? 0);
+
                         fputcsv($fh, [
                             $user->name,
                             $user->email,
                             $user->role,
                             $user->status,
-                            $user->candidates_count,
+                            $user->teamManager?->name ?? '',
+                            $candidateCount,
                             $user->created_at?->format('Y-m-d H:i:s'),
                         ]);
                     }

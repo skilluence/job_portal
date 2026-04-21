@@ -71,6 +71,10 @@
     document.addEventListener('submit', function (event) {
         if (event.defaultPrevented) return;
         var form = event.target;
+        var method = (form.getAttribute('method') || 'get').toLowerCase();
+        if (form.hasAttribute('data-submit-lock-skip') || method === 'get') {
+            return;
+        }
         if (form.dataset.submitting === '1') {
             event.preventDefault();
             return;

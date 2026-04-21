@@ -175,7 +175,7 @@
 
         {{-- Export → Candidates --}}
         <div class="ie-tab-panel" id="subpanel-export-candidates">
-            <form method="GET" action="{{ route('admin.import-export.export-candidates') }}">
+            <form method="GET" action="{{ route('admin.import-export.export-candidates') }}" data-submit-lock-skip="1">
                 <div class="ie-export-form">
                     <div class="ie-export-form-title">
                         <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
@@ -234,7 +234,7 @@
 
         {{-- Export → Recruiters --}}
         <div class="ie-tab-panel" id="subpanel-export-recruiters">
-            <form method="GET" action="{{ route('admin.import-export.export-recruiters') }}">
+            <form method="GET" action="{{ route('admin.import-export.export-recruiters') }}" data-submit-lock-skip="1">
                 <div class="ie-export-form">
                     <div class="ie-export-form-title">
                         <i class="bi bi-funnel-fill" style="color:var(--blue);"></i> Filter Export
@@ -249,10 +249,10 @@
                             <input type="date" name="date_to" class="form-control">
                         </div>
                         <div class="form-group mb-0" style="flex:1;min-width:140px;">
-                            <label class="form-label">Role</label>
-                            <select name="role" class="form-control">
-                                <option value="">All Roles</option>
-                                <option value="admin">Admin</option>
+                            <label class="form-label">User Type</label>
+                            <select name="role_filter" class="form-control">
+                                <option value="all">All</option>
+                                <option value="manager">Team Manager</option>
                                 <option value="recruiter">Recruiter</option>
                             </select>
                         </div>
@@ -278,8 +278,8 @@
             <a href="{{ route('admin.import-export.export-recruiters') }}" class="ie-export-all-link">
                 <i class="bi bi-file-earmark-spreadsheet" style="font-size:22px;color:var(--blue);flex-shrink:0;"></i>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters</div>
-                    <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete recruiter list without any filters</div>
+                    <div style="font-weight:600;font-size:13px;color:var(--text-primary);">Export All Recruiters &amp; Team Managers</div>
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:1px;">Download the complete recruiter/team manager list without filters</div>
                 </div>
                 <i class="bi bi-chevron-right" style="color:var(--text-muted);flex-shrink:0;"></i>
             </a>
