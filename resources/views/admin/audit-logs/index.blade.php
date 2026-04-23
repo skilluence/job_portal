@@ -101,7 +101,7 @@ td:last-child .audit-changes-wrap .audit-changes-tooltip {
                         <td>
                             <div class="avatar-row">
                                 <div class="avatar-sm" style="width:26px;height:26px;font-size:10px;">
-                                    {{ strtoupper(substr($log->actor_name ?? 'S', 0, 1)) }}
+                                    {{ \App\Models\User::buildInitials($log->actor_name, 'S') }}
                                 </div>
                                 <div>
                                     <div class="avatar-name">{{ $log->actor_name ?? 'System' }}</div>

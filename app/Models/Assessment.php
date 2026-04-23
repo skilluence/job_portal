@@ -4,31 +4,27 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class Interview extends Model
+class Assessment extends Model
 {
     protected $fillable = [
         'candidate_id',
         'recruiter_id',
-        'application_date',
-        'application_time',
+        'assessment_date',
+        'assessment_time',
         'role',
         'company_name',
-        'company_domain',
+        'domain',
+        'company_website_url',
         'mail_date',
         'mail_time',
-        'interview_type',
-        'interview_status',
+        'assessment_type',
         'remark',
-        'scheduled_date',
-        'scheduled_time',
-        'scheduled_timezone',
         'created_by',
     ];
 
     protected $casts = [
-        'application_date' => 'date',
-        'mail_date'      => 'date',
-        'scheduled_date' => 'date',
+        'assessment_date' => 'date',
+        'mail_date' => 'date',
     ];
 
     public function candidate()

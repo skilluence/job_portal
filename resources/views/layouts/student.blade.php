@@ -39,7 +39,7 @@
             <div class="stp-topbar-right">
                 @if ($topCandidate)
                     <div class="stp-user-pill">
-                        <div class="stp-user-avatar">{{ strtoupper(substr($topCandidate->full_name, 0, 1)) }}</div>
+                        <div class="stp-user-avatar">{{ $topCandidate->initials }}</div>
                         <div class="stp-user-info">
                             <div class="stp-user-name">{{ $topCandidate->full_name }}</div>
                             <div class="stp-user-status">

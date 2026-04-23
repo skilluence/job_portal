@@ -1,12 +1,14 @@
 <?php
 
 use App\Http\Controllers\Admin\AuditLogsController;
+use App\Http\Controllers\Admin\AssessmentController;
 use App\Http\Controllers\Admin\CandidateResumeController;
 use App\Http\Controllers\Admin\CandidatesController;
 use App\Http\Controllers\Admin\DailyLogController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\ImportExportController;
 use App\Http\Controllers\Admin\InterviewController;
+use App\Http\Controllers\Admin\LeaveController;
 use App\Http\Controllers\Admin\ProfileController;
 use App\Http\Controllers\Admin\UsersController;
 use App\Http\Controllers\Auth\LoginController;
@@ -24,12 +26,19 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [LoginController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role:admin,recruiter,manager'])->group(function () {
+Route::prefix('admin')->name('admin.')->middleware(['auth', 'sync.leave.status', 'active.user', 'role:admin,recruiter,manager'])->group(function () {
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/leaves', [LeaveController::class, 'index'])->name('leaves');
+    Route::post('/leaves', [LeaveController::class, 'store'])->name('leaves.store');
+    Route::get('/leaves/{leave}/document', [LeaveController::class, 'download'])->name('leaves.document');
+    Route::put('/leaves/{leave}', [LeaveController::class, 'update'])->name('leaves.update')->middleware('role:admin');
+    Route::patch('/leaves/{leave}/approve', [LeaveController::class, 'approve'])->name('leaves.approve')->middleware('role:admin');
+    Route::patch('/leaves/{leave}/reject', [LeaveController::class, 'reject'])->name('leaves.reject')->middleware('role:admin');
 
     // Candidates — accessible to all roles
     Route::get('/candidates', [CandidatesController::class, 'index'])->name('candidates');
-    Route::post('/candidates', [CandidatesController::class, 'store'])->name('candidates.store');
+    Route::post('/candidates/bulk-ownership', [CandidatesController::class, 'bulkOwnership'])->name('candidates.bulk-ownership');
+    Route::post('/candidates', [CandidatesController::class, 'store'])->name('candidates.store')->middleware('role:admin');
     Route::put('/candidates/{candidate}', [CandidatesController::class, 'update'])->name('candidates.update');
     Route::delete('/candidates/{candidate}', [CandidatesController::class, 'destroy'])->name('candidates.destroy');
     Route::post('/candidates/{candidate}/reveal-password', [CandidatesController::class, 'revealPassword'])
@@ -50,6 +59,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
     Route::post('/candidates/{candidate}/interviews', [InterviewController::class, 'store'])->name('candidates.interviews.store');
     Route::put('/candidates/{candidate}/interviews/{interview}', [InterviewController::class, 'update'])->name('candidates.interviews.update');
     Route::delete('/candidates/{candidate}/interviews/{interview}', [InterviewController::class, 'destroy'])->name('candidates.interviews.destroy');
+    Route::post('/candidates/{candidate}/assessments', [AssessmentController::class, 'store'])->name('candidates.assessments.store');
+    Route::put('/candidates/{candidate}/assessments/{assessment}', [AssessmentController::class, 'update'])->name('candidates.assessments.update');
+    Route::delete('/candidates/{candidate}/assessments/{assessment}', [AssessmentController::class, 'destroy'])->name('candidates.assessments.destroy');
 
     // Profile — accessible to all roles
     Route::get('/profile', [ProfileController::class, 'index'])->name('profile');
@@ -72,9 +84,9 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'active.user', 'role
         Route::get('/import-export', [ImportExportController::class, 'index'])->name('import-export');
         Route::get('/import-export/export-candidates', [ImportExportController::class, 'exportCandidates'])->name('import-export.export-candidates');
         Route::get('/import-export/export-recruiters', [ImportExportController::class, 'exportRecruiters'])->name('import-export.export-recruiters');
-        Route::get('/import-export/candidate-template', [ImportExportController::class, 'downloadCandidateTemplate'])->name('import-export.candidate-template');
+        Route::get('/import-export/candidate-template', [ImportExportController::class, 'downloadCandidateTemplate'])->name('import-export.candidate-template')->middleware('role:admin');
         Route::get('/import-export/recruiter-template', [ImportExportController::class, 'downloadRecruiterTemplate'])->name('import-export.recruiter-template');
-        Route::post('/import-export/import-candidates', [ImportExportController::class, 'importCandidates'])->name('import-export.import-candidates');
+        Route::post('/import-export/import-candidates', [ImportExportController::class, 'importCandidates'])->name('import-export.import-candidates')->middleware('role:admin');
         Route::post('/import-export/import-recruiters', [ImportExportController::class, 'importRecruiters'])->name('import-export.import-recruiters');
     });
 });

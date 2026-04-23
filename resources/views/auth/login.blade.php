@@ -25,18 +25,18 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('login.post') }}" class="auth-form active">
+    <form method="POST" action="{{ route('login.post') }}" class="auth-form active" autocomplete="off">
         @csrf
         <div class="form-group">
             <label class="form-label" for="email">Email Address</label>
             <input id="email" type="email" name="email" class="form-control"
-                value="{{ old('email') }}" placeholder="you@skilluence.com" required autofocus>
+                value="{{ old('email') }}" placeholder="you@skilluence.com" required autofocus autocomplete="off">
         </div>
         <div class="form-group">
             <label class="form-label" for="password">Password</label>
             <div class="input-with-icon">
                 <input id="password" type="password" name="password" class="form-control"
-                    placeholder="Enter your password" required>
+                    placeholder="Enter your password" required autocomplete="new-password">
                 <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
             </div>
         </div>

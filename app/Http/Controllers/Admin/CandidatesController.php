@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
 use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\DailyLog;
 use App\Models\Interview;
 use App\Models\User;
+use App\Services\CandidateOwnershipService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -28,14 +31,27 @@ class CandidatesController extends Controller
 
     private const WORK_AUTH_STATUSES = ['applied_pending', 'not_applied', 'already_obtained'];
 
-    public function index(Request $request)
+    public function index(Request $request, CandidateOwnershipService $candidateOwnershipService)
     {
         $user      = $request->user();
         $search    = trim((string) $request->get('search'));
         $status    = $request->get('status');
         $scope     = $request->get('scope'); // 'mine' | 'team' | null (all)
+        $ownership = $request->get('ownership');
         $isAdmin   = $user->isAdmin();
         $isManager = $user->isManager();
+
+        if (!in_array($ownership, ['unassigned', 'reclaim'], true)) {
+            $ownership = null;
+        }
+
+        if ($ownership === 'unassigned' && !$isAdmin) {
+            $ownership = null;
+        }
+
+        if ($ownership === 'reclaim' && $isAdmin) {
+            $ownership = null;
+        }
 
         $teamMemberIds = $isManager ? $user->teamMemberIds() : [];
 
@@ -44,36 +60,30 @@ class CandidatesController extends Controller
         $managerTeamCount = 0;
         $managerAllCount  = 0;
         if ($isManager) {
-            $managerMyCount   = Candidate::where('team_manager_id', $user->id)
-                ->whereNull('recruiter_id')
-                ->count();
-            $managerTeamCount = Candidate::whereIn('recruiter_id', $teamMemberIds)->count();
-            // All = directly assigned to manager OR assigned to their recruiters.
-            $managerAllCount  = Candidate::where(function ($q) use ($user, $teamMemberIds) {
-                $q->where(function ($q2) use ($user) {
-                    $q2->where('team_manager_id', $user->id)
-                        ->whereNull('recruiter_id');
-                })->orWhereIn('recruiter_id', $teamMemberIds);
-            })->count();
+            $managerMyCount = $candidateOwnershipService->directManagedCandidateCount($user);
+            $managerTeamCount = $candidateOwnershipService->teamRecruiterCandidateCount($user);
+            $managerAllCount = $candidateOwnershipService->totalOwnedCandidateCount($user);
         }
 
-        $candidates = Candidate::with(['recruiter', 'teamManager', 'resumes'])
-            ->when($user->isRecruiter(), fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, function ($q) use ($user, $teamMemberIds, $scope) {
-                if ($scope === 'mine') {
-                    $q->where('team_manager_id', $user->id)
-                        ->whereNull('recruiter_id');
-                } elseif ($scope === 'team') {
-                    $q->whereIn('recruiter_id', $teamMemberIds);
-                } else {
-                    $q->where(function ($q2) use ($user, $teamMemberIds) {
-                        $q2->where(function ($q3) use ($user) {
-                            $q3->where('team_manager_id', $user->id)
-                                ->whereNull('recruiter_id');
-                        })->orWhereIn('recruiter_id', $teamMemberIds);
-                    });
-                }
-            })
+        $unassignedCount = $isAdmin
+            ? Candidate::query()->whereNull('recruiter_id')->whereNull('team_manager_id')->count()
+            : 0;
+
+        $reclaimableCount = !$isAdmin
+            ? $this->reclaimableCandidatesQuery($user, $candidateOwnershipService)->count()
+            : 0;
+
+        $candidatesQuery = Candidate::with(['recruiter', 'teamManager', 'resumes', 'latestAssignmentHistory.changer']);
+
+        if ($ownership === 'unassigned') {
+            $candidatesQuery->whereNull('recruiter_id')->whereNull('team_manager_id');
+        } elseif ($ownership === 'reclaim' && !$isAdmin) {
+            $candidatesQuery = $this->reclaimableCandidatesQuery($user, $candidateOwnershipService, $candidatesQuery);
+        } elseif (!$isAdmin) {
+            $candidateOwnershipService->applyOwnedScope($candidatesQuery, $user, $scope);
+        }
+
+        $candidates = $candidatesQuery
             ->when($search, fn ($q) => $q->search($search))
             ->when($status, fn ($q) => $q->where('status', $status))
             ->latest()
@@ -102,6 +112,7 @@ class CandidatesController extends Controller
             'search'           => $search,
             'status'           => $status,
             'scope'            => $scope,
+            'ownership'        => $ownership,
             'statusOptions'    => self::STATUSES,
             'isAdmin'          => $isAdmin || $isManager,
             'isRealAdmin'      => $isAdmin,
@@ -110,6 +121,8 @@ class CandidatesController extends Controller
             'managerMyCount'   => $managerMyCount,
             'managerTeamCount' => $managerTeamCount,
             'managerAllCount'  => $managerAllCount,
+            'unassignedCount'  => $unassignedCount,
+            'reclaimableCount' => $reclaimableCount,
         ]);
     }
 
@@ -118,6 +131,12 @@ class CandidatesController extends Controller
         $user      = $request->user();
         $isAdmin   = $user->isAdmin();
         $isManager = $user->isManager();
+
+        if (!$isAdmin) {
+            return back()->withErrors([
+                'candidate' => 'Only admin can create new candidates.',
+            ]);
+        }
 
         $data = $request->validate($this->validationRules($isAdmin, $isManager, null));
         if (!$this->portfolioColumnExists()) {
@@ -130,16 +149,8 @@ class CandidatesController extends Controller
             ]);
         }
 
-        // Admin/Manager must assign candidate to exactly one (recruiter OR manager)
         if ($isAdmin) {
-            $hasRecruiter = !empty($data['recruiter_id']);
-            $hasManager   = !empty($data['team_manager_id']);
-            if (!$hasRecruiter && !$hasManager) {
-                return back()->withInput()->withErrors([
-                    'recruiter_id' => 'Please assign the candidate to a Recruiter or a Team Manager.',
-                ]);
-            }
-            if ($hasRecruiter && $hasManager) {
+            if ($this->hasDualOwnerSelection($data)) {
                 return back()->withInput()->withErrors([
                     'recruiter_id' => 'Assign to either a Recruiter or a Team Manager — not both.',
                 ]);
@@ -157,6 +168,12 @@ class CandidatesController extends Controller
 
         // Assign recruiter / manager
         if ($isAdmin) {
+            if ($this->hasDualOwnerSelection($data)) {
+                return back()->withInput()->withErrors([
+                    'recruiter_id' => 'Assign to either a Recruiter or a Team Manager â€” not both.',
+                ]);
+            }
+
             $data['recruiter_id']    = !empty($data['recruiter_id'])    ? (int) $data['recruiter_id']    : null;
             $data['team_manager_id'] = !empty($data['team_manager_id']) ? (int) $data['team_manager_id'] : null;
         } elseif ($isManager) {
@@ -200,7 +217,7 @@ class CandidatesController extends Controller
             ->with('success', "Candidate \"{$candidate->full_name}\" added successfully.");
     }
 
-    public function update(Request $request, Candidate $candidate)
+    public function update(Request $request, Candidate $candidate, CandidateOwnershipService $candidateOwnershipService)
     {
         $user      = $request->user();
         $isAdmin   = $user->isAdmin();
@@ -263,6 +280,10 @@ class CandidatesController extends Controller
             $data['team_manager_id'] = $candidate->team_manager_id;
         }
 
+        $newRecruiterId = $data['recruiter_id'] ?? $candidate->recruiter_id;
+        $newTeamManagerId = $data['team_manager_id'] ?? $candidate->team_manager_id;
+        unset($data['recruiter_id'], $data['team_manager_id']);
+
         // Password: only update if provided
         if (!empty($data['login_password'])) {
             $plain = $data['login_password'];
@@ -284,13 +305,24 @@ class CandidatesController extends Controller
         $this->handleResumeUploads($request, $candidate);
 
         $candidate->update($data);
+        $candidateOwnershipService->changeOwnership(
+            $candidate,
+            $newRecruiterId,
+            $newTeamManagerId,
+            $user,
+            ($newRecruiterId || $newTeamManagerId) ? 'assigned' : 'unassigned',
+            'Updated from candidate edit form'
+        );
 
         AuditLog::log(
             'updated',
             'candidates',
             "Updated candidate: {$candidate->full_name}",
             $this->sanitizeAuditValues($old),
-            $this->sanitizeAuditValues($data)
+            $this->sanitizeAuditValues(array_merge($data, [
+                'recruiter_id' => $newRecruiterId,
+                'team_manager_id' => $newTeamManagerId,
+            ]))
         );
 
         return redirect()->route('admin.candidates')
@@ -338,6 +370,110 @@ class CandidatesController extends Controller
         );
 
         return back()->with('success', "Candidate \"{$name}\" deleted. Student login is disabled.");
+    }
+
+    public function bulkOwnership(Request $request, CandidateOwnershipService $candidateOwnershipService)
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'candidate_ids' => ['required', 'array', 'min:1'],
+            'candidate_ids.*' => ['integer', 'exists:candidates,id'],
+            'bulk_action' => ['required', Rule::in(['unassign', 'assign', 'take_back'])],
+            'assign_recruiter_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'recruiter'))],
+            'assign_team_manager_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'manager'))],
+        ]);
+
+        $candidateIds = array_values(array_unique(array_map('intval', $validated['candidate_ids'])));
+        $bulkAction = (string) $validated['bulk_action'];
+
+        $candidates = Candidate::query()
+            ->whereIn('id', $candidateIds)
+            ->get();
+
+        if ($candidates->count() !== count($candidateIds)) {
+            return back()->withErrors(['candidate_ids' => 'One or more selected candidates could not be found.']);
+        }
+
+        $toRecruiterId = null;
+        $toTeamManagerId = null;
+        $actionLabel = $bulkAction;
+
+        if ($bulkAction === 'assign') {
+            if (!$user->isAdmin()) {
+                abort(403, 'Only admin can bulk assign candidates.');
+            }
+
+            $toRecruiterId = $validated['assign_recruiter_id'] ? (int) $validated['assign_recruiter_id'] : null;
+            $toTeamManagerId = $validated['assign_team_manager_id'] ? (int) $validated['assign_team_manager_id'] : null;
+
+            if (($toRecruiterId && $toTeamManagerId) || (!$toRecruiterId && !$toTeamManagerId)) {
+                return back()->withErrors([
+                    'assign_recruiter_id' => 'Select either one recruiter or one team manager for the bulk transfer.',
+                ]);
+            }
+
+            $actionLabel = 'assigned';
+        } elseif ($bulkAction === 'take_back') {
+            if ($user->isAdmin()) {
+                abort(403, 'Admin cannot use the take-back action.');
+            }
+
+            $reclaimableIds = $candidateOwnershipService->reclaimableCandidateIds($user);
+            if (array_diff($candidateIds, $reclaimableIds)) {
+                return back()->withErrors([
+                    'candidate_ids' => 'You can only take back candidates that you previously moved to unassigned.',
+                ]);
+            }
+
+            $toRecruiterId = $user->isRecruiter() ? $user->id : null;
+            $toTeamManagerId = $user->isManager() ? $user->id : null;
+            $actionLabel = 'taken_back';
+        } else {
+            if (!$user->isAdmin()) {
+                $authorizedCount = $candidateOwnershipService
+                    ->applyOwnedScope(Candidate::query()->whereIn('id', $candidateIds), $user)
+                    ->count();
+
+                if ($authorizedCount !== count($candidateIds)) {
+                    return back()->withErrors([
+                        'candidate_ids' => 'You can only move your current candidates to unassigned.',
+                    ]);
+                }
+            }
+
+            $actionLabel = 'unassigned';
+        }
+
+        $changedCount = $candidateOwnershipService->bulkChangeOwnership(
+            $candidates,
+            $toRecruiterId,
+            $toTeamManagerId,
+            $user,
+            $actionLabel,
+            'Updated from bulk ownership action'
+        );
+
+        AuditLog::log(
+            'updated',
+            'candidates',
+            "Bulk ownership action ({$actionLabel}) by {$user->name}",
+            [],
+            [
+                'candidate_ids' => $candidateIds,
+                'changed_count' => $changedCount,
+                'to_recruiter_id' => $toRecruiterId,
+                'to_team_manager_id' => $toTeamManagerId,
+            ]
+        );
+
+        $successMessage = match ($actionLabel) {
+            'assigned' => $changedCount . ' candidate(s) reassigned successfully.',
+            'taken_back' => $changedCount . ' candidate(s) taken back successfully.',
+            default => $changedCount . ' candidate(s) moved to unassigned successfully.',
+        };
+
+        return back()->with('success', $successMessage);
     }
 
     public function downloadFile(Request $request, Candidate $candidate, string $file)
@@ -542,10 +678,15 @@ class CandidatesController extends Controller
             ->with(['recruiter', 'creator'])
             ->orderByDesc('scheduled_date')->orderByDesc('created_at')->get();
 
+        $assessments = Assessment::where('candidate_id', $candidate->id)
+            ->with(['recruiter', 'creator'])
+            ->orderByDesc('assessment_date')->orderByDesc('created_at')->get();
+
         return view('admin.candidates.show', [
             'candidate'   => $candidate,
             'dailyLogs'   => $dailyLogs,
             'interviews'  => $interviews,
+            'assessments' => $assessments,
             'isAdmin'     => $isAdmin,
             'isRealAdmin' => $isAdmin,
             'isManager'   => $isManager,
@@ -652,6 +793,37 @@ class CandidatesController extends Controller
         ]);
 
         return trim(implode(' ', $parts)) ?: ($data['full_name'] ?? '');
+    }
+
+    private function hasDualOwnerSelection(array $data): bool
+    {
+        return !empty($data['recruiter_id']) && !empty($data['team_manager_id']);
+    }
+
+    private function reclaimableCandidatesQuery(
+        User $user,
+        CandidateOwnershipService $candidateOwnershipService,
+        ?Builder $query = null
+    ): Builder {
+        $query = $query ?: Candidate::query();
+        $reclaimableIds = $candidateOwnershipService->reclaimableCandidateIds($user);
+
+        $query->whereIn('id', $reclaimableIds);
+
+        if ($user->isRecruiter()) {
+            $query->where(function (Builder $subQuery) use ($user) {
+                $subQuery->whereNull('recruiter_id')
+                    ->orWhere('recruiter_id', '!=', $user->id);
+            });
+        } elseif ($user->isManager()) {
+            $query->where(function (Builder $subQuery) use ($user) {
+                $subQuery->whereNull('team_manager_id')
+                    ->orWhere('team_manager_id', '!=', $user->id)
+                    ->orWhereNotNull('recruiter_id');
+            });
+        }
+
+        return $query;
     }
 
     private function validationRules(bool $isAdmin, bool $isManager, ?int $ignoreId): array

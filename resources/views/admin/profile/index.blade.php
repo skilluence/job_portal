@@ -23,7 +23,7 @@
 {{-- Profile Hero --}}
 <div class="profile-hero-card mb-24">
     <div class="profile-avatar-xl">
-        {{ $user ? strtoupper(substr($user->name, 0, 1)) : 'A' }}
+        {{ $user?->initials ?? 'A' }}
     </div>
     <div>
         <div class="profile-hero-name">{{ $user?->name ?? 'Admin User' }}</div>

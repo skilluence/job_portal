@@ -24,11 +24,18 @@ $workAuthOptions = [
 ];
 $statusOptions = ['active','enrolled','interview','offer','placed','onhold','inactive'];
 $interviewTypes = ['phone_call' => 'Phone Call', 'virtual' => 'Virtual', 'on_site' => 'On Site'];
+$assessmentTypes = [
+    'technical' => 'Technical',
+    'screening' => 'Screening',
+    'ai_interview' => 'AI Interview',
+    'questions' => 'Questions',
+    'virtual_video_interview' => 'Virtual / Video Interview',
+];
 $timezones = ['EST','CST','MST','PST','AKST','HST','EDT','CDT','MDT','PDT'];
 
 $totalApps       = $dailyLogs->sum('applications');
-$totalAssisment  = $dailyLogs->sum('assistant_count');
-$totalInterviews = $dailyLogs->sum('interview_count');
+$totalAssessment = $assessments->count();
+$totalInterviews = $interviews->count();
 @endphp
 
 <style>
@@ -199,7 +206,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
             {{-- Profile header --}}
             <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-color);">
                 <div class="candidate-avatar-xl">
-                    {{ strtoupper(substr($candidate->full_name, 0, 1)) }}
+                    {{ $candidate->initials }}
                 </div>
                 <div style="flex:1;min-width:0;">
                     <div style="font-size:16px;font-weight:700;color:var(--text-primary);line-height:1.2;" id="displayFullName">
@@ -356,6 +363,10 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                 <i class="bi bi-briefcase"></i> Interviews
                 <span class="badge badge-neutral" style="margin-left:4px;font-size:10px;">{{ $interviews->count() }}</span>
             </button>
+            <button class="page-tab" data-tab="assessments" onclick="switchTab('assessments', this)" role="tab">
+                <i class="bi bi-clipboard-check"></i> Assessment
+                <span class="badge badge-neutral" style="margin-left:4px;font-size:10px;">{{ $assessments->count() }}</span>
+            </button>
             <button class="page-tab" data-tab="documents" onclick="switchTab('documents', this)" role="tab">
                 <i class="bi bi-folder2-open"></i> Documents
             </button>
@@ -370,8 +381,8 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                     <div class="summary-stat-lbl">Total Applications</div>
                 </div>
                 <div class="summary-stat">
-                    <div class="summary-stat-val" style="color:var(--purple-text);">{{ $totalAssisment }}</div>
-                    <div class="summary-stat-lbl">Total Assisment</div>
+                    <div class="summary-stat-val" style="color:var(--purple-text);">{{ $totalAssessment }}</div>
+                    <div class="summary-stat-lbl">Total Assessment</div>
                 </div>
                 <div class="summary-stat">
                     <div class="summary-stat-val" style="color:var(--green-text);">{{ $totalInterviews }}</div>
@@ -387,7 +398,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                 <div class="card-header" style="padding:14px 16px;">
                     <div>
                         <div class="card-title">Daily Logs</div>
-                        <div class="card-subtitle">Double-click a row to edit inline</div>
+                        <div class="card-subtitle">Applications are editable here. Assessment and interview totals are auto-synced from their tabs.</div>
                     </div>
                     <button class="btn btn-primary btn-sm" onclick="openLogModal()">
                         <i class="bi bi-plus-lg"></i> Add Log
@@ -399,7 +410,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             <tr>
                                 <th>Date</th>
                                 <th style="width:80px;">Apps</th>
-                                <th style="width:80px;">Assisment</th>
+                                <th style="width:80px;">Assessment</th>
                                 <th style="width:80px;">Interviews</th>
                                 <th>Remark</th>
                                 <th>Added By</th>
@@ -422,11 +433,9 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                 </td>
                                 <td class="td-assistant">
                                     <span class="view-val">{{ $log->assistant_count }}</span>
-                                    <input type="number" min="0" class="log-edit-input edit-val" style="display:none;" value="{{ $log->assistant_count }}" data-field="assistant_count">
                                 </td>
                                 <td class="td-interviews">
                                     <span class="view-val">{{ $log->interview_count }}</span>
-                                    <input type="number" min="0" class="log-edit-input edit-val" style="display:none;" value="{{ $log->interview_count }}" data-field="interview_count">
                                 </td>
                                 <td class="td-remark" style="max-width:200px;">
                                     <span class="view-val" style="white-space:pre-wrap;font-size:12px;">{{ $log->remark ?: '—' }}</span>
@@ -479,7 +488,8 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                 <th>Role</th>
                                 <th>Company</th>
                                 <th>Domain</th>
-                                <th>Mail Date</th>
+                                <th>Application At</th>
+                                <th>Mail At</th>
                                 <th>Type</th>
                                 <th>Status</th>
                                 <th>Remark</th>
@@ -492,6 +502,17 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                         </thead>
                         <tbody>
                             @forelse ($interviews as $i => $interview)
+                            @php
+                                $applicationTime = $interview->application_time
+                                    ? \Illuminate\Support\Carbon::parse($interview->application_time)->format('h:i A')
+                                    : null;
+                                $mailTime = $interview->mail_time
+                                    ? \Illuminate\Support\Carbon::parse($interview->mail_time)->format('h:i A')
+                                    : null;
+                                $scheduledTime = $interview->scheduled_time
+                                    ? \Illuminate\Support\Carbon::parse($interview->scheduled_time)->format('h:i A')
+                                    : null;
+                            @endphp
                             <tr>
                                 <td class="text-muted text-sm">{{ $i + 1 }}</td>
                                 <td class="text-sm" style="max-width:120px;">{{ $interview->role }}</td>
@@ -501,8 +522,12 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                        style="color:var(--blue-text);word-break:break-all;">{{ $interview->company_domain }}</a>
                                 </td>
                                 <td class="text-sm text-muted" style="white-space:nowrap;">
+                                    {{ $interview->application_date?->format('M d, Y') ?? '—' }}
+                                    @if ($applicationTime)<br><span style="font-size:11px;">{{ $applicationTime }}</span>@endif
+                                </td>
+                                <td class="text-sm text-muted" style="white-space:nowrap;">
                                     {{ $interview->mail_date?->format('M d, Y') ?? '—' }}
-                                    @if ($interview->mail_time)<br><span style="font-size:11px;">{{ $interview->mail_time }}</span>@endif
+                                    @if ($mailTime)<br><span style="font-size:11px;">{{ $mailTime }}</span>@endif
                                 </td>
                                 <td>
                                     @php
@@ -528,7 +553,7 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                 <td class="text-sm text-muted" style="white-space:nowrap;">
                                     @if ($interview->scheduled_date)
                                         {{ $interview->scheduled_date->format('M d, Y') }}
-                                        @if ($interview->scheduled_time)<br><span style="font-size:11px;">{{ $interview->scheduled_time }} {{ $interview->scheduled_timezone }}</span>@endif
+                                        @if ($scheduledTime)<br><span style="font-size:11px;">{{ $scheduledTime }} {{ $interview->scheduled_timezone }}</span>@endif
                                     @else
                                         —
                                     @endif
@@ -541,15 +566,17 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                                             title="Edit"
                                             onclick="openInterviewModal({{ json_encode([
                                                 'id'                 => $interview->id,
+                                                'application_date'   => $interview->application_date?->format('Y-m-d'),
+                                                'application_time'   => $interview->application_time ? substr((string) $interview->application_time, 0, 5) : null,
                                                 'role'               => $interview->role,
                                                 'company_name'       => $interview->company_name,
                                                 'company_domain'     => $interview->company_domain,
                                                 'mail_date'          => $interview->mail_date?->format('Y-m-d'),
-                                                'mail_time'          => $interview->mail_time,
+                                                'mail_time'          => $interview->mail_time ? substr((string) $interview->mail_time, 0, 5) : null,
                                                 'interview_type'     => $interview->interview_type,
                                                 'remark'             => $interview->remark,
                                                 'scheduled_date'     => $interview->scheduled_date?->format('Y-m-d'),
-                                                'scheduled_time'     => $interview->scheduled_time,
+                                                'scheduled_time'     => $interview->scheduled_time ? substr((string) $interview->scheduled_time, 0, 5) : null,
                                                 'scheduled_timezone' => $interview->scheduled_timezone,
                                                 'update_url'         => route('admin.candidates.interviews.update', [$candidate, $interview]),
                                             ]) }})">
@@ -569,10 +596,126 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             </tr>
                             @empty
                             <tr>
-                                <td colspan="{{ $isAdmin ? 11 : 10 }}">
+                                <td colspan="{{ $isAdmin ? 12 : 11 }}">
                                     <div class="page-empty" style="padding:32px 24px;">
                                         <i class="bi bi-briefcase"></i>
                                         <p>No interviews recorded yet. Click "Add Interview" to get started.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        {{-- ===== ASSESSMENTS TAB ===== --}}
+        <div class="page-tab-panel" id="tab-assessments">
+            <div class="card" style="padding:0;">
+                <div class="card-header" style="padding:14px 16px;">
+                    <div>
+                        <div class="card-title">Assessment</div>
+                        <div class="card-subtitle">{{ $assessments->count() }} total assessments recorded</div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="openAssessmentModal()">
+                        <i class="bi bi-plus-lg"></i> Add Assessment
+                    </button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width:32px;">#</th>
+                                <th>Assessment At</th>
+                                <th>Mail At</th>
+                                <th>Company</th>
+                                <th>Domain</th>
+                                <th>Role</th>
+                                <th>Type</th>
+                                <th>Remark</th>
+                                <th>Added By</th>
+                                <th>Created At</th>
+                                @if ($isAdmin)
+                                <th style="width:70px;">Actions</th>
+                                @endif
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse ($assessments as $i => $assessment)
+                            @php
+                                $assessmentTime = $assessment->assessment_time
+                                    ? \Illuminate\Support\Carbon::parse($assessment->assessment_time)->format('h:i A')
+                                    : null;
+                                $assessmentMailTime = $assessment->mail_time
+                                    ? \Illuminate\Support\Carbon::parse($assessment->mail_time)->format('h:i A')
+                                    : null;
+                            @endphp
+                            <tr>
+                                <td class="text-muted text-sm">{{ $i + 1 }}</td>
+                                <td class="text-sm text-muted" style="white-space:nowrap;">
+                                    {{ $assessment->assessment_date?->format('M d, Y') ?? 'â€”' }}
+                                    @if ($assessmentTime)<br><span style="font-size:11px;">{{ $assessmentTime }}</span>@endif
+                                </td>
+                                <td class="text-sm text-muted" style="white-space:nowrap;">
+                                    {{ $assessment->mail_date?->format('M d, Y') ?? 'â€”' }}
+                                    @if ($assessmentMailTime)<br><span style="font-size:11px;">{{ $assessmentMailTime }}</span>@endif
+                                </td>
+                                <td class="text-sm font-600" style="max-width:180px;">
+                                    <div>{{ $assessment->company_name }}</div>
+                                    @if ($assessment->company_website_url)
+                                        <a href="{{ $assessment->company_website_url }}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue-text);word-break:break-all;">
+                                            {{ $assessment->company_website_url }}
+                                        </a>
+                                    @endif
+                                </td>
+                                <td class="text-sm" style="max-width:140px;">{{ $assessment->domain }}</td>
+                                <td class="text-sm" style="max-width:140px;">{{ $assessment->role }}</td>
+                                <td>
+                                    <span class="badge badge-info">{{ $assessmentTypes[$assessment->assessment_type] ?? $assessment->assessment_type }}</span>
+                                </td>
+                                <td style="max-width:180px;font-size:12px;color:var(--text-secondary);">{{ $assessment->remark ?: 'â€”' }}</td>
+                                <td class="text-sm text-muted">{{ $assessment->creator?->name ?? 'â€”' }}</td>
+                                <td class="text-sm text-muted" style="white-space:nowrap;">{{ $assessment->created_at?->format('M d, Y h:i A') ?? 'â€”' }}</td>
+                                @if ($isAdmin)
+                                <td>
+                                    <div class="d-flex gap-4">
+                                        <button class="btn btn-outline btn-sm"
+                                            title="Edit"
+                                            onclick="openAssessmentModal({{ json_encode([
+                                                'id' => $assessment->id,
+                                                'assessment_date' => $assessment->assessment_date?->format('Y-m-d'),
+                                                'assessment_time' => $assessment->assessment_time ? substr((string) $assessment->assessment_time, 0, 5) : null,
+                                                'company_name' => $assessment->company_name,
+                                                'domain' => $assessment->domain,
+                                                'company_website_url' => $assessment->company_website_url,
+                                                'role' => $assessment->role,
+                                                'assessment_type' => $assessment->assessment_type,
+                                                'mail_date' => $assessment->mail_date?->format('Y-m-d'),
+                                                'mail_time' => $assessment->mail_time ? substr((string) $assessment->mail_time, 0, 5) : null,
+                                                'remark' => $assessment->remark,
+                                                'update_url' => route('admin.candidates.assessments.update', [$candidate, $assessment]),
+                                            ]) }})">
+                                            <i class="bi bi-pencil"></i>
+                                        </button>
+                                        <form method="POST" action="{{ route('admin.candidates.assessments.destroy', [$candidate, $assessment]) }}"
+                                              class="assessment-delete-form"
+                                              onsubmit="return confirm('Delete this assessment?')" style="display:inline;">
+                                            @csrf @method('DELETE')
+                                            <button type="submit" class="btn btn-danger btn-sm" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                                @endif
+                            </tr>
+                            @empty
+                            <tr>
+                                <td colspan="{{ $isAdmin ? 11 : 10 }}">
+                                    <div class="page-empty" style="padding:32px 24px;">
+                                        <i class="bi bi-clipboard-check"></i>
+                                        <p>No assessments recorded yet. Click "Add Assessment" to get started.</p>
                                     </div>
                                 </td>
                             </tr>
@@ -722,28 +865,38 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                         <i class="bi bi-lock-fill" style="font-size:10px;"></i> One log per candidate per day.
                     </div>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Applications <span style="color:var(--red-text)">*</span></label>
+                    <input type="number" name="applications" class="form-control"
+                        value="0" min="0" max="9999" required>
+                </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-                    <div class="form-group mb-0">
+                    <!-- <div class="form-group mb-0">
                         <label class="form-label">Applications <span style="color:var(--red-text)">*</span></label>
                         <input type="number" name="applications" class="form-control"
                             value="0" min="0" max="9999" required>
-                    </div>
-                    <div class="form-group mb-0">
-                        <label class="form-label">Assisment <span style="color:var(--red-text)">*</span></label>
-                        <input type="number" name="assistant_count" class="form-control"
-                            value="0" min="0" max="9999" required>
-                    </div>
+                    </div> -->
+                    <!-- <div class="form-group mb-0">
+                        <label class="form-label">
+                            Assessment Total
+                            <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(auto-calculated)</span>
+                        </label>
+                        <div class="form-control" style="background:var(--main-bg);color:var(--text-muted);cursor:not-allowed;display:flex;align-items:center;gap:6px;">
+                            <i class="bi bi-lock-fill" style="font-size:11px;"></i>
+                            <span>Auto-counted from the assessment tab</span>
+                        </div>
+                    </div> -->
                 </div>
-                <div class="form-group" style="margin-top:12px;">
+                <!-- <div class="form-group" style="margin-top:12px;">
                     <label class="form-label">
-                        Interview Count
+                        Interview Total
                         <span style="font-weight:400;color:var(--text-muted);font-size:11px;">(auto-calculated)</span>
                     </label>
                     <div class="form-control" style="background:var(--main-bg);color:var(--text-muted);cursor:not-allowed;display:flex;align-items:center;gap:6px;">
                         <i class="bi bi-lock-fill" style="font-size:11px;"></i>
-                        <span>Auto-counted from today's interviews</span>
+                        <span>Auto-counted from the interview tab</span>
                     </div>
-                </div>
+                </div> -->
                 <div class="form-group mb-0">
                     <label class="form-label">Remark <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(optional)</span></label>
                     <textarea name="remark" class="form-control" rows="2"
@@ -771,16 +924,28 @@ $totalInterviews = $dailyLogs->sum('interview_count');
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Role <span style="color:var(--red-text);">*</span></label>
-                        <input type="text" name="role" id="iRole" class="form-control" placeholder="e.g. Software Engineer" maxlength="200" required>
+                        <label class="form-label">Application Date &amp; Time</label>
+                        <input type="text" id="iApplicationAtDisplay" class="form-control" placeholder="Select application date and time">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label">Mail Date &amp; Time</label>
+                        <input type="text" id="iMailAtDisplay" class="form-control" placeholder="Select mail date and time">
+                    </div>
+                    <input type="hidden" name="application_date" id="iApplicationDate">
+                    <input type="hidden" name="application_time" id="iApplicationTime">
+                    <input type="hidden" name="mail_date" id="iMailDate">
+                    <input type="hidden" name="mail_time" id="iMailTime">
                     <div class="form-group">
                         <label class="form-label">Company Name <span style="color:var(--red-text);">*</span></label>
                         <input type="text" name="company_name" id="iCompanyName" class="form-control" placeholder="e.g. Acme Corp" maxlength="200" required>
                     </div>
-                    <div class="form-group" style="grid-column:span 2;">
+                    <div class="form-group">
                         <label class="form-label">Company Domain / URL <span style="color:var(--red-text);">*</span></label>
                         <input type="text" name="company_domain" id="iCompanyDomain" class="form-control" placeholder="https://company.com or www.company.com" maxlength="500" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Role <span style="color:var(--red-text);">*</span></label>
+                        <input type="text" name="role" id="iRole" class="form-control" placeholder="e.g. Software Engineer" maxlength="200" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Interview Type <span style="color:var(--red-text);">*</span></label>
@@ -791,23 +956,17 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                             <option value="on_site">On Site</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Mail Date</label>
-                        <input type="date" name="mail_date" id="iMailDate" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Mail Time</label>
-                        <input type="time" name="mail_time" id="iMailTime" class="form-control">
+                    <div class="form-group" style="grid-column:span 2;">
+                        <label class="form-label">Remark</label>
+                        <textarea name="remark" id="iRemark" class="form-control" rows="3" placeholder="Additional notes..."></textarea>
                     </div>
                     @if ($isAdmin)
                     <div class="form-group">
-                        <label class="form-label">Scheduled Date <span class="text-muted text-sm">(admin only)</span></label>
-                        <input type="date" name="scheduled_date" id="iSchedDate" class="form-control">
+                        <label class="form-label">Interview Schedule Date &amp; Time <span class="text-muted text-sm">(admin only)</span></label>
+                        <input type="text" id="iScheduledAtDisplay" class="form-control" placeholder="Select schedule date and time">
                     </div>
-                    <div class="form-group">
-                        <label class="form-label">Scheduled Time <span class="text-muted text-sm">(admin only)</span></label>
-                        <input type="time" name="scheduled_time" id="iSchedTime" class="form-control">
-                    </div>
+                    <input type="hidden" name="scheduled_date" id="iSchedDate">
+                    <input type="hidden" name="scheduled_time" id="iSchedTime">
                     <div class="form-group">
                         <label class="form-label">Timezone <span class="text-muted text-sm">(admin only)</span></label>
                         <select name="scheduled_timezone" id="iTimezone" class="form-control">
@@ -823,15 +982,73 @@ $totalInterviews = $dailyLogs->sum('interview_count');
                     <input type="hidden" name="scheduled_time"     id="iSchedTime">
                     <input type="hidden" name="scheduled_timezone" id="iTimezone">
                     @endif
-                    <div class="form-group" style="grid-column:span 2;">
-                        <label class="form-label">Remark</label>
-                        <textarea name="remark" id="iRemark" class="form-control" rows="3" placeholder="Additional notes..."></textarea>
-                    </div>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline" onclick="closeInterviewModal()">Cancel</button>
                 <button type="submit" class="btn btn-primary" id="interviewSubmitBtn">Add Interview</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{{-- ===== ASSESSMENT MODAL (shared add/edit) ===== --}}
+<div class="modal-overlay" id="assessmentModal">
+    <div class="modal modal-lg">
+        <form id="assessmentForm" method="POST">
+            @csrf
+            <div class="modal-header">
+                <div class="modal-title" id="assessmentModalTitle"><i class="bi bi-clipboard-check"></i> Add Assessment</div>
+                <button type="button" class="modal-close" onclick="closeAssessmentModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Assessment Date &amp; Time</label>
+                        <input type="text" id="aAssessmentAtDisplay" class="form-control" placeholder="Select assessment date and time">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Company Name <span style="color:var(--red-text);">*</span></label>
+                        <input type="text" name="company_name" id="aCompanyName" class="form-control" placeholder="e.g. Acme Corp" maxlength="200" required>
+                    </div>
+                    <input type="hidden" name="assessment_date" id="aAssessmentDate">
+                    <input type="hidden" name="assessment_time" id="aAssessmentTime">
+                    <div class="form-group">
+                        <label class="form-label">Domain <span style="color:var(--red-text);">*</span></label>
+                        <input type="text" name="domain" id="aDomain" class="form-control" placeholder="e.g. Java, DevOps, Healthcare" maxlength="200" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Company Website URL</label>
+                        <input type="text" name="company_website_url" id="aCompanyWebsiteUrl" class="form-control" placeholder="https://company.com" maxlength="500">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Role <span style="color:var(--red-text);">*</span></label>
+                        <input type="text" name="role" id="aRole" class="form-control" placeholder="e.g. Software Engineer" maxlength="200" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Type <span style="color:var(--red-text);">*</span></label>
+                        <select name="assessment_type" id="aType" class="form-control" required>
+                            <option value="">Select type...</option>
+                            @foreach ($assessmentTypes as $value => $label)
+                                <option value="{{ $value }}">{{ $label }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Mail Date &amp; Time</label>
+                        <input type="text" id="aMailAtDisplay" class="form-control" placeholder="Select mail date and time">
+                    </div>
+                    <input type="hidden" name="mail_date" id="aMailDate">
+                    <input type="hidden" name="mail_time" id="aMailTime">
+                    <div class="form-group" style="grid-column:span 2;">
+                        <label class="form-label">Remark</label>
+                        <textarea name="remark" id="aRemark" class="form-control" rows="3" placeholder="Additional notes..."></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" onclick="closeAssessmentModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary" id="assessmentSubmitBtn">Add Assessment</button>
             </div>
         </form>
     </div>
@@ -978,8 +1195,9 @@ const IS_ADMIN = {{ $isAdmin ? 'true' : 'false' }};
 function startLogEdit(row) {
     // Show edit inputs, hide view values
     row.querySelectorAll('.view-val').forEach(el => el.style.display = 'none');
+    row.querySelectorAll('.td-assistant .view-val, .td-interviews .view-val').forEach(el => el.style.display = '');
     row.querySelectorAll('.edit-val').forEach(el => {
-        if (!IS_ADMIN && el.tagName === 'INPUT' && ['applications','assistant_count','interview_count'].includes(el.dataset.field)) {
+        if (!IS_ADMIN && el.tagName === 'INPUT' && ['applications'].includes(el.dataset.field)) {
             // Non-admin: skip numeric fields
             el.style.display = 'none';
             el.previousElementSibling && (el.previousElementSibling.style.display = '');
@@ -1002,7 +1220,6 @@ function cancelLogEdit(row) {
 }
 
 function saveLogEdit(row) {
-    const logId     = row.dataset.logId;
     const updateUrl = row.dataset.updateUrl;
     const payload   = {};
 
@@ -1025,6 +1242,9 @@ function saveLogEdit(row) {
     .then(data => {
         if (data.success) {
             showToast('Log updated.', 'success');
+            const logData = data.log || {};
+            const assessmentCell = row.querySelector('.td-assistant .view-val');
+            const interviewsCell = row.querySelector('.td-interviews .view-val');
             // Update view values
             row.querySelectorAll('.edit-val[data-field]').forEach(inp => {
                 const field = inp.dataset.field;
@@ -1033,6 +1253,8 @@ function saveLogEdit(row) {
                     viewEl.textContent = inp.value || '—';
                 }
             });
+            if (assessmentCell) assessmentCell.textContent = String(logData.assistant_count ?? assessmentCell.textContent);
+            if (interviewsCell) interviewsCell.textContent = String(logData.interview_count ?? interviewsCell.textContent);
             cancelLogEdit(row);
         } else {
             showToast(data.message || 'Update failed.', 'error');
@@ -1043,63 +1265,290 @@ function saveLogEdit(row) {
 
 // ── Interview Modal ────────────────────────────────────────────────
 const ADD_INTERVIEW_URL = '{{ route('admin.candidates.interviews.store', $candidate) }}';
+const interviewDateTimePickers = {};
+
+function padDateTimePart(value) {
+    return String(value).padStart(2, '0');
+}
+
+function normalizePickerTime(timeValue) {
+    return timeValue ? String(timeValue).slice(0, 5) : '00:00';
+}
+
+function syncInterviewDateTimeHidden(displayId, dateId, timeId, selectedDates) {
+    const dateInput = document.getElementById(dateId);
+    const timeInput = document.getElementById(timeId);
+    if (!dateInput || !timeInput) return;
+
+    if (!selectedDates.length) {
+        dateInput.value = '';
+        timeInput.value = '';
+        return;
+    }
+
+    const date = selectedDates[0];
+    dateInput.value = [
+        date.getFullYear(),
+        padDateTimePart(date.getMonth() + 1),
+        padDateTimePart(date.getDate()),
+    ].join('-');
+    timeInput.value = [
+        padDateTimePart(date.getHours()),
+        padDateTimePart(date.getMinutes()),
+    ].join(':');
+}
+
+function setInterviewDateTimeValue(displayId, dateId, timeId, dateValue, timeValue) {
+    const displayInput = document.getElementById(displayId);
+    const dateInput = document.getElementById(dateId);
+    const timeInput = document.getElementById(timeId);
+    const picker = interviewDateTimePickers[displayId];
+
+    if (!displayInput || !dateInput || !timeInput) return;
+
+    if (!dateValue) {
+        dateInput.value = '';
+        timeInput.value = '';
+        if (picker) {
+            picker.clear();
+        } else {
+            displayInput.value = '';
+        }
+        return;
+    }
+
+    const normalizedTime = normalizePickerTime(timeValue);
+    dateInput.value = dateValue;
+    timeInput.value = normalizedTime;
+
+    if (picker) {
+        picker.setDate(dateValue + ' ' + normalizedTime, true, 'Y-m-d H:i');
+    } else {
+        displayInput.value = dateValue + ' ' + normalizedTime;
+    }
+}
+
+function initInterviewDateTimePicker(displayId, dateId, timeId) {
+    const displayInput = document.getElementById(displayId);
+    if (!displayInput || typeof flatpickr === 'undefined' || interviewDateTimePickers[displayId]) {
+        return;
+    }
+
+    interviewDateTimePickers[displayId] = flatpickr(displayInput, {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        altInput: true,
+        altFormat: 'M d, Y h:i K',
+        time_24hr: false,
+        allowInput: false,
+        minuteIncrement: 5,
+        onChange: function (selectedDates) {
+            syncInterviewDateTimeHidden(displayId, dateId, timeId, selectedDates);
+        },
+        onClose: function (selectedDates) {
+            syncInterviewDateTimeHidden(displayId, dateId, timeId, selectedDates);
+        },
+    });
+}
 
 function openInterviewModal(data) {
     const form   = document.getElementById('interviewForm');
     const title  = document.getElementById('interviewModalTitle');
     const btn    = document.getElementById('interviewSubmitBtn');
-    const spoof  = document.getElementById('interviewMethodSpoof');
 
-    // Clear form
     form.reset();
+    setInterviewDateTimeValue('iApplicationAtDisplay', 'iApplicationDate', 'iApplicationTime', '', '');
+    setInterviewDateTimeValue('iMailAtDisplay', 'iMailDate', 'iMailTime', '', '');
+    setInterviewDateTimeValue('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime', '', '');
 
-    // Remove any existing method spoof input
     const existingMethod = form.querySelector('input[name="_method"]');
     if (existingMethod) existingMethod.remove();
 
     if (data) {
-        // Edit mode
         title.innerHTML = '<i class="bi bi-pencil"></i> Edit Interview';
         btn.textContent = 'Update Interview';
         form.action     = data.update_url;
 
-        // Add PUT spoof
         const methodInput = document.createElement('input');
         methodInput.type  = 'hidden';
         methodInput.name  = '_method';
         methodInput.value = 'PUT';
         form.insertBefore(methodInput, form.firstChild);
 
-        // Fill fields
+        setInterviewDateTimeValue('iApplicationAtDisplay', 'iApplicationDate', 'iApplicationTime', data.application_date || '', data.application_time || '');
+        setInterviewDateTimeValue('iMailAtDisplay', 'iMailDate', 'iMailTime', data.mail_date || '', data.mail_time || '');
+        setInterviewDateTimeValue('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime', data.scheduled_date || '', data.scheduled_time || '');
         document.getElementById('iRole').value          = data.role || '';
         document.getElementById('iCompanyName').value   = data.company_name || '';
         document.getElementById('iCompanyDomain').value = data.company_domain || '';
         document.getElementById('iType').value          = data.interview_type || '';
-        document.getElementById('iMailDate').value      = data.mail_date || '';
-        document.getElementById('iMailTime').value      = data.mail_time || '';
-        document.getElementById('iSchedDate').value     = data.scheduled_date || '';
-        document.getElementById('iSchedTime').value     = data.scheduled_time || '';
         document.getElementById('iTimezone').value      = data.scheduled_timezone || '';
         document.getElementById('iRemark').value        = data.remark || '';
     } else {
-        // Add mode
         title.innerHTML = '<i class="bi bi-briefcase"></i> Add Interview';
         btn.textContent = 'Add Interview';
         form.action     = ADD_INTERVIEW_URL;
     }
 
-    document.getElementById('interviewModal').classList.add('open');
+    if (window.openModal) {
+        window.openModal('interviewModal');
+    } else {
+        document.getElementById('interviewModal').classList.add('open');
+    }
 }
 
 function closeInterviewModal() {
-    document.getElementById('interviewModal').classList.remove('open');
+    if (window.closeModal) {
+        window.closeModal('interviewModal');
+    } else {
+        document.getElementById('interviewModal').classList.remove('open');
+    }
+}
+
+const ADD_ASSESSMENT_URL = '{{ route('admin.candidates.assessments.store', $candidate) }}';
+const assessmentDateTimePickers = {};
+
+function syncAssessmentDateTimeHidden(displayId, dateId, timeId, selectedDates) {
+    const dateInput = document.getElementById(dateId);
+    const timeInput = document.getElementById(timeId);
+    if (!dateInput || !timeInput) return;
+
+    if (!selectedDates.length) {
+        dateInput.value = '';
+        timeInput.value = '';
+        return;
+    }
+
+    const date = selectedDates[0];
+    dateInput.value = [
+        date.getFullYear(),
+        padDateTimePart(date.getMonth() + 1),
+        padDateTimePart(date.getDate()),
+    ].join('-');
+    timeInput.value = [
+        padDateTimePart(date.getHours()),
+        padDateTimePart(date.getMinutes()),
+    ].join(':');
+}
+
+function setAssessmentDateTimeValue(displayId, dateId, timeId, dateValue, timeValue) {
+    const displayInput = document.getElementById(displayId);
+    const dateInput = document.getElementById(dateId);
+    const timeInput = document.getElementById(timeId);
+    const picker = assessmentDateTimePickers[displayId];
+
+    if (!displayInput || !dateInput || !timeInput) return;
+
+    if (!dateValue) {
+        dateInput.value = '';
+        timeInput.value = '';
+        if (picker) {
+            picker.clear();
+        } else {
+            displayInput.value = '';
+        }
+        return;
+    }
+
+    const normalizedTime = normalizePickerTime(timeValue);
+    dateInput.value = dateValue;
+    timeInput.value = normalizedTime;
+
+    if (picker) {
+        picker.setDate(dateValue + ' ' + normalizedTime, true, 'Y-m-d H:i');
+    } else {
+        displayInput.value = dateValue + ' ' + normalizedTime;
+    }
+}
+
+function initAssessmentDateTimePicker(displayId, dateId, timeId) {
+    const displayInput = document.getElementById(displayId);
+    if (!displayInput || typeof flatpickr === 'undefined' || assessmentDateTimePickers[displayId]) {
+        return;
+    }
+
+    assessmentDateTimePickers[displayId] = flatpickr(displayInput, {
+        enableTime: true,
+        dateFormat: 'Y-m-d H:i',
+        altInput: true,
+        altFormat: 'M d, Y h:i K',
+        time_24hr: false,
+        allowInput: false,
+        minuteIncrement: 5,
+        onChange: function (selectedDates) {
+            syncAssessmentDateTimeHidden(displayId, dateId, timeId, selectedDates);
+        },
+        onClose: function (selectedDates) {
+            syncAssessmentDateTimeHidden(displayId, dateId, timeId, selectedDates);
+        },
+    });
+}
+
+function openAssessmentModal(data) {
+    const form = document.getElementById('assessmentForm');
+    const title = document.getElementById('assessmentModalTitle');
+    const btn = document.getElementById('assessmentSubmitBtn');
+
+    form.reset();
+    setAssessmentDateTimeValue('aAssessmentAtDisplay', 'aAssessmentDate', 'aAssessmentTime', '', '');
+    setAssessmentDateTimeValue('aMailAtDisplay', 'aMailDate', 'aMailTime', '', '');
+
+    const existingMethod = form.querySelector('input[name="_method"]');
+    if (existingMethod) existingMethod.remove();
+
+    if (data) {
+        title.innerHTML = '<i class="bi bi-pencil"></i> Edit Assessment';
+        btn.textContent = 'Update Assessment';
+        form.action = data.update_url;
+
+        const methodInput = document.createElement('input');
+        methodInput.type = 'hidden';
+        methodInput.name = '_method';
+        methodInput.value = 'PUT';
+        form.insertBefore(methodInput, form.firstChild);
+
+        setAssessmentDateTimeValue('aAssessmentAtDisplay', 'aAssessmentDate', 'aAssessmentTime', data.assessment_date || '', data.assessment_time || '');
+        setAssessmentDateTimeValue('aMailAtDisplay', 'aMailDate', 'aMailTime', data.mail_date || '', data.mail_time || '');
+        document.getElementById('aCompanyName').value = data.company_name || '';
+        document.getElementById('aDomain').value = data.domain || '';
+        document.getElementById('aCompanyWebsiteUrl').value = data.company_website_url || '';
+        document.getElementById('aRole').value = data.role || '';
+        document.getElementById('aType').value = data.assessment_type || '';
+        document.getElementById('aRemark').value = data.remark || '';
+    } else {
+        title.innerHTML = '<i class="bi bi-clipboard-check"></i> Add Assessment';
+        btn.textContent = 'Add Assessment';
+        form.action = ADD_ASSESSMENT_URL;
+    }
+
+    if (window.openModal) {
+        window.openModal('assessmentModal');
+    } else {
+        document.getElementById('assessmentModal').classList.add('open');
+    }
+}
+
+function closeAssessmentModal() {
+    if (window.closeModal) {
+        window.closeModal('assessmentModal');
+    } else {
+        document.getElementById('assessmentModal').classList.remove('open');
+    }
 }
 
 // Close modals on overlay click
 document.querySelectorAll('.modal-overlay').forEach(overlay => {
     overlay.addEventListener('click', function(e) {
         if (e.target === this) {
-            this.classList.remove('open');
+            if (this.id === 'interviewModal') {
+                closeInterviewModal();
+            } else if (this.id === 'assessmentModal') {
+                closeAssessmentModal();
+            } else if (window.closeModal) {
+                window.closeModal(this.id);
+            } else {
+                this.classList.remove('open');
+            }
         }
     });
 });
@@ -1128,17 +1577,34 @@ window.addEventListener('DOMContentLoaded', () => {
             return null;
         }
     })();
-    const tabToActivate = ['logs', 'interviews', 'documents'].includes(requestedTab)
+    const tabToActivate = ['logs', 'interviews', 'assessments', 'documents'].includes(requestedTab)
         ? requestedTab
-        : (['logs', 'interviews', 'documents'].includes(savedTab) ? savedTab : 'logs');
+        : (['logs', 'interviews', 'assessments', 'documents'].includes(savedTab) ? savedTab : 'logs');
     activateTab(tabToActivate);
 
+    initInterviewDateTimePicker('iApplicationAtDisplay', 'iApplicationDate', 'iApplicationTime');
+    initInterviewDateTimePicker('iMailAtDisplay', 'iMailDate', 'iMailTime');
+    initInterviewDateTimePicker('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime');
+    initAssessmentDateTimePicker('aAssessmentAtDisplay', 'aAssessmentDate', 'aAssessmentTime');
+    initAssessmentDateTimePicker('aMailAtDisplay', 'aMailDate', 'aMailTime');
+
+    const logForm = document.querySelector('#logModal form');
+    if (logForm) {
+        logForm.addEventListener('submit', () => persistActiveTab('logs'));
+    }
     const interviewForm = document.getElementById('interviewForm');
     if (interviewForm) {
         interviewForm.addEventListener('submit', () => persistActiveTab('interviews'));
     }
+    const assessmentForm = document.getElementById('assessmentForm');
+    if (assessmentForm) {
+        assessmentForm.addEventListener('submit', () => persistActiveTab('assessments'));
+    }
     document.querySelectorAll('.interview-delete-form').forEach(form => {
         form.addEventListener('submit', () => persistActiveTab('interviews'));
+    });
+    document.querySelectorAll('.assessment-delete-form').forEach(form => {
+        form.addEventListener('submit', () => persistActiveTab('assessments'));
     });
 
     const flash = document.getElementById('flashToast');

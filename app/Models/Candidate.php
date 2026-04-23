@@ -81,6 +81,7 @@ class Candidate extends Model
         'created_by',
         'login_password',
         'login_password_plain',
+        'remember_token',
         'cv_file_path',
         'candidate_details_file_path',
         'agreement_file_path',
@@ -89,6 +90,7 @@ class Candidate extends Model
     protected $hidden = [
         'login_password',
         'login_password_plain',
+        'remember_token',
         'ssn',
         'marketing_email_password',
         'marketing_linkedin_password',
@@ -131,6 +133,52 @@ class Candidate extends Model
         return $this->hasMany(CandidateResume::class)->latest();
     }
 
+    public function assignmentHistories()
+    {
+        return $this->hasMany(CandidateAssignmentHistory::class)->latest();
+    }
+
+    public function latestAssignmentHistory()
+    {
+        return $this->hasOne(CandidateAssignmentHistory::class)->latestOfMany();
+    }
+
+    public function assessments()
+    {
+        return $this->hasMany(Assessment::class)->latest();
+    }
+
+    public function getIsUnassignedAttribute(): bool
+    {
+        return !$this->recruiter_id && !$this->team_manager_id;
+    }
+
+    public function getCurrentOwnerNameAttribute(): ?string
+    {
+        if ($this->recruiter) {
+            return $this->recruiter->name;
+        }
+
+        if ($this->teamManager) {
+            return $this->teamManager->name;
+        }
+
+        return null;
+    }
+
+    public function getCurrentOwnerRoleLabelAttribute(): ?string
+    {
+        if ($this->recruiter) {
+            return 'Recruiter';
+        }
+
+        if ($this->teamManager) {
+            return 'Team Manager';
+        }
+
+        return null;
+    }
+
     public function getStatusBadgeAttribute(): string
     {
         return match ($this->status) {
@@ -143,6 +191,17 @@ class Candidate extends Model
             'inactive' => 'badge-danger',
             default    => 'badge-neutral',
         };
+    }
+
+    public function getInitialsAttribute(): string
+    {
+        $name = $this->full_name ?: trim(implode(' ', array_filter([
+            $this->first_name,
+            $this->middle_name,
+            $this->last_name,
+        ])));
+
+        return User::buildInitials($name, 'C');
     }
 
     public function scopeSearch($query, string $term)

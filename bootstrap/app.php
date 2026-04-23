@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'active.user' => \App\Http\Middleware\EnsureActiveUser::class,
             'role' => \App\Http\Middleware\EnsureUserRole::class,
+            'sync.leave.status' => \App\Http\Middleware\SyncUserLeaveStatus::class,
             'student.auth' => \App\Http\Middleware\StudentAuth::class,
         ]);
     })

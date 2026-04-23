@@ -6,14 +6,17 @@ use App\Http\Controllers\Controller;
 use App\Models\Candidate;
 use App\Models\DailyLog;
 use App\Models\Interview;
+use App\Models\LeaveRequest;
 use App\Models\User;
+use App\Services\CandidateOwnershipService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
 
 class DashboardController extends Controller
 {
-    public function index(Request $request)
+    public function index(Request $request, CandidateOwnershipService $candidateOwnershipService)
     {
         $user = $request->user();
         $isAdmin = $user->isAdmin();
@@ -39,9 +42,12 @@ class DashboardController extends Controller
         }
 
         $upcomingInterviews = Interview::query()
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->whereIn('recruiter_id', $teamMemberIds))
-            ->with(['candidate:id,full_name', 'recruiter:id,name'])
+            ->when(!$isAdmin, fn ($q) => $q->whereIn('candidate_id', $candidateOwnershipService->ownedCandidateIdsQuery($user)))
+            ->with([
+                'candidate:id,full_name,recruiter_id,team_manager_id',
+                'candidate.recruiter:id,name,team_manager_id',
+                'candidate.teamManager:id,name',
+            ])
             ->whereNotNull('scheduled_date')
             ->get()
             ->map(function (Interview $interview) use ($dashboardTimezone) {
@@ -87,16 +93,42 @@ class DashboardController extends Controller
             $upcomingInterviews->where('dashboard_date_key', $tomorrowKey)
         );
 
+        $statTodayInterviews = $todayInterviews->count();
+        $todayInterviews = $this->paginateCollection($todayInterviews, 10, 'today_interviews_page', $request);
+        $tomorrowInterviews = $this->paginateCollection($tomorrowInterviews, 10, 'tomorrow_interviews_page', $request);
+
+        $approvedLeaves = LeaveRequest::query()
+            ->with('user:id,name')
+            ->where('status', LeaveRequest::STATUS_APPROVED)
+            ->whereIn('leave_date', [$todayKey, $tomorrowKey])
+            ->whereHas('user', fn ($q) => $q->whereIn('role', ['recruiter', 'manager']))
+            ->orderBy('leave_date')
+            ->get()
+            ->filter(fn (LeaveRequest $leave) => $leave->user)
+            ->values();
+
+        $todayLeaves = $approvedLeaves
+            ->filter(fn (LeaveRequest $leave) => $leave->leave_date?->format('Y-m-d') === $todayKey)
+            ->sortBy(fn (LeaveRequest $leave) => strtolower((string) $leave->user?->name))
+            ->values();
+
+        $tomorrowLeaves = $approvedLeaves
+            ->filter(fn (LeaveRequest $leave) => $leave->leave_date?->format('Y-m-d') === $tomorrowKey)
+            ->sortBy(fn (LeaveRequest $leave) => strtolower((string) $leave->user?->name))
+            ->values();
+
         // Widget 2: Top performance recruiter (by valid interview count).
-        $validInterviewCounts = Interview::where('interview_status', 'valid')
+        $validInterviewCounts = Interview::query()
+            ->join('candidates', 'candidates.id', '=', 'interviews.candidate_id')
+            ->where('interviews.interview_status', 'valid')
             ->whereBetween('scheduled_date', [
                 $performanceStart->toDateString(),
                 $performanceEnd->toDateString(),
             ])
-            ->selectRaw('COALESCE(recruiter_id, created_by) as performer_id, COUNT(*) as cnt')
+            ->selectRaw('COALESCE(candidates.recruiter_id, candidates.team_manager_id) as performer_id, COUNT(*) as cnt')
             ->where(function ($q) {
-                $q->whereNotNull('recruiter_id')
-                    ->orWhereNotNull('created_by');
+                $q->whereNotNull('candidates.recruiter_id')
+                    ->orWhereNotNull('candidates.team_manager_id');
             })
             ->groupBy('performer_id')
             ->pluck('cnt', 'performer_id');
@@ -147,12 +179,16 @@ class DashboardController extends Controller
             ->selectRaw('candidate_id, SUM(applications) as total_logged')
             ->pluck('total_logged', 'candidate_id');
 
-        $pendingCandidates = Candidate::whereIn('status', ['active', 'enrolled'])
+        $pendingCandidatesQuery = Candidate::whereIn('status', ['active', 'enrolled'])
             ->where('no_of_applications', '>', 0)
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
-            ->with('recruiter:id,name')
-            ->get(['id', 'full_name', 'no_of_applications', 'recruiter_id'])
+            ->with(['recruiter:id,name,team_manager_id', 'teamManager:id,name']);
+
+        if (!$isAdmin) {
+            $candidateOwnershipService->applyOwnedScope($pendingCandidatesQuery, $user);
+        }
+
+        $pendingCandidates = $pendingCandidatesQuery
+            ->get(['id', 'full_name', 'no_of_applications', 'recruiter_id', 'team_manager_id'])
             ->map(function ($c) use ($logSums, $pendingDays) {
                 $target = $c->no_of_applications * $pendingDays;
                 $logged = (int) ($logSums[$c->id] ?? 0);
@@ -165,6 +201,14 @@ class DashboardController extends Controller
             ->sortByDesc('pending_gap')
             ->values();
 
+        $pendingTotals = [
+            'logged' => (int) $pendingCandidates->sum('pending_logged'),
+            'gap' => (int) $pendingCandidates->sum('pending_gap'),
+        ];
+
+        $statPendingCount = $pendingCandidates->count();
+        $pendingCandidates = $this->paginateCollection($pendingCandidates, 10, 'pending_page', $request);
+
         // Widget 4: Attention required.
         $twentyDaysAgo = today()->subDays(20)->toDateString();
 
@@ -173,39 +217,56 @@ class DashboardController extends Controller
             ->unique()
             ->toArray();
 
-        $attentionCandidates = Candidate::whereIn('status', ['active', 'enrolled'])
+        $attentionCandidatesQuery = Candidate::whereIn('status', ['active', 'enrolled'])
             ->whereDate('created_at', '<=', $twentyDaysAgo)
             ->whereNotIn('id', $recentlyInterviewedIds)
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)))
-            ->with('recruiter:id,name')
-            ->orderBy('created_at')
-            ->get(['id', 'full_name', 'status', 'recruiter_id', 'created_at', 'domain']);
+            ->with(['recruiter:id,name,team_manager_id', 'teamManager:id,name'])
+            ->orderBy('created_at');
+
+        if (!$isAdmin) {
+            $candidateOwnershipService->applyOwnedScope($attentionCandidatesQuery, $user);
+        }
+
+        $attentionCandidates = $attentionCandidatesQuery
+            ->get(['id', 'full_name', 'status', 'recruiter_id', 'team_manager_id', 'created_at', 'domain']);
+        $attentionCandidates = $this->paginateCollection($attentionCandidates, 10, 'attention_page', $request);
 
         // Manager header stats.
-        $managerMyCandidatesCount = $isManager
-            ? Candidate::where('team_manager_id', $user->id)->whereNull('recruiter_id')->count()
-            : 0;
-        $managerAllCandidatesCount = $isManager ? Candidate::whereIn('recruiter_id', $teamMemberIds)->count() : 0;
+        $managerMyCandidatesCount = $isManager ? $candidateOwnershipService->directManagedCandidateCount($user) : 0;
+        $managerAllCandidatesCount = $isManager ? $candidateOwnershipService->teamRecruiterCandidateCount($user) : 0;
 
         // Summary stats (scoped by role).
-        $statsQuery = fn () => Candidate::query()
-            ->when($isRecruiter, fn ($q) => $q->where('recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->where(fn ($q2) => $q2->where('team_manager_id', $user->id)->orWhereIn('recruiter_id', $teamMemberIds)));
+        $statsQuery = function () use ($candidateOwnershipService, $isAdmin, $user) {
+            $query = Candidate::query();
+            if (!$isAdmin) {
+                $candidateOwnershipService->applyOwnedScope($query, $user);
+            }
+            return $query;
+        };
 
         $statActiveCandidates = $statsQuery()->whereIn('status', ['active', 'enrolled'])->count();
-        $statTodayInterviews = $todayInterviews->count();
-
         $statTotalRecruiters = $isAdmin
             ? User::recruiters()->active()->count()
             : ($isManager ? User::recruiters()->active()->whereIn('id', $teamMemberIds)->count() : 0);
 
-        $statPendingCount = $pendingCandidates->count();
-
         // Trending domains.
         $trendingDomains = Interview::where('interviews.interview_status', 'valid')
             ->when($isRecruiter, fn ($q) => $q->where('interviews.recruiter_id', $user->id))
-            ->when($isManager, fn ($q) => $q->whereIn('interviews.recruiter_id', $teamMemberIds))
+            ->when($isManager, function ($q) use ($teamMemberIds, $user) {
+                $q->where(function ($interviewQuery) use ($teamMemberIds, $user) {
+                    $interviewQuery->whereIn('interviews.recruiter_id', $teamMemberIds)
+                        ->orWhere(function ($directQuery) use ($user) {
+                            $directQuery->whereNull('interviews.recruiter_id')
+                                ->whereExists(function ($candidateQuery) use ($user) {
+                                    $candidateQuery->selectRaw('1')
+                                        ->from('candidates')
+                                        ->whereColumn('candidates.id', 'interviews.candidate_id')
+                                        ->where('candidates.team_manager_id', $user->id)
+                                        ->whereNull('candidates.recruiter_id');
+                                });
+                        });
+                });
+            })
             ->join('candidates', 'interviews.candidate_id', '=', 'candidates.id')
             ->whereNotNull('candidates.domain')
             ->where('candidates.domain', '!=', '')
@@ -215,18 +276,37 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        $unassignedCandidates = collect();
+        $statUnassignedCount = 0;
+
+        if ($isAdmin) {
+            $unassignedCandidates = Candidate::query()
+                ->with(['latestAssignmentHistory.changer'])
+                ->whereNull('recruiter_id')
+                ->whereNull('team_manager_id')
+                ->orderByDesc('updated_at')
+                ->get(['id', 'full_name', 'status', 'updated_at']);
+
+            $statUnassignedCount = $unassignedCandidates->count();
+            $unassignedCandidates = $this->paginateCollection($unassignedCandidates, 10, 'unassigned_page', $request);
+        }
+
         return view('admin.dashboard', [
             'todayInterviews' => $todayInterviews,
             'tomorrowInterviews' => $tomorrowInterviews,
+            'todayLeaves' => $todayLeaves,
+            'tomorrowLeaves' => $tomorrowLeaves,
             'dashboardTimezone' => $dashboardTimezone,
             'topPerformers' => $topPerformers,
             'performanceMonth' => $performanceMonth,
             'performanceMonths' => $performanceMonths,
             'pendingCandidates' => $pendingCandidates,
+            'pendingTotals' => $pendingTotals,
             'pendingDateStr' => $pendingDateStr,
             'pendingDateEndStr' => $pendingDateEndStr,
             'pendingDays' => $pendingDays,
             'attentionCandidates' => $attentionCandidates,
+            'unassignedCandidates' => $unassignedCandidates,
             'isAdmin' => $isAdmin,
             'isManager' => $isManager,
             'isRecruiter' => $isRecruiter,
@@ -236,8 +316,29 @@ class DashboardController extends Controller
             'statTodayInterviews' => $statTodayInterviews,
             'statTotalRecruiters' => $statTotalRecruiters,
             'statPendingCount' => $statPendingCount,
+            'statUnassignedCount' => $statUnassignedCount,
             'trendingDomains' => $trendingDomains,
         ]);
+    }
+
+    private function paginateCollection(Collection $items, int $perPage, string $pageName, Request $request): LengthAwarePaginator
+    {
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+
+        $paginator = new LengthAwarePaginator(
+            $items->forPage($page, $perPage)->values(),
+            $items->count(),
+            $perPage,
+            $page,
+            [
+                'path' => $request->url(),
+                'pageName' => $pageName,
+            ]
+        );
+
+        $paginator->appends($request->query());
+
+        return $paginator;
     }
 
     private function sortDashboardInterviews(Collection $interviews): Collection

@@ -24,12 +24,17 @@ class ImportExportController extends Controller
             ->get();
 
         $recruiters = User::recruiters()->active()->orderBy('name')->get(['id', 'name']);
+        $managers = User::managers()->active()->orderBy('name')->get(['id', 'name']);
 
-        return view('admin.import-export.index', compact('history', 'recruiters'));
+        return view('admin.import-export.index', compact('history', 'recruiters', 'managers'));
     }
 
     public function downloadCandidateTemplate()
     {
+        if (!request()->user() || !request()->user()->isAdmin()) {
+            abort(403, 'Only admin can download candidate import template.');
+        }
+
         $headers = [
             'Content-Type'        => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="candidates_template.csv"',
@@ -90,13 +95,21 @@ class ImportExportController extends Controller
         $dateFrom    = $request->input('date_from');
         $dateTo      = $request->input('date_to');
         $status      = $request->input('status');
-        $recruiterId = $request->input('recruiter_id');
+        $recruiterId = $request->integer('recruiter_id') ?: null;
+        $teamManagerId = $request->integer('team_manager_id') ?: null;
+
+        if ($recruiterId) {
+            $teamManagerId = null;
+        } elseif ($teamManagerId) {
+            $recruiterId = null;
+        }
 
         $parts = array_filter([
             $dateFrom    ? "from:{$dateFrom}"         : null,
             $dateTo      ? "to:{$dateTo}"             : null,
             $status      ? "status:{$status}"         : null,
             $recruiterId ? "recruiter:{$recruiterId}" : null,
+            $teamManagerId ? "team_manager:{$teamManagerId}" : null,
         ]);
         $desc = 'Exported candidates as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
 
@@ -109,7 +122,7 @@ class ImportExportController extends Controller
             'Expires'             => '0',
         ];
 
-        $callback = function () use ($dateFrom, $dateTo, $status, $recruiterId) {
+        $callback = function () use ($dateFrom, $dateTo, $status, $recruiterId, $teamManagerId) {
             $fh = fopen('php://output', 'w');
             fputcsv($fh, [
                 'id',
@@ -199,7 +212,13 @@ class ImportExportController extends Controller
                 ->when($dateFrom,    fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
                 ->when($dateTo,      fn ($q) => $q->whereDate('created_at', '<=', $dateTo))
                 ->when($status,      fn ($q) => $q->where('status', $status))
-                ->when($recruiterId, fn ($q) => $q->where('recruiter_id', (int) $recruiterId))
+                ->when($recruiterId, fn ($q) => $q->where('recruiter_id', $recruiterId))
+                ->when($teamManagerId, function ($q) use ($teamManagerId) {
+                    $q->where(function ($sub) use ($teamManagerId) {
+                        $sub->where('team_manager_id', $teamManagerId)
+                            ->orWhereHas('recruiter', fn ($rq) => $rq->where('team_manager_id', $teamManagerId));
+                    });
+                })
                 ->chunk(300, function ($candidates) use ($fh) {
                     foreach ($candidates as $c) {
                         $resumeDocumentUrls = $c->resumes->map(function ($resume) use ($c) {
@@ -295,6 +314,12 @@ class ImportExportController extends Controller
 
     public function importCandidates(Request $request)
     {
+        if (!$request->user() || !$request->user()->isAdmin()) {
+            return back()->withErrors([
+                'file' => 'Only admin can import candidates.',
+            ]);
+        }
+
         $request->validate(['file' => ['required', 'file', 'max:10240']]);
 
         $ext = strtolower($request->file('file')->getClientOriginalExtension());
@@ -630,7 +655,7 @@ class ImportExportController extends Controller
             fputcsv($fh, ['name', 'email', 'role', 'status', 'team_manager', 'candidates_count', 'created_at']);
 
             User::with(['teamManager:id,name'])
-                ->withCount(['candidates', 'managedCandidates'])
+                ->withCount(['candidates', 'directManagedCandidates', 'teamCandidates'])
                 ->whereIn('role', $exportRoles)
                 ->when($status,   fn ($q) => $q->where('status', $status))
                 ->when($dateFrom, fn ($q) => $q->whereDate('created_at', '>=', $dateFrom))
@@ -638,7 +663,7 @@ class ImportExportController extends Controller
                 ->chunk(300, function ($users) use ($fh) {
                     foreach ($users as $user) {
                         $candidateCount = $user->role === 'manager'
-                            ? (int) ($user->managed_candidates_count ?? 0)
+                            ? (int) (($user->direct_managed_candidates_count ?? 0) + ($user->team_candidates_count ?? 0))
                             : (int) ($user->candidates_count ?? 0);
 
                         fputcsv($fh, [
@@ -665,8 +690,9 @@ class ImportExportController extends Controller
         $authUser  = $request->user();
         $isAdmin   = $authUser->isAdmin();
         $isManager = $authUser->isManager();
-        // Managers can only import recruiter-role users, never admin
-        $allowedRoles = $isAdmin ? ['admin', 'recruiter', 'manager'] : ['recruiter'];
+        // Managers can only import recruiter-role users.
+        // Admin account is unique and cannot be created via import.
+        $allowedRoles = $isAdmin ? ['recruiter', 'manager'] : ['recruiter'];
 
         $ext = strtolower($request->file('file')->getClientOriginalExtension());
         if (!in_array($ext, ['csv', 'txt'], true)) {
@@ -732,8 +758,8 @@ class ImportExportController extends Controller
 
             if (!in_array($role, $allowedRoles, true)) {
                 $errors[] = $isAdmin
-                    ? "Row {$rowNum}: role must be admin, manager, or recruiter."
-                    : "Row {$rowNum}: role must be recruiter (managers cannot import admin/manager users).";
+                    ? "Row {$rowNum}: role must be manager or recruiter."
+                    : "Row {$rowNum}: role must be recruiter (managers cannot import manager users).";
                 $skipped++;
                 continue;
             }

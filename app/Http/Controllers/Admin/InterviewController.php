@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\Interview;
+use App\Services\DailyLogSummaryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 class InterviewController extends Controller
@@ -14,7 +16,7 @@ class InterviewController extends Controller
     private const TYPES = ['phone_call', 'virtual', 'on_site'];
     private const TIMEZONES = ['EST', 'CST', 'MST', 'PST', 'AKST', 'HST', 'EDT', 'CDT', 'MDT', 'PDT'];
 
-    public function store(Request $request, Candidate $candidate)
+    public function store(Request $request, Candidate $candidate, DailyLogSummaryService $dailyLogSummaryService)
     {
         $user      = $request->user();
         $isAdmin   = $user->isAdmin();
@@ -31,6 +33,8 @@ class InterviewController extends Controller
         }
 
         $data = $request->validate([
+            'application_date'   => ['nullable', 'date'],
+            'application_time'   => ['nullable', 'date_format:H:i'],
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
             'company_domain'     => ['required', 'string', 'max:500'],
@@ -47,6 +51,8 @@ class InterviewController extends Controller
         if (!empty($data['company_domain']) && !preg_match('#^https?://#i', $data['company_domain'])) {
             $data['company_domain'] = 'https://' . $data['company_domain'];
         }
+
+        $data = $this->normalizeInterviewDateTimes($data);
 
         $data['candidate_id']     = $candidate->id;
         $data['recruiter_id']     = $candidate->recruiter_id; // always the candidate's assigned recruiter
@@ -60,7 +66,9 @@ class InterviewController extends Controller
             $data['scheduled_timezone'] = null;
         }
 
-        Interview::create($data);
+        $interview = Interview::create($data);
+
+        $dailyLogSummaryService->syncInterview($interview, null, $user->id);
 
         AuditLog::log(
             'created',
@@ -70,20 +78,27 @@ class InterviewController extends Controller
             ['candidate_id' => $candidate->id, 'company' => $data['company_name']]
         );
 
-        return back()->with('success', 'Interview added.');
+        return redirect()->route('admin.candidates.show', [$candidate, 'tab' => 'interviews'])
+            ->with('success', 'Interview added.');
     }
 
-    public function update(Request $request, Candidate $candidate, Interview $interview)
+    public function update(Request $request, Candidate $candidate, Interview $interview, DailyLogSummaryService $dailyLogSummaryService)
     {
         $user    = $request->user();
         $isAdmin = $user->isAdmin();
+
+        abort_unless((int) $interview->candidate_id === (int) $candidate->id, 404);
 
         // Only admin can edit after creation
         if (!$isAdmin) {
             return back()->withErrors(['auth' => 'Only admin can edit interviews.']);
         }
 
+        $previousDate = $dailyLogSummaryService->interviewLogDate($interview);
+
         $data = $request->validate([
+            'application_date'   => ['nullable', 'date'],
+            'application_time'   => ['nullable', 'date_format:H:i'],
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
             'company_domain'     => ['required', 'string', 'max:500'],
@@ -101,14 +116,12 @@ class InterviewController extends Controller
             $data['company_domain'] = 'https://' . $data['company_domain'];
         }
 
-        // Handle nullable date/time fields explicitly
-        foreach (['mail_date', 'mail_time', 'scheduled_date', 'scheduled_time', 'scheduled_timezone'] as $f) {
-            if (!isset($data[$f]) || $data[$f] === '') {
-                $data[$f] = null;
-            }
-        }
+        $data = $this->normalizeInterviewDateTimes($data);
 
         $interview->update($data);
+        $interview->refresh();
+
+        $dailyLogSummaryService->syncInterview($interview, $previousDate, $user->id);
 
         AuditLog::log(
             'updated',
@@ -118,18 +131,26 @@ class InterviewController extends Controller
             ['interview_id' => $interview->id, 'company' => $data['company_name']]
         );
 
-        return back()->with('success', 'Interview updated.');
+        return redirect()->route('admin.candidates.show', [$candidate, 'tab' => 'interviews'])
+            ->with('success', 'Interview updated.');
     }
 
-    public function destroy(Request $request, Candidate $candidate, Interview $interview)
+    public function destroy(Request $request, Candidate $candidate, Interview $interview, DailyLogSummaryService $dailyLogSummaryService)
     {
         $user = $request->user();
+        abort_unless((int) $interview->candidate_id === (int) $candidate->id, 404);
+
         if (!$user->isAdmin()) {
             return back()->withErrors(['auth' => 'Only admin can delete interviews.']);
         }
 
+        $previousDate = $dailyLogSummaryService->interviewLogDate($interview);
         $interviewId = $interview->id;
         $interview->delete();
+
+        if ($previousDate) {
+            $dailyLogSummaryService->syncForCandidateDate($candidate, $previousDate, $user->id);
+        }
 
         AuditLog::log(
             'deleted',
@@ -139,6 +160,33 @@ class InterviewController extends Controller
             []
         );
 
-        return back()->with('success', 'Interview deleted.');
+        return redirect()->route('admin.candidates.show', [$candidate, 'tab' => 'interviews'])
+            ->with('success', 'Interview deleted.');
+    }
+
+    private function normalizeInterviewDateTimes(array $data): array
+    {
+        foreach ([
+            'application_date',
+            'application_time',
+            'mail_date',
+            'mail_time',
+            'scheduled_date',
+            'scheduled_time',
+            'scheduled_timezone',
+        ] as $field) {
+            if (!array_key_exists($field, $data) || $data[$field] === '') {
+                $data[$field] = null;
+            }
+        }
+
+        foreach (['application_time', 'mail_time', 'scheduled_time'] as $timeField) {
+            if (!empty($data[$timeField])) {
+                $data[$timeField] = Carbon::createFromFormat('H:i', substr((string) $data[$timeField], 0, 5))
+                    ->format('H:i');
+            }
+        }
+
+        return $data;
     }
 }

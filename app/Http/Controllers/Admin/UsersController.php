@@ -8,6 +8,8 @@ use App\Models\Candidate;
 use App\Models\DailyLog;
 use App\Models\Interview;
 use App\Models\User;
+use App\Services\CandidateOwnershipService;
+use App\Services\LeaveStatusService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -23,7 +25,7 @@ class UsersController extends Controller
         $search    = trim((string) $request->get('search'));
         $role      = $request->get('role');
 
-        $query = User::withCount('candidates')->with('teamManager');
+        $query = User::withCount(['candidates', 'directManagedCandidates', 'teamCandidates'])->with('teamManager');
 
         if ($isManager) {
             // Manager sees only their own team members
@@ -40,21 +42,19 @@ class UsersController extends Controller
         $users = $query->paginate(15)->withQueryString();
 
         $managers    = User::managers()->active()->orderBy('name')->get(['id', 'name']);
-        $adminExists = User::where('role', 'admin')->exists();
 
         return view('admin.users.index', [
             'users'       => $users,
             'search'      => $search,
             'role'        => $role,
             'managers'    => $managers,
-            'adminExists' => $adminExists,
             'currentUser' => $authUser,
             'isAdmin'     => $isAdmin,
             'isManager'   => $isManager,
         ]);
     }
 
-    public function report(Request $request, User $user)
+    public function report(Request $request, User $user, CandidateOwnershipService $candidateOwnershipService)
     {
         $authUser  = $request->user();
         $isAdmin   = $authUser->isAdmin();
@@ -86,10 +86,12 @@ class UsersController extends Controller
         $startDate  = Carbon::createFromDate((int) $year, (int) $mon, 1)->startOfDay();
         $endDate    = $startDate->copy()->endOfMonth()->endOfDay();
         $daysInMonth = $startDate->daysInMonth;
+        $ownedCandidateIds = $candidateOwnershipService->ownedCandidateIdsQuery($user);
+        $ownedCandidatesCount = $candidateOwnershipService->totalOwnedCandidateCount($user);
 
         // ── Applications / Assisment from daily_logs ─────────────
         // Sum per day across all candidates managed by this recruiter
-        $rawLogs = DailyLog::where('recruiter_id', $user->id)
+        $rawLogs = DailyLog::whereIn('candidate_id', $ownedCandidateIds)
             ->whereBetween('log_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->selectRaw('log_date, SUM(applications) as applications, SUM(assistant_count) as assistant_count, SUM(interview_count) as interview_count')
             ->groupBy('log_date')
@@ -100,21 +102,21 @@ class UsersController extends Controller
         // Build full-month arrays for chart (0 on days with no log)
         $chartLabels    = [];
         $chartApps      = [];
-        $chartAssisment = [];
+        $chartAssessment = [];
         $detailRows     = [];
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $log = $rawLogs->get($day);
             $chartLabels[]    = $day;
             $chartApps[]      = $log ? (int) $log->applications    : 0;
-            $chartAssisment[] = $log ? (int) $log->assistant_count : 0;
+            $chartAssessment[] = $log ? (int) $log->assistant_count : 0;
             if ($log && ($log->applications > 0 || $log->assistant_count > 0 || $log->interview_count > 0)) {
                 $date = Carbon::createFromDate((int) $year, (int) $mon, $day);
                 $detailRows[] = [
                     'date'           => $date->format('M d, Y'),
                     'day_name'       => $date->format('D'),
                     'applications'   => (int) $log->applications,
-                    'assisment'      => (int) $log->assistant_count,
+                    'assessment'     => (int) $log->assistant_count,
                     'interviews'     => (int) $log->interview_count,
                 ];
             }
@@ -122,18 +124,12 @@ class UsersController extends Controller
 
         $totals = [
             'applications' => array_sum($chartApps),
-            'assisment'    => array_sum($chartAssisment),
+            'assessment'   => array_sum($chartAssessment),
             'log_interviews' => $rawLogs->sum('interview_count'),
         ];
 
         // ── Interviews scheduled this month ──────────────────────
-        // Match by recruiter_id (forward) OR created_by when recruiter_id was null (legacy)
-        $interviews = Interview::where(function ($q) use ($user) {
-                $q->where('recruiter_id', $user->id)
-                  ->orWhere(function ($q2) use ($user) {
-                      $q2->whereNull('recruiter_id')->where('created_by', $user->id);
-                  });
-            })
+        $interviews = Interview::whereIn('candidate_id', $ownedCandidateIds)
             ->whereBetween('scheduled_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->with('candidate')
             ->orderBy('scheduled_date')
@@ -157,13 +153,14 @@ class UsersController extends Controller
 
         return view('admin.users.report', [
             'user'          => $user,
+            'ownedCandidatesCount' => $ownedCandidatesCount,
             'month'         => $month,
             'months'        => $months,
             'startDate'     => $startDate,
             'daysInMonth'   => $daysInMonth,
             'chartLabels'   => $chartLabels,
             'chartApps'     => $chartApps,
-            'chartAssisment'=> $chartAssisment,
+            'chartAssessment'=> $chartAssessment,
             'detailRows'    => $detailRows,
             'totals'        => $totals,
             'interviews'    => $interviews,
@@ -182,13 +179,9 @@ class UsersController extends Controller
             abort(403);
         }
 
-        // Admins can create any role; managers can only create recruiters
-        $allowedRoles = $isAdmin ? ['admin', 'manager', 'recruiter'] : ['recruiter'];
-
-        // Block second admin
-        if ($isAdmin && $request->input('role') === 'admin' && User::where('role', 'admin')->exists()) {
-            return back()->withErrors(['role' => 'Only one admin account is allowed. The admin already exists.'])->withInput();
-        }
+        // Admin can create manager/recruiter. Managers can create only recruiter.
+        // Admin account is unique and cannot be created from this panel.
+        $allowedRoles = $isAdmin ? ['manager', 'recruiter'] : ['recruiter'];
 
         $data = $request->validate([
             'name'            => ['required', 'string', 'max:255'],
@@ -215,6 +208,8 @@ class UsersController extends Controller
 
         $data['password'] = Hash::make($data['password']);
         $data['email']    = strtolower($data['email']);
+        $data['inactive_reason'] = ($data['status'] ?? 'active') === 'inactive' ? 'manual' : null;
+        $data['leave_override_until'] = null;
 
         $user = User::create($data);
 
@@ -253,21 +248,33 @@ class UsersController extends Controller
             ]);
         } else {
             // Admin: full edit
-            $data = $request->validate([
-                'name'            => ['required', 'string', 'max:255'],
-                'email'           => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
-                'role'            => ['required', Rule::in(['admin', 'manager', 'recruiter'])],
-                'status'          => ['required', Rule::in(['active', 'inactive'])],
-                'password'        => ['nullable', 'string', 'min:8', 'confirmed'],
-                'team_manager_id' => [
-                    Rule::requiredIf(fn () => $request->input('role') === 'recruiter'),
-                    'nullable',
-                    'exists:users,id',
-                ],
-            ]);
-
-            if (($data['role'] ?? '') !== 'recruiter') {
+            if ($user->isAdmin()) {
+                // Admin role/email/status are locked and cannot be changed.
+                $data = $request->validate([
+                    'name'     => ['required', 'string', 'max:255'],
+                    'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+                ]);
+                $data['email'] = $user->email;
+                $data['status'] = $user->status;
+                $data['role'] = 'admin';
                 $data['team_manager_id'] = null;
+            } else {
+                $data = $request->validate([
+                    'name'            => ['required', 'string', 'max:255'],
+                    'email'           => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
+                    'role'            => ['required', Rule::in(['manager', 'recruiter'])],
+                    'status'          => ['required', Rule::in(['active', 'inactive'])],
+                    'password'        => ['nullable', 'string', 'min:8', 'confirmed'],
+                    'team_manager_id' => [
+                        Rule::requiredIf(fn () => $request->input('role') === 'recruiter'),
+                        'nullable',
+                        'exists:users,id',
+                    ],
+                ]);
+
+                if (($data['role'] ?? '') !== 'recruiter') {
+                    $data['team_manager_id'] = null;
+                }
             }
         }
 
@@ -280,7 +287,21 @@ class UsersController extends Controller
             unset($data['password']);
         }
 
+        if (array_key_exists('status', $data)) {
+            if ($data['status'] === 'inactive') {
+                $data['inactive_reason'] = 'manual';
+                $data['leave_override_until'] = null;
+            } else {
+                $data['inactive_reason'] = null;
+                $data['leave_override_until'] = null;
+            }
+        }
+
         $user->update($data);
+
+        if ($authUser->isAdmin() && (($data['status'] ?? null) === 'active')) {
+            app(LeaveStatusService::class)->setAdminOverrideForActiveLeave($user);
+        }
 
         AuditLog::log('updated', 'users', "Updated user: {$user->name}", $this->sanitizeAuditValues($old), $this->sanitizeAuditValues($data));
 

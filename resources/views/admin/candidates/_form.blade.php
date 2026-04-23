@@ -439,8 +439,8 @@
     </div>
 
     @if ($isRealAdmin ?? false)
-        {{-- Real Admin: full recruiter + manager dropdowns (select one) --}}
-        <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(select one)</span></div>
+        {{-- Real Admin: full recruiter + manager dropdowns (optional, select only one if assigning) --}}
+        <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(optional - leave both blank to keep unassigned)</span></div>
         <div class="form-grid">
             <div class="form-group">
                 <label class="form-label">Recruiter</label>

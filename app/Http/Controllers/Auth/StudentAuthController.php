@@ -5,21 +5,26 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Services\StudentRememberService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
 class StudentAuthController extends Controller
 {
-    public function showLogin()
+    public function showLogin(Request $request, StudentRememberService $studentRememberService)
     {
         if (session()->has('student_id')) {
+            return redirect()->route('student.dashboard');
+        }
+
+        if ($studentRememberService->restoreFromRememberCookie($request)) {
             return redirect()->route('student.dashboard');
         }
 
         return view('student.auth.login');
     }
 
-    public function login(Request $request)
+    public function login(Request $request, StudentRememberService $studentRememberService)
     {
         $request->validate([
             'email' => ['required', 'email'],
@@ -62,15 +67,14 @@ class StudentAuthController extends Controller
                 ->withInput(['email' => $request->email]);
         }
 
-        $request->session()->regenerate();
-        session(['student_id' => $candidate->id]);
+        $studentRememberService->login($request, $candidate, $request->boolean('remember'));
 
         AuditLog::log('login', 'student_auth', "Student logged in: {$candidate->full_name}");
 
         return redirect()->route('student.dashboard');
     }
 
-    public function logout(Request $request)
+    public function logout(Request $request, StudentRememberService $studentRememberService)
     {
         $candidateId = session('student_id');
         $candidate = $candidateId ? Candidate::find($candidateId) : null;
@@ -79,10 +83,11 @@ class StudentAuthController extends Controller
             AuditLog::log('logout', 'student_auth', "Student logged out: {$candidate->full_name}");
         }
 
+        $studentRememberService->logout($request);
         session()->forget('student_id');
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        return redirect()->route('student.login');
+        return redirect()->to(route('student.login'));
     }
 }

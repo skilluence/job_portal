@@ -66,6 +66,30 @@
             : '<i class="bi bi-eye-slash"></i>';
     });
 
+    /* —— Disable browser password autofill across forms —— */
+    function hardenPasswordInputs(scope) {
+        var root = scope || document;
+        root.querySelectorAll('form').forEach(function (form) {
+            if (!form.hasAttribute('autocomplete')) {
+                form.setAttribute('autocomplete', 'off');
+            }
+        });
+        root.querySelectorAll('input[type="password"]').forEach(function (input) {
+            if (!input.hasAttribute('autocomplete')) {
+                input.setAttribute('autocomplete', 'new-password');
+            }
+            input.setAttribute('autocorrect', 'off');
+            input.setAttribute('autocapitalize', 'off');
+            input.setAttribute('spellcheck', 'false');
+
+            // Clear browser-prefilled password values for non-readonly inputs.
+            if (!input.readOnly && input.value) {
+                input.value = '';
+            }
+        });
+    }
+    hardenPasswordInputs();
+
     /* ── Global form submit-once protection ─────────────────────── */
     // Prevents double-submissions (e.g. Import clicking multiple times)
     document.addEventListener('submit', function (event) {
@@ -356,6 +380,7 @@
         // Init pickers inside the just-opened modal
         initDatePickers(overlay);
         initDropzones(overlay);
+        hardenPasswordInputs(overlay);
         bindThemeToggles();
     };
 
@@ -906,13 +931,92 @@
         form.action = form.dataset.base + '/' + user.id;
         setVal('edit_user_name',   user.name   || '');
         setVal('edit_user_email',  user.email  || '');
-        setVal('edit_user_role',   user.role   || 'recruiter');
         setVal('edit_user_status', user.status || 'active');
         setVal('edit_user_team_manager', user.team_manager_id || '');
-
-        // Trigger role-change logic to show/hide team manager field
+        var emailInput = document.getElementById('edit_user_email');
+        var emailGroup = document.getElementById('edit_user_email_group');
+        var emailLockedGroup = document.getElementById('edit_user_email_locked_group');
+        var emailLockedText = document.getElementById('edit_user_email_locked_text');
         var roleSelect = document.getElementById('edit_user_role');
-        if (roleSelect) roleSelect.dispatchEvent(new Event('change'));
+        var roleSelectGroup = document.getElementById('edit_user_role_group');
+        var roleLockedGroup = document.getElementById('edit_user_role_locked_group');
+        var roleHiddenInput = document.getElementById('edit_user_role_hidden');
+        var statusSelect = document.getElementById('edit_user_status');
+        var statusGroup = document.getElementById('edit_user_status_group');
+        var statusLockedGroup = document.getElementById('edit_user_status_locked_group');
+        var statusLockedText = document.getElementById('edit_user_status_locked_text');
+        var teamManagerGroup = document.getElementById('edit_team_manager_group');
+        var teamManagerSelect = document.getElementById('edit_user_team_manager');
+        var isLockedAdmin = !!user.is_admin;
+
+        if (emailLockedText) emailLockedText.value = user.email || '';
+        if (statusLockedText) statusLockedText.value = user.status ? (user.status.charAt(0).toUpperCase() + user.status.slice(1)) : 'Active';
+
+        if (roleSelect) {
+            if (isLockedAdmin) {
+                if (emailGroup) emailGroup.style.display = 'none';
+                if (emailLockedGroup) emailLockedGroup.style.display = 'block';
+                if (emailInput) {
+                    emailInput.disabled = true;
+                    emailInput.required = false;
+                    emailInput.name = '';
+                }
+
+                setVal('edit_user_role', 'manager');
+                roleSelect.disabled = true;
+                roleSelect.required = false;
+                roleSelect.name = '';
+                if (roleSelectGroup) roleSelectGroup.style.display = 'none';
+                if (roleLockedGroup) roleLockedGroup.style.display = 'block';
+                if (roleHiddenInput) {
+                    roleHiddenInput.name = 'role';
+                    roleHiddenInput.value = 'admin';
+                }
+
+                if (statusGroup) statusGroup.style.display = 'none';
+                if (statusLockedGroup) statusLockedGroup.style.display = 'block';
+                if (statusSelect) {
+                    statusSelect.disabled = true;
+                    statusSelect.required = false;
+                    statusSelect.name = '';
+                }
+
+                if (teamManagerGroup) teamManagerGroup.style.display = 'none';
+                if (teamManagerSelect) {
+                    teamManagerSelect.required = false;
+                    teamManagerSelect.value = '';
+                }
+            } else {
+                if (emailGroup) emailGroup.style.display = 'block';
+                if (emailLockedGroup) emailLockedGroup.style.display = 'none';
+                if (emailInput) {
+                    emailInput.disabled = false;
+                    emailInput.required = true;
+                    emailInput.name = 'email';
+                }
+
+                roleSelect.disabled = false;
+                roleSelect.required = true;
+                roleSelect.name = 'role';
+                setVal('edit_user_role', user.role || 'recruiter');
+                if (roleSelectGroup) roleSelectGroup.style.display = 'block';
+                if (roleLockedGroup) roleLockedGroup.style.display = 'none';
+                if (roleHiddenInput) {
+                    roleHiddenInput.name = '';
+                    roleHiddenInput.value = '';
+                }
+
+                if (statusGroup) statusGroup.style.display = 'block';
+                if (statusLockedGroup) statusLockedGroup.style.display = 'none';
+                if (statusSelect) {
+                    statusSelect.disabled = false;
+                    statusSelect.required = true;
+                    statusSelect.name = 'status';
+                }
+
+                roleSelect.dispatchEvent(new Event('change'));
+            }
+        }
 
         openModal('editUserModal');
     };
@@ -1025,19 +1129,19 @@
             return;
         }
 
-        // Recruiter / Manager mutual exclusion check (admin only)
+        // Recruiter / Manager mutual exclusion check
         var recruiterHidden = document.getElementById(prefix + '_recruiter_id');
         var managerHidden   = document.getElementById(prefix + '_team_manager_id');
         if (recruiterHidden && managerHidden) {
             var hasRec = (recruiterHidden.value || '').trim() !== '';
             var hasMgr = (managerHidden.value   || '').trim() !== '';
-            if (!hasRec && !hasMgr) {
+            if (hasRec && hasMgr) {
                 var portalTab = document.getElementById(prefix + '_tab_portal');
                 if (portalTab) {
                     var tabGroup2 = modal.querySelector('.modal-tabs');
                     if (tabGroup2) window.switchModalTab(tabGroup2.id, prefix + '_tab_portal');
                 }
-                window.showToast('Please assign the candidate to a Recruiter or a Team Manager.', 'error');
+                window.showToast('Choose either a Recruiter or a Team Manager, not both.', 'error');
                 return;
             }
         }

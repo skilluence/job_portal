@@ -47,6 +47,10 @@
                 class="nav-item {{ request()->routeIs('admin.candidates*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i><span class="nav-text">Candidates</span>
             </a>
+            <a href="{{ route('admin.leaves') }}"
+                class="nav-item {{ request()->routeIs('admin.leaves*') ? 'active' : '' }}">
+                <i class="bi bi-calendar2-week-fill"></i><span class="nav-text">Leave</span>
+            </a>
             @if (!$authUser?->isRecruiter())
             <a href="{{ route('admin.users') }}"
                 class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
@@ -70,7 +74,7 @@
         <div class="sidebar-footer">
             <a href="{{ route('admin.profile') }}" class="sidebar-user" style="text-decoration:none;">
                 @auth
-                    <div class="user-avatar" style="text-transform:uppercase;">{{ substr(Auth::user()->name, 0, 1) }}</div>
+                    <div class="user-avatar" style="text-transform:uppercase;">{{ Auth::user()->initials }}</div>
                     <div class="user-info">
                         <div class="user-name">{{ Auth::user()->name }}</div>
                         <div class="user-email">{{ Auth::user()->email }}</div>
@@ -98,7 +102,7 @@
             <div class="header-actions">
                 @auth
                     <a href="{{ route('admin.profile') }}" class="header-user-chip" style="text-decoration:none;" title="Profile">
-                        <div class="header-avatar">{{ strtoupper(substr(Auth::user()->name, 0, 1)) }}</div>
+                        <div class="header-avatar">{{ Auth::user()->initials }}</div>
                         <span class="header-user-name">{{ Auth::user()->name }}</span>
                     </a>
                 @endauth

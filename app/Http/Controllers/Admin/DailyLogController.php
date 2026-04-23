@@ -6,12 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\DailyLog;
-use App\Models\Interview;
+use App\Services\DailyLogSummaryService;
 use Illuminate\Http\Request;
 
 class DailyLogController extends Controller
 {
-    public function store(Request $request, Candidate $candidate)
+    public function store(Request $request, Candidate $candidate, DailyLogSummaryService $dailyLogSummaryService)
     {
         $user      = $request->user();
         $isAdmin   = $user->isAdmin();
@@ -28,45 +28,46 @@ class DailyLogController extends Controller
         }
 
         $validated = $request->validate([
-            'applications'    => ['nullable', 'integer', 'min:0', 'max:9999'],
-            'assistant_count' => ['nullable', 'integer', 'min:0', 'max:9999'],
-            'remark'          => ['nullable', 'string', 'max:2000'],
+            'applications' => ['required', 'integer', 'min:0', 'max:9999'],
+            'remark' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        // One per day check
         $today = now()->toDateString();
-        if (DailyLog::where('candidate_id', $candidate->id)->where('log_date', $today)->exists()) {
-            return back()->withErrors(['log_date' => 'A daily log already exists for today.']);
-        }
-
-        // Auto-calculate interview count from interviews created today for this candidate
-        $interviewCount = Interview::where('candidate_id', $candidate->id)
-            ->whereDate('created_at', today())
-            ->count();
-
-        DailyLog::create([
-            'candidate_id'    => $candidate->id,
-            'recruiter_id'    => $candidate->recruiter_id, // always the candidate's assigned recruiter
-            'log_date'        => $today,
-            'applications'    => (int) ($validated['applications'] ?? 0),
-            'assistant_count' => (int) ($validated['assistant_count'] ?? 0),
-            'interview_count' => $interviewCount,
-            'remark'          => $validated['remark'] ?? null,
-            'created_by'      => $user->id,
+        $log = DailyLog::query()->firstOrNew([
+            'candidate_id' => $candidate->id,
+            'log_date' => $today,
         ]);
+
+        $isNewLog = !$log->exists;
+        $log->recruiter_id = $candidate->recruiter_id;
+        $log->applications = (int) $validated['applications'];
+        $log->remark = $validated['remark'] ?? null;
+        if (!$log->created_by) {
+            $log->created_by = $user->id;
+        }
+        $log->save();
+
+        $log = $dailyLogSummaryService->syncForCandidateDate($candidate, $today, $user->id) ?? $log;
 
         AuditLog::log(
-            'created',
+            $isNewLog ? 'created' : 'updated',
             'daily_logs',
-            "Added daily log for {$candidate->full_name}",
+            ($isNewLog ? 'Saved' : 'Updated') . " daily log for {$candidate->full_name}",
             [],
-            ['candidate_id' => $candidate->id, 'log_date' => $today]
+            [
+                'candidate_id' => $candidate->id,
+                'log_date' => $today,
+                'applications' => $log->applications,
+                'assistant_count' => $log->assistant_count,
+                'interview_count' => $log->interview_count,
+            ]
         );
 
-        return back()->with('success', 'Daily log added.');
+        return redirect()->route('admin.candidates.show', [$candidate, 'tab' => 'logs'])
+            ->with('success', $isNewLog ? 'Daily log added.' : 'Daily log updated.');
     }
 
-    public function update(Request $request, Candidate $candidate, DailyLog $log)
+    public function update(Request $request, Candidate $candidate, DailyLog $log, DailyLogSummaryService $dailyLogSummaryService)
     {
         $user      = $request->user();
         $isAdmin   = $user->isAdmin();
@@ -89,23 +90,38 @@ class DailyLogController extends Controller
             $fields['remark'] = $request->input('remark');
         }
 
-        // applications/assisment/interview: only admin
+        // applications: only admin
         if ($isAdmin) {
-            if ($request->has('applications'))    $fields['applications']    = (int) $request->input('applications');
-            if ($request->has('assistant_count')) $fields['assistant_count'] = (int) $request->input('assistant_count');
-            if ($request->has('interview_count')) $fields['interview_count'] = (int) $request->input('interview_count');
+            if ($request->has('applications')) {
+                $fields['applications'] = (int) $request->input('applications');
+            }
         }
 
         $log->update($fields);
+        $dailyLogSummaryService->syncForCandidateDate($candidate, $log->log_date->toDateString(), $user->id);
+        $log->refresh();
 
         AuditLog::log(
             'updated',
             'daily_logs',
             "Updated daily log for {$candidate->full_name}",
             [],
-            $fields
+            [
+                'applications' => $log->applications,
+                'assistant_count' => $log->assistant_count,
+                'interview_count' => $log->interview_count,
+                'remark' => $log->remark,
+            ]
         );
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'log' => [
+                'applications' => $log->applications,
+                'assistant_count' => $log->assistant_count,
+                'interview_count' => $log->interview_count,
+                'remark' => $log->remark,
+            ],
+        ]);
     }
 }

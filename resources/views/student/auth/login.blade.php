@@ -93,6 +93,13 @@
                         @enderror
                     </div>
 
+                    <div class="form-group" style="margin-top:-4px;">
+                        <label class="d-flex align-center gap-8 text-sm" style="cursor:pointer;">
+                            <input type="checkbox" name="remember" style="accent-color:var(--blue);" @checked(old('remember'))>
+                            <span style="color:var(--text-secondary);">Remember me</span>
+                        </label>
+                    </div>
+
                     <button type="submit" class="sp-login-btn">
                         <i class="bi bi-box-arrow-in-right"></i>
                         Sign In to Portal

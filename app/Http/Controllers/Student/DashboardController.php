@@ -21,7 +21,7 @@ class DashboardController extends Controller
 
         $profileCompletion = $this->profileCompletion($candidate);
 
-        // Tab 1: Application and Assisment daily logs
+        // Tab 1: Application and Assessment daily logs
         $dailyLogs = DailyLog::where('candidate_id', $candidateId)
             ->orderBy('log_date', 'desc')
             ->get(['log_date', 'applications', 'assistant_count']);

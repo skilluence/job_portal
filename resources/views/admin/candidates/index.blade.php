@@ -70,19 +70,110 @@ $workAuthOptions = [
         <div class="scope-lbl">Recruiters' Candidates</div>
         <div class="scope-sub">Through your team recruiters</div>
     </a>
-    <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;min-width:160px;">
-        <button class="btn btn-primary" onclick="openCandidateModal('add')">
-            <i class="bi bi-plus-lg"></i> Add Candidate
-        </button>
-    </div>
+    @if ($isRealAdmin ?? false)
+        <div style="flex:1;display:flex;align-items:center;justify-content:flex-end;min-width:160px;">
+            <button class="btn btn-primary" onclick="openCandidateModal('add')">
+                <i class="bi bi-plus-lg"></i> Add Candidate
+            </button>
+        </div>
+    @endif
 </div>
 @endif
+
+<div class="card" style="margin-bottom:16px;">
+    <div class="d-flex gap-12" style="justify-content:space-between;align-items:flex-end;flex-wrap:wrap;">
+        <div class="d-flex gap-8" style="flex-wrap:wrap;align-items:center;">
+            <a href="{{ route('admin.candidates', array_filter(['scope' => $scope])) }}"
+               class="btn {{ !$ownership ? 'btn-primary' : 'btn-outline' }} btn-sm">
+                <i class="bi bi-people-fill"></i>
+                @if ($isRealAdmin ?? false)
+                    All Candidates
+                @elseif ($isManager ?? false)
+                    Current Ownership
+                @else
+                    My Candidates
+                @endif
+            </a>
+
+            @if ($isRealAdmin ?? false)
+                <a href="{{ route('admin.candidates', ['ownership' => 'unassigned']) }}"
+                   class="btn {{ $ownership === 'unassigned' ? 'btn-primary' : 'btn-outline' }} btn-sm">
+                    <i class="bi bi-person-dash-fill"></i> Unassigned
+                    <span class="badge badge-warning" style="margin-left:6px;">{{ $unassignedCount ?? 0 }}</span>
+                </a>
+            @elseif (($reclaimableCount ?? 0) > 0 || $ownership === 'reclaim')
+                <a href="{{ route('admin.candidates', ['ownership' => 'reclaim']) }}"
+                   class="btn {{ $ownership === 'reclaim' ? 'btn-primary' : 'btn-outline' }} btn-sm">
+                    <i class="bi bi-arrow-counterclockwise"></i> Can Take Back
+                    <span class="badge badge-info" style="margin-left:6px;">{{ $reclaimableCount ?? 0 }}</span>
+                </a>
+            @endif
+        </div>
+
+        <form method="POST" action="{{ route('admin.candidates.bulk-ownership') }}" id="candidateBulkOwnershipForm" class="d-flex gap-8" style="flex-wrap:wrap;align-items:flex-end;">
+            @csrf
+
+            @if ($isRealAdmin ?? false)
+                <div class="form-group mb-0">
+                    <label class="form-label">Transfer to Recruiter</label>
+                    <select name="assign_recruiter_id" id="bulkAssignRecruiter" class="form-control" style="min-width:180px;">
+                        <option value="">Select recruiter</option>
+                        @foreach ($recruiters as $recruiter)
+                            <option value="{{ $recruiter->id }}">{{ $recruiter->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="form-group mb-0">
+                    <label class="form-label">Transfer to Team Manager</label>
+                    <select name="assign_team_manager_id" id="bulkAssignManager" class="form-control" style="min-width:180px;">
+                        <option value="">Select team manager</option>
+                        @foreach ($managers as $manager)
+                            <option value="{{ $manager->id }}">{{ $manager->name }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <button type="submit"
+                        name="bulk_action"
+                        value="assign"
+                        class="btn btn-primary btn-sm"
+                        onclick="return validateCandidateBulkAction('assign');">
+                    <i class="bi bi-arrow-left-right"></i> Assign Selected
+                </button>
+                <button type="submit"
+                        name="bulk_action"
+                        value="unassign"
+                        class="btn btn-outline btn-sm"
+                        onclick="return validateCandidateBulkAction('unassign');">
+                    <i class="bi bi-person-dash"></i> Move to Unassigned
+                </button>
+            @elseif ($ownership === 'reclaim')
+                <button type="submit"
+                        name="bulk_action"
+                        value="take_back"
+                        class="btn btn-primary btn-sm"
+                        onclick="return validateCandidateBulkAction('take_back');">
+                    <i class="bi bi-arrow-counterclockwise"></i> Take Back Selected
+                </button>
+            @else
+                <button type="submit"
+                        name="bulk_action"
+                        value="unassign"
+                        class="btn btn-outline btn-sm"
+                        onclick="return validateCandidateBulkAction('unassign');">
+                    <i class="bi bi-person-dash"></i> Move Selected to Unassigned
+                </button>
+            @endif
+        </form>
+    </div>
+</div>
 
 <div class="card">
     <div class="card-header" style="flex-wrap:wrap;gap:12px;">
         <div>
             <div class="card-title">
-                @if (($isManager ?? false) && $scope === 'mine') My Candidates
+                @if (($isRealAdmin ?? false) && $ownership === 'unassigned') Unassigned Candidates
+                @elseif ($ownership === 'reclaim') Candidates You Can Take Back
+                @elseif (($isManager ?? false) && $scope === 'mine') My Candidates
                 @elseif (($isManager ?? false) && $scope === 'team') Recruiters' Candidates
                 @else All Candidates
                 @endif
@@ -94,6 +185,9 @@ $workAuthOptions = [
                 @if ($scope)
                     <input type="hidden" name="scope" value="{{ $scope }}">
                 @endif
+                @if ($ownership)
+                    <input type="hidden" name="ownership" value="{{ $ownership }}">
+                @endif
                 <input type="text" name="search" class="form-control" placeholder="Search name, email, domain, city..."
                     value="{{ $search }}" style="width:260px;">
                 <select name="status" class="form-control" style="width:150px;" onchange="this.form.submit()">
@@ -104,11 +198,11 @@ $workAuthOptions = [
                 </select>
                 <button type="submit" class="btn btn-outline"><i class="bi bi-search"></i></button>
                 @if ($search || $status)
-                    <a href="{{ route('admin.candidates', $scope ? ['scope' => $scope] : []) }}"
+                    <a href="{{ route('admin.candidates', array_filter(['scope' => $scope, 'ownership' => $ownership])) }}"
                        class="btn btn-outline" title="Clear filters"><i class="bi bi-x-lg"></i></a>
                 @endif
             </form>
-            @if (!($isManager ?? false))
+            @if ($isRealAdmin ?? false)
                 <button class="btn btn-primary" onclick="openCandidateModal('add')">
                     <i class="bi bi-plus-lg"></i> Add Candidate
                 </button>
@@ -120,6 +214,9 @@ $workAuthOptions = [
         <table>
             <thead>
                 <tr>
+                    <th style="width:34px;">
+                        <input type="checkbox" id="candidateSelectAll" onclick="toggleAllCandidateRows(this)">
+                    </th>
                     <th style="width:36px;">#</th>
                     <th>Candidate</th>
                     <th>Domain</th>
@@ -127,7 +224,7 @@ $workAuthOptions = [
                     <th>Visa Status</th>
                     <th>Status</th>
                     <th style="width:50px;">Apps</th>
-                    <th>Recruiter</th>
+                    <th>Owner</th>
                     <th>Created At</th>
                     <th style="width:90px;">Actions</th>
                 </tr>
@@ -137,12 +234,26 @@ $workAuthOptions = [
                     @php
                         $visaLabel = $visaOptions[$candidate->visa_immigration_status] ?? ucfirst(str_replace('_', ' ', $candidate->visa_immigration_status ?? ''));
                         $domainText = implode(' / ', array_filter([$candidate->domain, $candidate->sub_domain]));
+                        $ownsCandidateNow = ($isRealAdmin ?? false)
+                            || ($currentUser->isRecruiter() && (int) $candidate->recruiter_id === (int) $currentUser->id)
+                            || (($isManager ?? false) && (
+                                ((int) $candidate->team_manager_id === (int) $currentUser->id && empty($candidate->recruiter_id))
+                                || ((int) ($candidate->recruiter?->team_manager_id ?? 0) === (int) $currentUser->id)
+                            ));
+                        $canTakeBack = $ownership === 'reclaim' && !$ownsCandidateNow;
                     @endphp
                     <tr>
+                        <td>
+                            <input type="checkbox"
+                                   class="candidate-row-checkbox"
+                                   name="candidate_ids[]"
+                                   value="{{ $candidate->id }}"
+                                   form="candidateBulkOwnershipForm">
+                        </td>
                         <td class="text-muted text-sm">{{ $candidates->firstItem() + $i }}</td>
                         <td>
                             <a href="{{ route('admin.candidates.show', $candidate) }}" class="avatar-row" style="text-decoration:none;color:inherit;">
-                                <div class="avatar-sm">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
+                                <div class="avatar-sm">{{ $candidate->initials }}</div>
                                 <div>
                                     <div class="avatar-name" style="color:var(--blue);">{{ $candidate->full_name }}</div>
                                     <div class="avatar-sub">{{ $candidate->email_id }}</div>
@@ -168,13 +279,18 @@ $workAuthOptions = [
                         </td>
                         <td>{{ $candidate->no_of_applications }}</td>
                         <td class="text-muted text-sm">
-                            @if ($candidate->recruiter)
-                                {{ $candidate->recruiter->name }}
-                            @elseif ($candidate->teamManager)
-                                {{ $candidate->teamManager->name }}
-                                <span style="display:block;font-size:11px;color:var(--text-muted);">Team Manager</span>
+                            @if ($candidate->current_owner_name)
+                                {{ $candidate->current_owner_name }}
+                                @if ($candidate->current_owner_role_label)
+                                    <span style="display:block;font-size:11px;color:var(--text-muted);">{{ $candidate->current_owner_role_label }}</span>
+                                @endif
                             @else
-                                -
+                                <span class="badge badge-warning" style="font-size:11px;">Unassigned</span>
+                                @if ($candidate->latestAssignmentHistory?->changer)
+                                    <span style="display:block;font-size:11px;color:var(--text-muted);">
+                                        Last moved by {{ $candidate->latestAssignmentHistory->changer->name }}
+                                    </span>
+                                @endif
                             @endif
                         </td>
                         <td class="text-sm">
@@ -246,27 +362,40 @@ $workAuthOptions = [
                                 ];
                             @endphp
                             <div class="tbl-actions">
-                                <a href="{{ route('admin.candidates.show', $candidate) }}"
-                                   class="btn btn-outline btn-sm" title="View candidate preview">
-                                    <i class="bi bi-eye"></i>
-                                </a>
-                                <button class="btn btn-outline btn-sm"
-                                    data-candidate="{{ base64_encode(json_encode($p, JSON_UNESCAPED_SLASHES)) }}"
-                                    onclick="editCandidateFromButton(this)" title="Edit candidate">
-                                    <i class="bi bi-pencil"></i>
-                                </button>
-                                <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;margin:0;"
-                                    onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button class="btn btn-danger btn-sm" title="Delete candidate"><i class="bi bi-trash"></i></button>
-                                </form>
+                                @if ($canTakeBack)
+                                    <form method="POST" action="{{ route('admin.candidates.bulk-ownership') }}" style="display:inline;margin:0;">
+                                        @csrf
+                                        <input type="hidden" name="candidate_ids[]" value="{{ $candidate->id }}">
+                                        <input type="hidden" name="bulk_action" value="take_back">
+                                        <button class="btn btn-primary btn-sm" title="Take back candidate"
+                                                onclick="return confirm('Take this candidate back under your ownership?');">
+                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                        </button>
+                                    </form>
+                                @endif
+                                @if ($ownsCandidateNow)
+                                    <a href="{{ route('admin.candidates.show', $candidate) }}"
+                                       class="btn btn-outline btn-sm" title="View candidate preview">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <button class="btn btn-outline btn-sm"
+                                        data-candidate="{{ base64_encode(json_encode($p, JSON_UNESCAPED_SLASHES)) }}"
+                                        onclick="editCandidateFromButton(this)" title="Edit candidate">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form method="POST" action="{{ route('admin.candidates.destroy', $candidate) }}" style="display:inline;margin:0;"
+                                        onsubmit="return confirm('Delete candidate {{ addslashes($candidate->full_name) }}? This will block student login.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button class="btn btn-danger btn-sm" title="Delete candidate"><i class="bi bi-trash"></i></button>
+                                    </form>
+                                @endif
                             </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="10">
+                        <td colspan="11">
                             <div class="page-empty mb-0">
                                 <i class="bi bi-people"></i>
                                 <p>No candidates found{{ ($search || $status) ? ' matching your filters' : '' }}.</p>
@@ -291,6 +420,7 @@ $workAuthOptions = [
 {{-- ============================================================ --}}
 {{-- ADD CANDIDATE MODAL --}}
 {{-- ============================================================ --}}
+@if ($isRealAdmin ?? false)
 <div class="modal-overlay" id="addCandidateModal">
     <div class="modal modal-xl">
         <div class="modal-header">
@@ -303,6 +433,7 @@ $workAuthOptions = [
         </form>
     </div>
 </div>
+@endif
 
 {{-- ============================================================ --}}
 {{-- EDIT CANDIDATE MODAL --}}
@@ -323,6 +454,65 @@ $workAuthOptions = [
 </div>
 
 @push('scripts')
-<script>window.__isManager = {{ $isManager ? 'true' : 'false' }};</script>
+<script>
+window.__isManager = {{ $isManager ? 'true' : 'false' }};
+
+function getSelectedCandidateCheckboxes() {
+    return Array.from(document.querySelectorAll('.candidate-row-checkbox:checked'));
+}
+
+function toggleAllCandidateRows(source) {
+    document.querySelectorAll('.candidate-row-checkbox').forEach(function (checkbox) {
+        checkbox.checked = source.checked;
+    });
+}
+
+function validateCandidateBulkAction(action) {
+    var selected = getSelectedCandidateCheckboxes();
+    if (!selected.length) {
+        alert('Select at least one candidate first.');
+        return false;
+    }
+
+    if (action === 'assign') {
+        var recruiterSelect = document.getElementById('bulkAssignRecruiter');
+        var managerSelect = document.getElementById('bulkAssignManager');
+        var recruiterId = recruiterSelect ? recruiterSelect.value : '';
+        var managerId = managerSelect ? managerSelect.value : '';
+
+        if ((!recruiterId && !managerId) || (recruiterId && managerId)) {
+            alert('Select either one recruiter or one team manager for the transfer.');
+            return false;
+        }
+
+        return confirm('Assign the selected candidates to the chosen owner?');
+    }
+
+    if (action === 'take_back') {
+        return confirm('Take the selected candidates back under your ownership?');
+    }
+
+    return confirm('Move the selected candidates to unassigned?');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    var recruiterSelect = document.getElementById('bulkAssignRecruiter');
+    var managerSelect = document.getElementById('bulkAssignManager');
+
+    if (recruiterSelect && managerSelect) {
+        recruiterSelect.addEventListener('change', function () {
+            if (this.value) {
+                managerSelect.value = '';
+            }
+        });
+
+        managerSelect.addEventListener('change', function () {
+            if (this.value) {
+                recruiterSelect.value = '';
+            }
+        });
+    }
+});
+</script>
 @endpush
 @endsection

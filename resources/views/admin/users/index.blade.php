@@ -71,11 +71,15 @@
                         // Report eye: admin sees all non-admin; manager sees own-team recruiters (not self)
                         $canViewReport = ($isAdmin && $user->role !== 'admin')
                             || ($isManager && $user->id !== $currentUser->id && $user->team_manager_id === $currentUser->id);
+                        $candidateCount = $user->role === 'manager'
+                            ? (int) (($user->direct_managed_candidates_count ?? 0) + ($user->team_candidates_count ?? 0))
+                            : (int) ($user->candidates_count ?? 0);
                         $userPayload = [
                             'id'              => $user->id,
                             'name'            => $user->name,
                             'email'           => $user->email,
                             'role'            => $user->role,
+                            'is_admin'        => $user->role === 'admin',
                             'status'          => $user->status,
                             'team_manager_id' => $user->team_manager_id,
                             'is_self'         => $currentUser->id === $user->id,
@@ -85,7 +89,7 @@
                         <td class="text-muted text-sm">{{ $users->firstItem() + $i }}</td>
                         <td>
                             <div class="avatar-row">
-                                <div class="avatar-sm">{{ strtoupper(substr($user->name, 0, 1)) }}</div>
+                                <div class="avatar-sm">{{ $user->initials }}</div>
                                 <span class="avatar-name">{{ $user->name }}</span>
                             </div>
                         </td>
@@ -99,7 +103,7 @@
                                 {{ ucfirst($user->status) }}
                             </span>
                         </td>
-                        <td class="text-muted text-sm">{{ $user->candidates_count ?? 0 }}</td>
+                        <td class="text-muted text-sm">{{ $candidateCount }}</td>
                         <td class="text-sm">
                             <div>{{ $user->created_at?->format('M d, Y') ?? '-' }}</div>
                             @if ($user->created_at)
@@ -169,7 +173,7 @@
             </div>
             <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
         </div>
-        <form method="POST" action="{{ route('admin.users.store') }}">
+        <form method="POST" action="{{ route('admin.users.store') }}" autocomplete="off">
             @csrf
             <div class="modal-body">
                 <div class="form-grid">
@@ -183,15 +187,12 @@
                     </div>
 
                     @if ($isAdmin)
-                    {{-- Admin sees all role options --}}
+                    {{-- Admin can create manager/recruiter only --}}
                     <div class="form-group">
                         <label class="form-label">Role <span style="color:var(--red-text)">*</span></label>
                         <select name="role" id="add_user_role" class="form-control" required onchange="handleAddRoleChange(this)">
                             <option value="recruiter" @selected(old('role','recruiter') === 'recruiter')>Recruiter</option>
                             <option value="manager"   @selected(old('role') === 'manager')>Team Manager</option>
-                            @if (!$adminExists)
-                            <option value="admin"     @selected(old('role') === 'admin')>Admin</option>
-                            @endif
                         </select>
                     </div>
                     @else
@@ -235,14 +236,14 @@
                     <div class="form-group">
                         <label class="form-label">Password <span style="color:var(--red-text)">*</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password" class="form-control" required placeholder="Min 8 characters">
+                            <input type="password" name="password" class="form-control" required placeholder="Min 8 characters" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password <span style="color:var(--red-text)">*</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password_confirmation" class="form-control" required>
+                            <input type="password" name="password_confirmation" class="form-control" required autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
@@ -266,7 +267,7 @@
             <div class="modal-title"><i class="bi bi-pencil-square" style="margin-right:6px;"></i> Edit User</div>
             <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
         </div>
-        <form method="POST" id="editUserForm" action="" data-base="{{ url('admin/users') }}">
+        <form method="POST" id="editUserForm" action="" data-base="{{ url('admin/users') }}" autocomplete="off">
             @csrf
             @method('PUT')
             <div class="modal-body">
@@ -275,25 +276,39 @@
                         <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
                         <input type="text" name="name" id="edit_user_name" class="form-control" required>
                     </div>
-                    <div class="form-group">
+                    <div class="form-group" id="edit_user_email_group">
                         <label class="form-label">Email <span style="color:var(--red-text)">*</span></label>
                         <input type="email" name="email" id="edit_user_email" class="form-control" required>
                     </div>
+                    @if ($isAdmin)
+                        <div class="form-group" id="edit_user_email_locked_group" style="display:none;">
+                            <label class="form-label">Email</label>
+                            <input type="text" id="edit_user_email_locked_text" class="form-control" value="" disabled>
+                        </div>
+                    @endif
                     @if ($isAdmin)
                         <div class="form-group" id="edit_user_role_group">
                             <label class="form-label">Role <span style="color:var(--red-text)">*</span></label>
                             <select name="role" id="edit_user_role" class="form-control" required onchange="handleEditRoleChange()">
                                 <option value="recruiter">Recruiter</option>
                                 <option value="manager">Team Manager</option>
-                                <option value="admin">Admin</option>
                             </select>
                         </div>
-                        <div class="form-group">
+                        <div class="form-group" id="edit_user_role_locked_group" style="display:none;">
+                            <label class="form-label">Role</label>
+                            <input type="text" id="edit_user_role_locked_text" class="form-control" value="Admin" disabled>
+                            <input type="hidden" id="edit_user_role_hidden" value="">
+                        </div>
+                        <div class="form-group" id="edit_user_status_group">
                             <label class="form-label">Status <span style="color:var(--red-text)">*</span></label>
                             <select name="status" id="edit_user_status" class="form-control" required>
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                             </select>
+                        </div>
+                        <div class="form-group" id="edit_user_status_locked_group" style="display:none;">
+                            <label class="form-label">Status</label>
+                            <input type="text" id="edit_user_status_locked_text" class="form-control" value="" disabled>
                         </div>
                         <div class="form-group" id="edit_team_manager_group" style="display:none;">
                             <label class="form-label">Assign to Team Manager <span style="color:var(--red-text)">*</span></label>
@@ -316,14 +331,14 @@
                     <div class="form-group">
                         <label class="form-label">New Password <span class="text-muted text-sm">(optional)</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password" class="form-control" placeholder="Min 8 characters">
+                            <input type="password" name="password" class="form-control" placeholder="Min 8 characters" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password</label>
                         <div class="input-with-icon">
-                            <input type="password" name="password_confirmation" class="form-control">
+                            <input type="password" name="password_confirmation" class="form-control" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
                     </div>
@@ -363,7 +378,7 @@ function handleAddRoleChange(select) {
 
 function handleEditRoleChange() {
     var roleSelect = document.getElementById('edit_user_role');
-    if (!roleSelect) return;
+    if (!roleSelect || roleSelect.disabled) return;
     var role = roleSelect.value;
     var tmGroup  = document.getElementById('edit_team_manager_group');
     var tmSelect = document.getElementById('edit_user_team_manager');

@@ -5,7 +5,7 @@
 {{-- ── Hero Banner ─────────────────────────────────────────────────────────── --}}
 <div class="stp-hero">
     <div class="stp-hero-left">
-        <div class="stp-hero-avatar">{{ strtoupper(substr($candidate->full_name, 0, 1)) }}</div>
+        <div class="stp-hero-avatar">{{ $candidate->initials }}</div>
         <div>
             <div class="stp-hero-greeting">Welcome back</div>
             <div class="stp-hero-name">{{ $candidate->full_name }}</div>
@@ -314,11 +314,11 @@
     .sdb-table td { border-bottom: none !important; padding: 12px 14px; }
     /* Date cell — full width */
     .sdb-table td:nth-child(1) { width: 100%; border-bottom: 1px solid #f1f5f9 !important; padding-bottom: 10px; }
-    /* Applications + Assisment — half each */
+    /* Applications + Assessment — half each */
     .sdb-table td:nth-child(2), .sdb-table td:nth-child(3) { width: 50%; }
     .sdb-table td:nth-child(2), .sdb-table td:nth-child(3) { text-align: left !important; }
     .sdb-table td:nth-child(2)::before { content: "Applications"; display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
-    .sdb-table td:nth-child(3)::before { content: "Assisment"; display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
+    .sdb-table td:nth-child(3)::before { content: "Assessment"; display: block; font-size: 10px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px; }
     .sdb-table td:nth-child(2) span, .sdb-table td:nth-child(3) span { font-size: 20px; }
     .sdb-table tfoot { display: block; }
     .sdb-table tfoot tr {
@@ -338,7 +338,7 @@
 <div id="sdb-section" class="stp-card" style="padding:0;overflow:hidden;border-radius:12px;border:1px solid #e2e8f0;box-shadow:0 2px 8px rgba(37,99,235,.07);">
     <div class="sdb-tabs">
         <button class="sdb-tab active" onclick="switchSdbTab('apps', this)">
-            <i class="bi bi-file-earmark-text-fill"></i> Application &amp; Assisment
+            <i class="bi bi-file-earmark-text-fill"></i> Application &amp; Assessment
         </button>
         <button class="sdb-tab" onclick="switchSdbTab('interviews', this)">
             <i class="bi bi-calendar-check-fill"></i> Interviews
@@ -353,7 +353,7 @@
 
     <div class="sdb-tab-body">
 
-        {{-- ── Tab 1: Application & Assisment ──────────────────── --}}
+        {{-- ── Tab 1: Application & Assessment ──────────────────── --}}
         <div id="sdb-apps" class="sdb-panel show">
             @if ($dailyLogs->isEmpty())
                 <div class="sdb-empty">
@@ -367,7 +367,7 @@
                             <tr>
                                 <th>Date</th>
                                 <th style="text-align:right;">Applications</th>
-                                <th style="text-align:right;">Assisment</th>
+                                <th style="text-align:right;">Assessment</th>
                             </tr>
                         </thead>
                         <tbody>
