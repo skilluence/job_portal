@@ -264,8 +264,12 @@
     font-size:20px;
 }
 
+@media (max-width:1100px) {
+    .dw-stats-row { grid-template-columns:repeat(3, 1fr) !important; }
+}
+
 @media (max-width:900px) {
-    .dw-stats-row { grid-template-columns:repeat(2, 1fr); }
+    .dw-stats-row { grid-template-columns:repeat(2, 1fr) !important; }
 }
 
 @media (max-width:768px) {
@@ -274,11 +278,11 @@
 }
 
 @media (max-width:480px) {
-    .dw-stats-row { grid-template-columns:1fr 1fr; }
+    .dw-stats-row { grid-template-columns:1fr 1fr !important; }
 }
 </style>
 
-<div class="dw-stats-row">
+<div class="dw-stats-row" style="grid-template-columns:repeat(5,1fr);">
     <div class="dw-stat-card">
         <div class="dw-stat-icon" style="background:#eff6ff;color:#2563eb;">
             <i class="bi bi-calendar2-event-fill"></i>
@@ -304,11 +308,7 @@
         <div class="dw-stat-body">
             <div class="dw-stat-num">{{ number_format($statTotalRecruiters) }}</div>
             <div class="dw-stat-lbl">
-                @if ($isManager)
-                    Team Recruiters
-                @else
-                    Active Recruiters
-                @endif
+                @if ($isManager) Team Recruiters @else Active Recruiters @endif
             </div>
         </div>
     </div>
@@ -321,6 +321,17 @@
             <div class="dw-stat-lbl">Pending Applications</div>
         </div>
     </div>
+    @if ($isAdmin)
+    <div class="dw-stat-card">
+        <div class="dw-stat-icon" style="background:#fef2f2;color:#dc2626;">
+            <i class="bi bi-person-dash-fill"></i>
+        </div>
+        <div class="dw-stat-body">
+            <div class="dw-stat-num">{{ number_format($statUnassignedCount) }}</div>
+            <div class="dw-stat-lbl">Unassigned</div>
+        </div>
+    </div>
+    @endif
 </div>
 
 @if ($isManager ?? false)
@@ -506,7 +517,7 @@
         @endif
     </div>
 
-    <div class="card">
+    <div class="card" style="margin-top: 0">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i> Attention Required</div>
@@ -561,8 +572,8 @@
     </div>
 </div>
 
-<div class="dw-grid-1">
-    <div class="card">
+<div class="dw-grid-2">
+    <div class="card" style="grid-column:1 / -1;">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-calendar2-event-fill" style="color:var(--blue);"></i> Interviews</div>
@@ -725,11 +736,103 @@
                 </div>
             @endif
         </div>
-    </div>
-</div>
+    </div>{{-- /interviews card --}}
 
-<div class="dw-grid-2">
-    <div class="card">
+    {{-- ── Unassigned Candidates ──────────────────────────────── --}}
+    @if ($isAdmin)
+    <div class="card" style="order:3;">
+        <div class="dw-head">
+            <div>
+                <div class="dw-title">
+                    <i class="bi bi-person-dash-fill" style="color:#dc2626;"></i> Unassigned Candidates
+                </div>
+                <div class="dw-sub">Candidates with no recruiter or manager assigned</div>
+            </div>
+            @if ($statUnassignedCount > 0)
+                <span class="badge badge-danger" style="font-size:12px;">{{ $statUnassignedCount }}</span>
+            @else
+                <span class="badge badge-success" style="font-size:12px;">0</span>
+            @endif
+        </div>
+
+        @if ($unassignedCandidates->total() === 0)
+            <div class="dw-empty">
+                <i class="bi bi-person-check-fill" style="color:#16a34a;opacity:1;"></i>
+                <p style="color:#16a34a;font-weight:500;">All candidates are assigned.</p>
+            </div>
+        @else
+            <div style="overflow-x:auto;">
+                <table class="dw-table">
+                    <thead>
+                        <tr>
+                            <th>Candidate</th>
+                            <th>Status</th>
+                            <th>Last Unassigned By</th>
+                            <th>Updated</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($unassignedCandidates as $c)
+                        <tr>
+                            <td>
+                                <a href="{{ route('admin.candidates.show', $c) }}"
+                                   style="font-weight:600;color:var(--blue);text-decoration:none;font-size:13px;">
+                                    {{ $c->full_name }}
+                                </a>
+                            </td>
+                            <td>
+                                @php
+                                    $stColors = [
+                                        'active'     => ['#f0fdf4','#16a34a'],
+                                        'enrolled'   => ['#eff6ff','#2563eb'],
+                                        'inactive'   => ['#f8fafc','#64748b'],
+                                        'terminated' => ['#fef2f2','#dc2626'],
+                                    ];
+                                    [$stBg, $stClr] = $stColors[$c->status] ?? ['#f8fafc','#64748b'];
+                                @endphp
+                                <span class="badge" style="background:{{ $stBg }};color:{{ $stClr }};font-size:11px;">
+                                    {{ ucfirst($c->status) }}
+                                </span>
+                            </td>
+                            <td class="text-sm text-muted" style="font-size:12px;">
+                                {{ $c->latestAssignmentHistory?->changer?->name ?? '—' }}
+                            </td>
+                            <td>
+                                <span class="dw-days-ago">{{ $c->updated_at->diffForHumans() }}</span>
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+
+            @if ($unassignedCandidates->hasPages())
+                <div class="pagination-wrap">
+                    <span class="pagination-info">
+                        Showing {{ $unassignedCandidates->firstItem() }}-{{ $unassignedCandidates->lastItem() }} of {{ $unassignedCandidates->total() }}
+                    </span>
+                    {{ $unassignedCandidates->links('pagination.custom') }}
+                </div>
+            @endif
+
+            <div style="margin-top:12px;text-align:right;">
+                <a href="{{ route('admin.candidates', ['ownership' => 'unassigned']) }}"
+                   class="btn btn-outline btn-sm">
+                    <i class="bi bi-arrow-right-circle"></i> View All Unassigned
+                </a>
+            </div>
+        @endif
+    </div>
+    @else
+    {{-- Non-admin filler to keep grid balanced --}}
+    <div class="card" style="display:flex;align-items:center;justify-content:center;min-height:120px; margin-top:0; order:3;">
+        <div class="dw-empty" style="padding:20px 0;">
+            <i class="bi bi-shield-lock" style="font-size:22px;opacity:.25;display:block;margin-bottom:6px;"></i>
+            <p style="font-size:12px;">Restricted to administrators</p>
+        </div>
+    </div>
+    @endif
+    <div class="card" style="order:2;">
         <div class="dw-head">
             <div>
                 <div class="dw-title"><i class="bi bi-graph-up-arrow" style="color:#8b5cf6;"></i> Trending Domains</div>
@@ -775,6 +878,7 @@
         @endif
     </div>
 
+    {{--
     <div class="card dw-card-fill" style="margin-top: 0;">
         <div class="dw-head">
             <div>
@@ -829,6 +933,7 @@
             @endif
         </div>
     </div>
+    --}}
 </div>
 
 <script>

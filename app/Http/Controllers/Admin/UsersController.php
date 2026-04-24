@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
 use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\DailyLog;
@@ -10,6 +11,7 @@ use App\Models\Interview;
 use App\Models\User;
 use App\Services\CandidateOwnershipService;
 use App\Services\LeaveStatusService;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -78,26 +80,56 @@ class UsersController extends Controller
         // Admin can view any recruiter or manager (not self-blocked — they "own" everything)
 
         // ── Month selection ──────────────────────────────────────
-        $month = $request->get('month', now()->format('Y-m'));
+        $ownedCandidatesCount = $candidateOwnershipService->totalOwnedCandidateCount($user);
+        $reportOwnerIds = $user->isManager()
+            ? array_values(array_unique(array_merge([$user->id], $user->teamMemberIds())))
+            : [$user->id];
+        $latestActivityMonth = $this->latestReportActivityMonth($reportOwnerIds);
+
+        $month = $request->get('month', $latestActivityMonth ?? now()->format('Y-m'));
         if (!preg_match('/^\d{4}-\d{2}$/', $month)) {
-            $month = now()->format('Y-m');
+            $month = $latestActivityMonth ?? now()->format('Y-m');
         }
         [$year, $mon] = explode('-', $month);
         $startDate  = Carbon::createFromDate((int) $year, (int) $mon, 1)->startOfDay();
         $endDate    = $startDate->copy()->endOfMonth()->endOfDay();
         $daysInMonth = $startDate->daysInMonth;
-        $ownedCandidateIds = $candidateOwnershipService->ownedCandidateIdsQuery($user);
-        $ownedCandidatesCount = $candidateOwnershipService->totalOwnedCandidateCount($user);
 
         // ── Applications / Assisment from daily_logs ─────────────
         // Sum per day across all candidates managed by this recruiter
-        $rawLogs = DailyLog::whereIn('candidate_id', $ownedCandidateIds)
+        $rawLogs = DailyLog::where(fn (Builder $query) => $this->applyReportActivityScope($query, $reportOwnerIds))
             ->whereBetween('log_date', [$startDate->toDateString(), $endDate->toDateString()])
-            ->selectRaw('log_date, SUM(applications) as applications, SUM(assistant_count) as assistant_count, SUM(interview_count) as interview_count')
+            ->selectRaw('log_date, SUM(applications) as applications')
             ->groupBy('log_date')
             ->orderBy('log_date')
             ->get()
             ->keyBy(fn ($l) => Carbon::parse($l->log_date)->format('j')); // key by day-of-month (1-31)
+
+        $rawAssessmentCounts = Assessment::query()
+            ->where(fn (Builder $query) => $this->applyReportActivityScope($query, $reportOwnerIds))
+            ->where(function (Builder $query) use ($startDate, $endDate) {
+                $query->whereBetween('assessment_date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->orWhere(function (Builder $fallbackQuery) use ($startDate, $endDate) {
+                        $fallbackQuery->whereNull('assessment_date')
+                            ->whereBetween('created_at', [$startDate, $endDate]);
+                    });
+            })
+            ->get(['id', 'assessment_date', 'created_at'])
+            ->groupBy(fn (Assessment $assessment) => $this->assessmentReportLogDate($assessment)?->format('j'))
+            ->map(fn ($items) => $items->count());
+
+        $rawInterviewCounts = Interview::query()
+            ->where(fn (Builder $query) => $this->applyReportActivityScope($query, $reportOwnerIds))
+            ->where(function (Builder $query) use ($startDate, $endDate) {
+                $query->whereBetween('application_date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->orWhere(function (Builder $fallbackQuery) use ($startDate, $endDate) {
+                        $fallbackQuery->whereNull('application_date')
+                            ->whereBetween('created_at', [$startDate, $endDate]);
+                    });
+            })
+            ->get(['id', 'application_date', 'created_at'])
+            ->groupBy(fn (Interview $interview) => $this->interviewReportLogDate($interview)?->format('j'))
+            ->map(fn ($items) => $items->count());
 
         // Build full-month arrays for chart (0 on days with no log)
         $chartLabels    = [];
@@ -107,33 +139,49 @@ class UsersController extends Controller
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
             $log = $rawLogs->get($day);
+            $assessmentCount = (int) ($rawAssessmentCounts->get((string) $day) ?? 0);
+            $interviewCount = (int) ($rawInterviewCounts->get((string) $day) ?? 0);
             $chartLabels[]    = $day;
             $chartApps[]      = $log ? (int) $log->applications    : 0;
-            $chartAssessment[] = $log ? (int) $log->assistant_count : 0;
-            if ($log && ($log->applications > 0 || $log->assistant_count > 0 || $log->interview_count > 0)) {
+            $chartAssessment[] = $assessmentCount;
+            if (($log && $log->applications > 0) || $assessmentCount > 0 || $interviewCount > 0) {
                 $date = Carbon::createFromDate((int) $year, (int) $mon, $day);
                 $detailRows[] = [
                     'date'           => $date->format('M d, Y'),
                     'day_name'       => $date->format('D'),
-                    'applications'   => (int) $log->applications,
-                    'assessment'     => (int) $log->assistant_count,
-                    'interviews'     => (int) $log->interview_count,
+                    'applications'   => $log ? (int) $log->applications : 0,
+                    'assessment'     => $assessmentCount,
+                    'interviews'     => $interviewCount,
                 ];
             }
         }
 
         $totals = [
             'applications' => array_sum($chartApps),
-            'assessment'   => array_sum($chartAssessment),
-            'log_interviews' => $rawLogs->sum('interview_count'),
+            'assessment'   => $rawAssessmentCounts->sum(),
+            'log_interviews' => $rawInterviewCounts->sum(),
         ];
 
         // ── Interviews scheduled this month ──────────────────────
-        $interviews = Interview::whereIn('candidate_id', $ownedCandidateIds)
+        $interviews = Interview::where(fn (Builder $query) => $this->applyReportActivityScope($query, $reportOwnerIds))
             ->whereBetween('scheduled_date', [$startDate->toDateString(), $endDate->toDateString()])
             ->with('candidate')
             ->orderBy('scheduled_date')
             ->orderBy('scheduled_time')
+            ->get();
+
+        $assessments = Assessment::where(fn (Builder $query) => $this->applyReportActivityScope($query, $reportOwnerIds))
+            ->where(function (Builder $query) use ($startDate, $endDate) {
+                $query->whereBetween('assessment_date', [$startDate->toDateString(), $endDate->toDateString()])
+                    ->orWhere(function (Builder $fallbackQuery) use ($startDate, $endDate) {
+                        $fallbackQuery->whereNull('assessment_date')
+                            ->whereBetween('created_at', [$startDate, $endDate]);
+                    });
+            })
+            ->with('candidate')
+            ->orderBy('assessment_date')
+            ->orderBy('assessment_time')
+            ->orderBy('created_at')
             ->get();
 
         // ── Past 13 months dropdown ───────────────────────────────
@@ -141,6 +189,10 @@ class UsersController extends Controller
         for ($i = 0; $i <= 12; $i++) {
             $m = now()->subMonths($i);
             $months[$m->format('Y-m')] = $m->format('F Y');
+        }
+        if (!isset($months[$month])) {
+            $months[$month] = $startDate->format('F Y');
+            krsort($months);
         }
 
         AuditLog::log(
@@ -164,9 +216,63 @@ class UsersController extends Controller
             'detailRows'    => $detailRows,
             'totals'        => $totals,
             'interviews'    => $interviews,
+            'assessments'   => $assessments,
             'isAdmin'       => $isAdmin,
             'isManager'     => $isManager,
         ]);
+    }
+
+    private function applyReportActivityScope(Builder $query, array $reportOwnerIds): Builder
+    {
+        return $query->whereIn('recruiter_id', $reportOwnerIds);
+    }
+
+    private function latestReportActivityMonth(array $reportOwnerIds): ?string
+    {
+        $latestLogDate = DailyLog::query()
+            ->whereIn('recruiter_id', $reportOwnerIds)
+            ->max('log_date');
+
+        $latestScheduledDate = Interview::query()
+            ->whereIn('recruiter_id', $reportOwnerIds)
+            ->whereNotNull('scheduled_date')
+            ->max('scheduled_date');
+
+        $latestAssessmentDate = Assessment::query()
+            ->whereIn('recruiter_id', $reportOwnerIds)
+            ->max('assessment_date');
+
+        $latestAssessmentCreatedDate = Assessment::query()
+            ->whereIn('recruiter_id', $reportOwnerIds)
+            ->whereNull('assessment_date')
+            ->max('created_at');
+
+        $dates = array_filter([$latestLogDate, $latestScheduledDate, $latestAssessmentDate, $latestAssessmentCreatedDate]);
+        if ($dates === []) {
+            return null;
+        }
+
+        rsort($dates);
+
+        return Carbon::parse($dates[0])->format('Y-m');
+    }
+
+    private function interviewReportLogDate(Interview $interview): ?Carbon
+    {
+        if ($interview->application_date) {
+            return $interview->application_date;
+        }
+
+        return $interview->created_at;
+    }
+
+    private function assessmentReportLogDate(Assessment $assessment): ?Carbon
+    {
+        if ($assessment->assessment_date) {
+            return $assessment->assessment_date;
+        }
+
+        return $assessment->created_at;
     }
 
     public function store(Request $request)
@@ -206,7 +312,9 @@ class UsersController extends Controller
             $data['team_manager_id'] = null;
         }
 
-        $data['password'] = Hash::make($data['password']);
+        $plainPassword = $data['password'];
+        $data['password'] = Hash::make($plainPassword);
+        $data['password_plain'] = $plainPassword;
         $data['email']    = strtolower($data['email']);
         $data['inactive_reason'] = ($data['status'] ?? 'active') === 'inactive' ? 'manual' : null;
         $data['leave_override_until'] = null;
@@ -282,7 +390,9 @@ class UsersController extends Controller
         $data['email'] = strtolower($data['email']);
 
         if (!empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
+            $plainPassword = $data['password'];
+            $data['password'] = Hash::make($plainPassword);
+            $data['password_plain'] = $plainPassword;
         } else {
             unset($data['password']);
         }
@@ -356,7 +466,7 @@ class UsersController extends Controller
 
     private function sanitizeAuditValues(array $values): array
     {
-        unset($values['password'], $values['remember_token']);
+        unset($values['password'], $values['password_plain'], $values['remember_token']);
         return $values;
     }
 }

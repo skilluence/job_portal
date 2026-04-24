@@ -271,17 +271,16 @@ class CandidatesController extends Controller
                 $data['recruiter_id'] = null;
                 $data['team_manager_id'] = $user->id;
             } else {
-                // Keep existing assignment when manager didn't change owner fields.
-                $data['recruiter_id'] = $candidate->recruiter_id;
-                $data['team_manager_id'] = $candidate->team_manager_id;
+                $data['recruiter_id'] = null;
+                $data['team_manager_id'] = null;
             }
         } else {
             $data['recruiter_id']    = $candidate->recruiter_id;
             $data['team_manager_id'] = $candidate->team_manager_id;
         }
 
-        $newRecruiterId = $data['recruiter_id'] ?? $candidate->recruiter_id;
-        $newTeamManagerId = $data['team_manager_id'] ?? $candidate->team_manager_id;
+        $newRecruiterId = $data['recruiter_id'];
+        $newTeamManagerId = $data['team_manager_id'];
         unset($data['recruiter_id'], $data['team_manager_id']);
 
         // Password: only update if provided
@@ -853,7 +852,7 @@ class CandidatesController extends Controller
             'street_address'  => ['nullable', 'string', 'max:255'],
             'apartment_unit'  => ['nullable', 'string', 'max:50'],
             'city'            => ['nullable', 'string', 'max:100'],
-            'state_province'  => ['nullable', 'string', 'max:5'],
+            'state_province'  => ['nullable', 'string', 'max:100'],
             'zip_code'        => ['nullable', 'string', 'max:20'],
             'country'         => ['nullable', 'string', 'max:100'],
 
@@ -861,7 +860,7 @@ class CandidatesController extends Controller
             'visa_immigration_status' => ['nullable', Rule::in(array_merge(self::VISA_STATUSES, ['']))],
             'work_auth_status'        => ['nullable', Rule::in(array_merge(self::WORK_AUTH_STATUSES, ['']))],
             'open_to_relocation'      => ['nullable', 'boolean'],
-            'preferred_city'          => ['nullable', 'string', 'max:100'],
+            'preferred_city'          => ['nullable', 'string', 'max:500'],
             'visa_expiry_date'        => ['nullable', 'date'],
 
             // Marketing

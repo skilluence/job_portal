@@ -83,6 +83,7 @@
                             'status'          => $user->status,
                             'team_manager_id' => $user->team_manager_id,
                             'is_self'         => $currentUser->id === $user->id,
+                            'current_password_plain' => ($isAdmin && !$user->isAdmin()) ? ($user->password_plain ?? '') : '',
                         ];
                     @endphp
                     <tr>
@@ -173,17 +174,19 @@
             </div>
             <button class="modal-close" onclick="closeModal('addUserModal')">&times;</button>
         </div>
-        <form method="POST" action="{{ route('admin.users.store') }}" autocomplete="off">
+        <form method="POST" id="addUserForm" action="{{ route('admin.users.store') }}" autocomplete="off" novalidate>
             @csrf
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
                         <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
-                        <input type="text" name="name" class="form-control" required value="{{ old('name') }}">
+                        <input type="text" name="name" id="add_user_name" class="form-control" required value="{{ old('name') }}">
+                        <span class="sp-field-error" id="add_user_name_err"></span>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Email <span style="color:var(--red-text)">*</span></label>
-                        <input type="email" name="email" class="form-control" required value="{{ old('email') }}">
+                        <input type="email" name="email" id="add_user_email" class="form-control" required value="{{ old('email') }}">
+                        <span class="sp-field-error" id="add_user_email_err"></span>
                     </div>
 
                     @if ($isAdmin)
@@ -194,6 +197,7 @@
                             <option value="recruiter" @selected(old('role','recruiter') === 'recruiter')>Recruiter</option>
                             <option value="manager"   @selected(old('role') === 'manager')>Team Manager</option>
                         </select>
+                        <span class="sp-field-error" id="add_user_role_err"></span>
                     </div>
                     @else
                     {{-- Manager always creates recruiter --}}
@@ -202,10 +206,11 @@
 
                     <div class="form-group">
                         <label class="form-label">Status <span style="color:var(--red-text)">*</span></label>
-                        <select name="status" class="form-control" required>
+                        <select name="status" id="add_user_status" class="form-control" required>
                             <option value="active"   @selected(old('status','active') === 'active')>Active</option>
                             <option value="inactive" @selected(old('status') === 'inactive')>Inactive</option>
                         </select>
+                        <span class="sp-field-error" id="add_user_status_err"></span>
                     </div>
 
                     {{-- Team Manager assignment — shown when role=recruiter --}}
@@ -226,6 +231,7 @@
                                 <option value="{{ $mgr->id }}" @selected(old('team_manager_id') == $mgr->id)>{{ $mgr->name }}</option>
                             @endforeach
                         </select>
+                        <span class="sp-field-error" id="add_team_manager_id_err"></span>
                         @endif
                     </div>
                     @elseif ($isManager)
@@ -236,16 +242,18 @@
                     <div class="form-group">
                         <label class="form-label">Password <span style="color:var(--red-text)">*</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password" class="form-control" required placeholder="Min 8 characters" autocomplete="new-password">
+                            <input type="password" name="password" id="add_user_password" class="form-control" required placeholder="Min 8 characters" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
+                        <span class="sp-field-error" id="add_user_password_err"></span>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password <span style="color:var(--red-text)">*</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password_confirmation" class="form-control" required autocomplete="new-password">
+                            <input type="password" name="password_confirmation" id="add_user_password_confirmation" class="form-control" required autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
+                        <span class="sp-field-error" id="add_user_password_confirmation_err"></span>
                     </div>
                 </div>
             </div>
@@ -267,7 +275,7 @@
             <div class="modal-title"><i class="bi bi-pencil-square" style="margin-right:6px;"></i> Edit User</div>
             <button class="modal-close" onclick="closeModal('editUserModal')">&times;</button>
         </div>
-        <form method="POST" id="editUserForm" action="" data-base="{{ url('admin/users') }}" autocomplete="off">
+        <form method="POST" id="editUserForm" action="" data-base="{{ url('admin/users') }}" autocomplete="off" novalidate>
             @csrf
             @method('PUT')
             <div class="modal-body">
@@ -275,10 +283,12 @@
                     <div class="form-group">
                         <label class="form-label">Full Name <span style="color:var(--red-text)">*</span></label>
                         <input type="text" name="name" id="edit_user_name" class="form-control" required>
+                        <span class="sp-field-error" id="edit_user_name_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                     </div>
                     <div class="form-group" id="edit_user_email_group">
                         <label class="form-label">Email <span style="color:var(--red-text)">*</span></label>
                         <input type="email" name="email" id="edit_user_email" class="form-control" required>
+                        <span class="sp-field-error" id="edit_user_email_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                     </div>
                     @if ($isAdmin)
                         <div class="form-group" id="edit_user_email_locked_group" style="display:none;">
@@ -293,6 +303,7 @@
                                 <option value="recruiter">Recruiter</option>
                                 <option value="manager">Team Manager</option>
                             </select>
+                            <span class="sp-field-error" id="edit_user_role_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                         </div>
                         <div class="form-group" id="edit_user_role_locked_group" style="display:none;">
                             <label class="form-label">Role</label>
@@ -305,6 +316,7 @@
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                             </select>
+                            <span class="sp-field-error" id="edit_user_status_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                         </div>
                         <div class="form-group" id="edit_user_status_locked_group" style="display:none;">
                             <label class="form-label">Status</label>
@@ -318,6 +330,7 @@
                                     <option value="{{ $mgr->id }}">{{ $mgr->name }}</option>
                                 @endforeach
                             </select>
+                            <span class="sp-field-error" id="edit_user_team_manager_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                         </div>
                     @elseif ($isManager)
                         <div class="form-group">
@@ -326,21 +339,43 @@
                                 <option value="active">Active</option>
                                 <option value="inactive">Inactive</option>
                             </select>
+                            <span class="sp-field-error" id="edit_user_status_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                         </div>
                     @endif
+
+                    @if ($isAdmin)
+                    {{-- Current Password display — admin only, shown for non-admin users via JS --}}
+                    <div class="form-group" id="edit_current_pw_group" style="display:none;">
+                        <label class="form-label">Current Password</label>
+                        <div class="input-with-icon">
+                            <input type="password" id="edit_current_pw_display" class="form-control"
+                                   value="" readonly tabindex="-1" autocomplete="off">
+                            <button type="button" class="input-eye-btn password-toggle" tabindex="-1">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                        <div style="font-size:11.5px;margin-top:4px;color:var(--text-muted,#888);">
+                            <i class="bi bi-shield-lock" style="font-size:11px;"></i>
+                            Stored encrypted for admin reference. If this is blank, reset the password below.
+                        </div>
+                    </div>
+                    @endif
+
                     <div class="form-group">
                         <label class="form-label">New Password <span class="text-muted text-sm">(optional)</span></label>
                         <div class="input-with-icon">
-                            <input type="password" name="password" class="form-control" placeholder="Min 8 characters" autocomplete="new-password">
+                            <input type="password" name="password" id="edit_user_new_password" class="form-control" placeholder="Min 8 characters" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
+                        <span class="sp-field-error" id="edit_user_new_password_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Confirm Password</label>
                         <div class="input-with-icon">
-                            <input type="password" name="password_confirmation" class="form-control" autocomplete="new-password">
+                            <input type="password" name="password_confirmation" id="edit_user_confirm_password" class="form-control" autocomplete="new-password">
                             <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                         </div>
+                        <span class="sp-field-error" id="edit_user_confirm_password_err" style="color:var(--red-text);font-size:12px;display:block;margin-top:3px;"></span>
                     </div>
                 </div>
             </div>

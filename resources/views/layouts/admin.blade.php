@@ -16,6 +16,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ asset('css/app.css') }}?v={{ filemtime(public_path('css/app.css')) }}">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.2/build/css/intlTelInput.min.css">
     <meta name="csrf-token" content="{{ csrf_token() }}">
 </head>
 
@@ -47,10 +49,12 @@
                 class="nav-item {{ request()->routeIs('admin.candidates*') ? 'active' : '' }}">
                 <i class="bi bi-people-fill"></i><span class="nav-text">Candidates</span>
             </a>
+            {{--
             <a href="{{ route('admin.leaves') }}"
                 class="nav-item {{ request()->routeIs('admin.leaves*') ? 'active' : '' }}">
                 <i class="bi bi-calendar2-week-fill"></i><span class="nav-text">Leave</span>
             </a>
+            --}}
             @if (!$authUser?->isRecruiter())
             <a href="{{ route('admin.users') }}"
                 class="nav-item {{ request()->routeIs('admin.users*') ? 'active' : '' }}">
@@ -122,6 +126,10 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jquery-validation@1.20.0/dist/jquery.validate.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@25.3.2/build/js/intlTelInput.min.js"></script>
     <script src="{{ asset('js/app.js') }}?v={{ filemtime(public_path('js/app.js')) }}"></script>
     @stack('scripts')
 </body>

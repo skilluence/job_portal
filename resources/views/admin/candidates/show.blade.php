@@ -294,7 +294,14 @@ $totalInterviews = $interviews->count();
             @include('admin.candidates._preview_field', ['field'=>'visa_immigration_status','label'=>'Visa Status','value'=>$visaOptions[$candidate->visa_immigration_status] ?? $candidate->visa_immigration_status,'rawValue'=>$candidate->visa_immigration_status,'type'=>'select','selectOptions'=>$visaOptions,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'work_auth_status','label'=>'Work Auth','value'=>$workAuthOptions[$candidate->work_auth_status] ?? $candidate->work_auth_status,'rawValue'=>$candidate->work_auth_status,'type'=>'select','selectOptions'=>$workAuthOptions,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'open_to_relocation','label'=>'Relocation','value'=>$candidate->open_to_relocation ? 'Yes' : 'No','rawValue'=>$candidate->open_to_relocation ? '1' : '0','type'=>'select','selectOptions'=>['1'=>'Yes','0'=>'No'],'editable'=>true])
-            @include('admin.candidates._preview_field', ['field'=>'preferred_city','label'=>'Preferred City','value'=>$candidate->preferred_city,'editable'=>true])
+            @php
+                $prefCities = collect(explode(',', $candidate->preferred_city ?? ''))
+                    ->map('trim')->filter()->values();
+                $prefCityDisplay = $prefCities->isNotEmpty()
+                    ? $prefCities->implode(' · ')
+                    : null;
+            @endphp
+            @include('admin.candidates._preview_field', ['field'=>'preferred_city','label'=>'Preferred City','value'=>$prefCityDisplay,'rawValue'=>$candidate->preferred_city,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'visa_expiry_date','label'=>'Visa Expiry','value'=>$candidate->visa_expiry_date?->format('M d, Y'),'rawValue'=>$candidate->visa_expiry_date?->format('Y-m-d'),'type'=>'date','editable'=>true])
 
             {{-- ---- Salary ---- --}}
@@ -441,7 +448,7 @@ $totalInterviews = $interviews->count();
                                     <span class="view-val" style="white-space:pre-wrap;font-size:12px;">{{ $log->remark ?: '—' }}</span>
                                     <input type="text" class="log-edit-remark edit-val" style="display:none;" value="{{ $log->remark }}" data-field="remark">
                                 </td>
-                                <td class="text-sm text-muted">{{ $log->creator?->name ?? '—' }}</td>
+                                <td class="text-sm text-muted">{{ $log->recruiter?->name ?? $log->creator?->name ?? '—' }}</td>
                                 <td class="td-log-actions">
                                     <div class="view-val d-flex gap-6">
                                         {{-- no-op, dblclick handles edit --}}
@@ -558,7 +565,7 @@ $totalInterviews = $interviews->count();
                                         —
                                     @endif
                                 </td>
-                                <td class="text-sm text-muted">{{ $interview->creator?->name ?? '—' }}</td>
+                                <td class="text-sm text-muted">{{ $interview->recruiter?->name ?? $interview->creator?->name ?? '—' }}</td>
                                 @if ($isAdmin)
                                 <td>
                                     <div class="d-flex gap-4">
@@ -675,7 +682,7 @@ $totalInterviews = $interviews->count();
                                     <span class="badge badge-info">{{ $assessmentTypes[$assessment->assessment_type] ?? $assessment->assessment_type }}</span>
                                 </td>
                                 <td style="max-width:180px;font-size:12px;color:var(--text-secondary);">{{ $assessment->remark ?: 'â€”' }}</td>
-                                <td class="text-sm text-muted">{{ $assessment->creator?->name ?? 'â€”' }}</td>
+                                <td class="text-sm text-muted">{{ $assessment->recruiter?->name ?? $assessment->creator?->name ?? '—' }}</td>
                                 <td class="text-sm text-muted" style="white-space:nowrap;">{{ $assessment->created_at?->format('M d, Y h:i A') ?? 'â€”' }}</td>
                                 @if ($isAdmin)
                                 <td>

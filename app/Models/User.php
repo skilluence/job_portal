@@ -15,6 +15,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'password_plain',
         'role',
         'status',
         'inactive_reason',
@@ -24,6 +25,7 @@ class User extends Authenticatable
 
     protected $hidden = [
         'password',
+        'password_plain',
         'remember_token',
     ];
 
@@ -32,6 +34,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'password_plain' => 'encrypted',
             'leave_override_until' => 'datetime',
         ];
     }

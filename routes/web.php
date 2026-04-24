@@ -84,10 +84,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'sync.leave.status',
         Route::get('/import-export', [ImportExportController::class, 'index'])->name('import-export');
         Route::get('/import-export/export-candidates', [ImportExportController::class, 'exportCandidates'])->name('import-export.export-candidates');
         Route::get('/import-export/export-recruiters', [ImportExportController::class, 'exportRecruiters'])->name('import-export.export-recruiters');
-        Route::get('/import-export/candidate-template', [ImportExportController::class, 'downloadCandidateTemplate'])->name('import-export.candidate-template')->middleware('role:admin');
-        Route::get('/import-export/recruiter-template', [ImportExportController::class, 'downloadRecruiterTemplate'])->name('import-export.recruiter-template');
-        Route::post('/import-export/import-candidates', [ImportExportController::class, 'importCandidates'])->name('import-export.import-candidates')->middleware('role:admin');
-        Route::post('/import-export/import-recruiters', [ImportExportController::class, 'importRecruiters'])->name('import-export.import-recruiters');
+        Route::get('/import-export/candidate-template',    [ImportExportController::class, 'downloadCandidateTemplate'])->name('import-export.candidate-template')->middleware('role:admin');
+        Route::get('/import-export/recruiter-template',    [ImportExportController::class, 'downloadRecruiterTemplate'])->name('import-export.recruiter-template');
+        Route::get('/import-export/application-template',  [ImportExportController::class, 'downloadApplicationTemplate'])->name('import-export.application-template');
+        Route::get('/import-export/interview-template',    [ImportExportController::class, 'downloadInterviewTemplate'])->name('import-export.interview-template');
+        Route::get('/import-export/assessment-template',   [ImportExportController::class, 'downloadAssessmentTemplate'])->name('import-export.assessment-template');
+        Route::post('/import-export/import-candidates',    [ImportExportController::class, 'importCandidates'])->name('import-export.import-candidates')->middleware('role:admin');
+        Route::post('/import-export/import-recruiters',    [ImportExportController::class, 'importRecruiters'])->name('import-export.import-recruiters');
+        Route::post('/import-export/import-applications',  [ImportExportController::class, 'importApplications'])->name('import-export.import-applications');
+        Route::post('/import-export/import-interviews',    [ImportExportController::class, 'importInterviews'])->name('import-export.import-interviews');
+        Route::post('/import-export/import-assessments',   [ImportExportController::class, 'importAssessments'])->name('import-export.import-assessments');
     });
 });
 

@@ -3,9 +3,13 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Assessment;
 use App\Models\AuditLog;
 use App\Models\Candidate;
+use App\Models\DailyLog;
+use App\Models\Interview;
 use App\Models\User;
+use App\Services\DailyLogSummaryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -18,7 +22,7 @@ class ImportExportController extends Controller
     public function index()
     {
         $history = AuditLog::whereIn('action', ['imported', 'exported'])
-            ->whereIn('module', ['candidates', 'recruiters'])
+            ->whereIn('module', ['candidates', 'recruiters', 'applications', 'interviews', 'assessments'])
             ->orderByDesc('created_at')
             ->limit(50)
             ->get();
@@ -58,12 +62,13 @@ class ImportExportController extends Controller
                 'recruiter_notes', 'no_of_applications', 'status', 'recruiter', 'team_manager', 'portal_login_password',
             ]);
             // Example row 1 — assigned via recruiter (team_manager left blank)
+            // preferred_city: comma-separated list of preferred cities (e.g. "New York,Austin")
             fputcsv($fh, [
                 'John', 'A', 'Smith', '1997-08-14', 'male', 'Indian',
                 'john@example.com', '+1 (555) 123-4567', 'Java', 'Spring Boot,Microservices,Docker', '123-45-6789', '2023-08-15',
                 '75000', '95000',
-                '123 Main Street', 'Apt 4B', 'New York', 'NY', '10001', 'United States',
-                'h1b', 'already_obtained', '1', 'New York', '2027-10-01',
+                '123 Main Street', 'Apt 4B', 'New York', 'New York', '10001', 'United States',
+                'h1b', 'already_obtained', '1', 'New York,Austin', '2027-10-01',
                 '+1 (555) 111-2222', 'john.marketing@example.com', 'mailSecret123',
                 'johnsmith-linkedin', 'linkedinSecret123',
                 'https://github.com/johnsmith', 'https://linkedin.com/in/johnsmith', 'https://johnsmith.dev',
@@ -76,7 +81,7 @@ class ImportExportController extends Controller
                 'Jane', '', 'Doe', '1998-03-22', 'female', 'Nepalese',
                 'jane@example.com', '+1 (555) 987-6543', 'Data Science', 'Python,ML,SQL', '', '2024-01-10',
                 '68000', '90000',
-                '500 Market Street', '', 'Austin', 'TX', '73301', 'United States',
+                '500 Market Street', '', 'Austin', 'Texas', '73301', 'United States',
                 'opt_f1', 'not_applied', '0', 'Austin', '',
                 '', '', '', '', '',
                 'https://github.com/janedoe', 'https://linkedin.com/in/janedoe', 'https://janedoe.dev',
@@ -793,6 +798,7 @@ class ImportExportController extends Controller
                 'name'            => $name,
                 'email'           => $email,
                 'password'        => Hash::make($pass),
+                'password_plain'  => $pass,
                 'role'            => $role,
                 'status'          => $status,
                 'team_manager_id' => $teamManagerId,
@@ -815,6 +821,640 @@ class ImportExportController extends Controller
         }
 
         return back()->with('success', $message)->with('import_errors', $errors);
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  APPLICATIONS (daily logs)
+    // ──────────────────────────────────────────────────────────────────
+
+    public function downloadApplicationTemplate()
+    {
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="applications_template.csv"',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $callback = function () {
+            $fh = fopen('php://output', 'w');
+            fputcsv($fh, ['Candidate Full Name', 'Candidate Email', 'Recruiter Email', 'Application Date', 'Application Number', 'Remark']);
+            fputcsv($fh, ['John Smith', 'john@example.com', 'recruiter@example.com', '2025-01-15', '5', 'Applied to Java developer roles']);
+            fputcsv($fh, ['Jane Doe',   'jane@example.com', '', '2025-01-15', '3', 'Applied to Data Science roles']);
+            fclose($fh);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importApplications(Request $request)
+    {
+        session()->flash('import_subtab', 'applications');
+
+        $request->validate(['file' => ['required', 'file', 'max:10240']]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).'])->with('import_subtab', 'applications');
+        }
+
+        $fh        = fopen($request->file('file')->getRealPath(), 'r');
+        $rawHeader = fgetcsv($fh);
+        if (!$rawHeader) {
+            return back()->withErrors(['file' => 'The CSV file appears to be empty or invalid.'])->with('import_subtab', 'applications');
+        }
+
+        $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
+
+        // Pre-load all candidates (email + name maps)
+        $candidates       = Candidate::get(['id', 'email_id', 'full_name', 'recruiter_id', 'team_manager_id']);
+        $byEmail          = $candidates->keyBy(fn ($c) => strtolower((string) $c->email_id));
+        $byName           = $candidates->keyBy(fn ($c) => strtolower(trim((string) $c->full_name)));
+        $ownersByEmail    = $this->importOwnerEmailMap();
+
+        $imported  = 0;
+        $skipped   = 0;
+        $errors    = [];
+        $rowNum    = 1;
+        $batchSeen = []; // tracks (candidate_id-date) pairs in this file to catch sheet duplicates
+
+        while (($row = fgetcsv($fh)) !== false) {
+            $rowNum++;
+            if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) continue;
+
+            $rowValues   = array_map('trim', $row);
+            $headerCount = count($header);
+            $rowValues   = count($rowValues) < $headerCount
+                ? array_pad($rowValues, $headerCount, '')
+                : array_slice($rowValues, 0, $headerCount);
+
+            $d = array_combine($header, $rowValues);
+            if ($d === false) {
+                $errors[] = "Row {$rowNum}: invalid format. Skipped.";
+                $skipped++;
+                continue;
+            }
+
+            $email   = strtolower(trim($d['candidate_email']       ?? ''));
+            $name    = trim($d['candidate_full_name']               ?? '');
+            $ownerEmail = strtolower(trim($d['recruiter_email']     ?? ''));
+            $dateRaw = trim($d['application_date']                  ?? '');
+            $appNum  = trim($d['application_number']                ?? '');
+            $remark  = trim($d['remark']                            ?? '') ?: null;
+
+            if ($email === '' && $name === '') {
+                $errors[] = "Row {$rowNum}: Candidate Email or Candidate Full Name is required.";
+                $skipped++; continue;
+            }
+            if ($dateRaw === '') {
+                $errors[] = "Row {$rowNum}: Application Date is required.";
+                $skipped++; continue;
+            }
+            if ($appNum === '' || !is_numeric($appNum) || (int) $appNum < 0) {
+                $errors[] = "Row {$rowNum}: Application Number must be a non-negative integer.";
+                $skipped++; continue;
+            }
+
+            $logDate = $this->normalizeDate($dateRaw);
+            if (!$logDate) {
+                $errors[] = "Row {$rowNum}: Application Date '{$dateRaw}' is not a valid date.";
+                $skipped++; continue;
+            }
+
+            // Candidate lookup: email first, then name
+            $candidate = ($email !== '' ? ($byEmail[strtolower($email)] ?? null) : null)
+                      ?? ($name  !== '' ? ($byName[strtolower($name)]   ?? null) : null);
+            $candidateLabel = $email ?: $name;
+
+            if (!$candidate) {
+                $errors[] = "Row {$rowNum}: Candidate '{$candidateLabel}' not found.";
+                $skipped++; continue;
+            }
+
+            [$ownerValid, $owner] = $this->resolveImportOwner($ownerEmail, $ownersByEmail);
+            if (!$ownerValid) {
+                $errors[] = "Row {$rowNum}: Recruiter Email '{$ownerEmail}' must match an existing recruiter or manager.";
+                $skipped++; continue;
+            }
+
+            $recordRecruiterId = $owner ? $this->applyImportOwner($candidate, $owner) : auth()->id();
+            $recordCreatorId = $this->importActorId($owner);
+
+            // Same-day duplicate within this file
+            $dupeKey = "{$candidate->id}-{$logDate}";
+            if (isset($batchSeen[$dupeKey])) {
+                $errors[] = "Row {$rowNum}: Duplicate — {$candidateLabel} on {$logDate} already in this sheet (row {$batchSeen[$dupeKey]}). Skipped.";
+                $skipped++; continue;
+            }
+
+            // Same-day duplicate already in database
+            if (DailyLog::where('candidate_id', $candidate->id)->where('log_date', $logDate)->exists()) {
+                $errors[] = "Row {$rowNum}: Application log for '{$candidateLabel}' on {$logDate} already exists. Skipped.";
+                $skipped++; continue;
+            }
+
+            $batchSeen[$dupeKey] = $rowNum;
+
+            // Auto-count existing interviews on this date for interview_count
+            $interviewCount = Interview::where('candidate_id', $candidate->id)
+                ->where(function ($query) use ($logDate) {
+                    $query->whereDate('application_date', $logDate)
+                        ->orWhere(function ($fallbackQuery) use ($logDate) {
+                            $fallbackQuery->whereNull('application_date')
+                                ->whereDate('mail_date', $logDate);
+                        });
+                })
+                ->count();
+
+            DailyLog::create([
+                'candidate_id'    => $candidate->id,
+                'recruiter_id'    => $recordRecruiterId,
+                'log_date'        => $logDate,
+                'applications'    => (int) $appNum,
+                'interview_count' => $interviewCount,
+                'assistant_count' => 0,
+                'remark'          => $remark,
+                'created_by'      => $recordCreatorId,
+            ]);
+
+            $imported++;
+        }
+
+        fclose($fh);
+
+        AuditLog::log('imported', 'applications', "Imported {$imported} application log(s) from CSV ({$skipped} skipped)", [], [
+            'imported'   => $imported,
+            'skipped'    => $skipped,
+            'has_errors' => count($errors) > 0,
+        ]);
+
+        $message = "Successfully imported {$imported} application log(s).";
+        if ($skipped > 0) $message .= " {$skipped} row(s) were skipped.";
+
+        return back()->with('success', $message)->with('import_errors', $errors)->with('import_subtab', 'applications');
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  INTERVIEWS
+    // ──────────────────────────────────────────────────────────────────
+
+    public function downloadInterviewTemplate()
+    {
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="interviews_template.csv"',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $callback = function () {
+            $fh = fopen('php://output', 'w');
+            fputcsv($fh, [
+                'Candidate Full Name', 'Candidate Email', 'Recruiter Email',
+                'Application Date', 'Application Time',
+                'Role', 'Company Name', 'Company Domain',
+                'Interview Type', 'Mail Date', 'Mail Time',
+                'Scheduled Date', 'Scheduled Time', 'Timezone',
+                'Status', 'Remark',
+            ]);
+            // Interview Type: phone_call | virtual | on_site
+            // Status: valid | invalid | (leave blank)
+            // Times should be entered in 24-hour HH:MM format, e.g. 14:30 displays as 02:30 PM.
+            fputcsv($fh, ['John Smith', 'john@example.com', 'recruiter@example.com', '2025-01-09', '13:45', 'Java Developer',  'Acme Corp', 'acmecorp.com',   'virtual',    '2025-01-10', '09:00', '2025-01-20', '14:00', 'EST', 'valid',   'Positive feedback']);
+            fputcsv($fh, ['Jane Doe',   'jane@example.com', '', '2025-01-11', '10:30', 'Data Scientist',  'TechCo',    'techco.com',     'phone_call', '2025-01-12', '10:30', '',           '',      '',    '',        'Initial phone screen']);
+            fputcsv($fh, ['John Smith', 'john@example.com', 'manager@example.com', '2025-01-13', '16:15', 'Backend Engineer','GlobalTech','globaltech.com', 'on_site',    '2025-01-14', '08:00', '2025-01-25', '09:00', 'PST', 'invalid', 'No show']);
+            fclose($fh);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importInterviews(Request $request, DailyLogSummaryService $dailyLogSummaryService)
+    {
+        session()->flash('import_subtab', 'interviews');
+
+        $request->validate(['file' => ['required', 'file', 'max:10240']]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).'])->with('import_subtab', 'interviews');
+        }
+
+        $fh        = fopen($request->file('file')->getRealPath(), 'r');
+        $rawHeader = fgetcsv($fh);
+        if (!$rawHeader) {
+            return back()->withErrors(['file' => 'The CSV file appears to be empty or invalid.'])->with('import_subtab', 'interviews');
+        }
+
+        $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
+
+        $candidates = Candidate::get(['id', 'email_id', 'full_name', 'recruiter_id', 'team_manager_id']);
+        $byEmail    = $candidates->keyBy(fn ($c) => strtolower((string) $c->email_id));
+        $byName     = $candidates->keyBy(fn ($c) => strtolower(trim((string) $c->full_name)));
+        $ownersByEmail = $this->importOwnerEmailMap();
+
+        $imported = 0;
+        $skipped  = 0;
+        $errors   = [];
+        $rowNum   = 1;
+
+        while (($row = fgetcsv($fh)) !== false) {
+            $rowNum++;
+            if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) continue;
+
+            $rowValues   = array_map('trim', $row);
+            $headerCount = count($header);
+            $rowValues   = count($rowValues) < $headerCount
+                ? array_pad($rowValues, $headerCount, '')
+                : array_slice($rowValues, 0, $headerCount);
+
+            $d = array_combine($header, $rowValues);
+            if ($d === false) {
+                $errors[] = "Row {$rowNum}: invalid format. Skipped.";
+                $skipped++; continue;
+            }
+
+            $email    = strtolower(trim($d['candidate_email']   ?? ''));
+            $name     = trim($d['candidate_full_name']           ?? '');
+            $ownerEmail = strtolower(trim($d['recruiter_email']  ?? ''));
+            $appDate  = trim($d['application_date']              ?? '');
+            $appTime  = trim($d['application_time']              ?? '');
+            $role     = trim($d['role']                          ?? '');
+            $company  = trim($d['company_name']                  ?? '');
+            $domain   = trim($d['company_domain']                ?? '') ?: null;
+            $typeRaw  = trim($d['interview_type']                ?? '');
+            $mailDate = trim($d['mail_date']                     ?? '');
+            $mailTime = trim($d['mail_time']                     ?? '');
+            $schedDate= trim($d['scheduled_date']                ?? '');
+            $schedTime= trim($d['scheduled_time']                ?? '');
+            $timezone = trim($d['timezone']                      ?? '') ?: null;
+            $statusRaw= strtolower(trim($d['status']             ?? ''));
+            $remark   = trim($d['remark']                        ?? '') ?: null;
+
+            if ($email === '' && $name === '') {
+                $errors[] = "Row {$rowNum}: Candidate Email or Candidate Full Name is required."; $skipped++; continue;
+            }
+            if ($role === '') {
+                $errors[] = "Row {$rowNum}: Role is required."; $skipped++; continue;
+            }
+            if ($company === '') {
+                $errors[] = "Row {$rowNum}: Company Name is required."; $skipped++; continue;
+            }
+
+            $interviewType = $this->normalizeInterviewType($typeRaw);
+            if (!$interviewType) {
+                $errors[] = "Row {$rowNum}: Interview Type '{$typeRaw}' is invalid. Use: phone_call, virtual, on_site.";
+                $skipped++; continue;
+            }
+
+            $appDateNorm = $appDate !== '' ? $this->normalizeDate($appDate) : null;
+            if ($appDate !== '' && !$appDateNorm) {
+                $errors[] = "Row {$rowNum}: Application Date '{$appDate}' is invalid.";
+                $skipped++; continue;
+            }
+
+            $appTimeNorm = $this->normalizeTime($appTime);
+            if ($appTime !== '' && !$appTimeNorm) {
+                $errors[] = "Row {$rowNum}: Application Time '{$appTime}' is invalid. Use 24-hour HH:MM format, for example 14:30.";
+                $skipped++; continue;
+            }
+
+            $mailDateNorm = $this->normalizeDate($mailDate);
+            if (!$mailDateNorm) {
+                $errors[] = "Row {$rowNum}: Mail Date '{$mailDate}' is invalid or missing.";
+                $skipped++; continue;
+            }
+
+            $candidate = ($email !== '' ? ($byEmail[strtolower($email)] ?? null) : null)
+                      ?? ($name  !== '' ? ($byName[strtolower($name)]   ?? null) : null);
+            $candidateLabel = $email ?: $name;
+
+            if (!$candidate) {
+                $errors[] = "Row {$rowNum}: Candidate '{$candidateLabel}' not found.";
+                $skipped++; continue;
+            }
+
+            [$ownerValid, $owner] = $this->resolveImportOwner($ownerEmail, $ownersByEmail);
+            if (!$ownerValid) {
+                $errors[] = "Row {$rowNum}: Recruiter Email '{$ownerEmail}' must match an existing recruiter or manager.";
+                $skipped++; continue;
+            }
+
+            $recordRecruiterId = $owner ? $this->applyImportOwner($candidate, $owner) : auth()->id();
+            $recordCreatorId = $this->importActorId($owner);
+
+            $status = in_array($statusRaw, ['valid', 'invalid'], true) ? $statusRaw : null;
+
+            $interview = Interview::create([
+                'candidate_id'       => $candidate->id,
+                'recruiter_id'       => $recordRecruiterId,
+                'application_date'   => $appDateNorm,
+                'application_time'   => $appTimeNorm,
+                'role'               => $role,
+                'company_name'       => $company,
+                'company_domain'     => $domain,
+                'mail_date'          => $mailDateNorm,
+                'mail_time'          => $this->normalizeTime($mailTime),
+                'interview_type'     => $interviewType,
+                'interview_status'   => $status,
+                'scheduled_date'     => $this->normalizeDate($schedDate),
+                'scheduled_time'     => $this->normalizeTime($schedTime),
+                'scheduled_timezone' => $timezone,
+                'remark'             => $remark,
+                'created_by'         => $recordCreatorId,
+            ]);
+
+            $dailyLogSummaryService->syncInterview($interview, null, $recordCreatorId);
+            $this->restampImportDailyLog($candidate->id, $dailyLogSummaryService->interviewLogDate($interview), $recordRecruiterId, $recordCreatorId);
+
+            $imported++;
+        }
+
+        fclose($fh);
+
+        AuditLog::log('imported', 'interviews', "Imported {$imported} interview(s) from CSV ({$skipped} skipped)", [], [
+            'imported'   => $imported,
+            'skipped'    => $skipped,
+            'has_errors' => count($errors) > 0,
+        ]);
+
+        $message = "Successfully imported {$imported} interview(s).";
+        if ($skipped > 0) $message .= " {$skipped} row(s) were skipped.";
+
+        return back()->with('success', $message)->with('import_errors', $errors)->with('import_subtab', 'interviews');
+    }
+
+    // ──────────────────────────────────────────────────────────────────
+    //  ASSESSMENTS
+    // ──────────────────────────────────────────────────────────────────
+
+    public function downloadAssessmentTemplate()
+    {
+        $headers = [
+            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => 'attachment; filename="assessments_template.csv"',
+            'Cache-Control'       => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires'             => '0',
+        ];
+
+        $callback = function () {
+            $fh = fopen('php://output', 'w');
+            fputcsv($fh, [
+                'Candidate Full Name', 'Candidate Email', 'Recruiter Email',
+                'Assessment Date', 'Assessment Time',
+                'Role', 'Company Name', 'Domain', 'Company Website',
+                'Type', 'Mail Date', 'Mail Time', 'Remark',
+            ]);
+            // Type: technical | screening | ai_interview | questions | virtual_video_interview
+            fputcsv($fh, ['John Smith', 'john@example.com', 'recruiter@example.com', '2025-01-18', '11:00', 'Java Developer',  'Acme Corp', 'Java',         'www.acmecorp.com', 'technical',              '2025-01-10', '09:00', 'LeetCode test']);
+            fputcsv($fh, ['Jane Doe',   'jane@example.com', '', '2025-01-19', '14:30', 'Data Scientist',  'TechCo',    'Data Science', 'www.techco.com',   'screening',              '2025-01-12', '10:30', 'HireVue screening']);
+            fputcsv($fh, ['John Smith', 'john@example.com', 'manager@example.com', '2025-01-22', '10:00', 'Backend Engineer','GlobalTech','Java',         'www.globaltech.com','virtual_video_interview','2025-01-14', '08:00', 'Recorded video round']);
+            fclose($fh);
+        };
+
+        return response()->stream($callback, 200, $headers);
+    }
+
+    public function importAssessments(Request $request, DailyLogSummaryService $dailyLogSummaryService)
+    {
+        session()->flash('import_subtab', 'assessments');
+
+        $request->validate(['file' => ['required', 'file', 'max:10240']]);
+
+        $ext = strtolower($request->file('file')->getClientOriginalExtension());
+        if (!in_array($ext, ['csv', 'txt'], true)) {
+            return back()->withErrors(['file' => 'Please upload a CSV file (.csv or .txt).'])->with('import_subtab', 'assessments');
+        }
+
+        $fh        = fopen($request->file('file')->getRealPath(), 'r');
+        $rawHeader = fgetcsv($fh);
+        if (!$rawHeader) {
+            return back()->withErrors(['file' => 'The CSV file appears to be empty or invalid.'])->with('import_subtab', 'assessments');
+        }
+
+        $header = array_map(fn ($h) => strtolower(trim(str_replace([' ', '-'], '_', (string) $h))), $rawHeader);
+
+        $candidates = Candidate::get(['id', 'email_id', 'full_name', 'recruiter_id', 'team_manager_id']);
+        $byEmail    = $candidates->keyBy(fn ($c) => strtolower((string) $c->email_id));
+        $byName     = $candidates->keyBy(fn ($c) => strtolower(trim((string) $c->full_name)));
+        $ownersByEmail = $this->importOwnerEmailMap();
+
+        $imported = 0;
+        $skipped  = 0;
+        $errors   = [];
+        $rowNum   = 1;
+
+        while (($row = fgetcsv($fh)) !== false) {
+            $rowNum++;
+            if (count(array_filter($row, fn ($v) => trim($v) !== '')) === 0) continue;
+
+            $rowValues   = array_map('trim', $row);
+            $headerCount = count($header);
+            $rowValues   = count($rowValues) < $headerCount
+                ? array_pad($rowValues, $headerCount, '')
+                : array_slice($rowValues, 0, $headerCount);
+
+            $d = array_combine($header, $rowValues);
+            if ($d === false) {
+                $errors[] = "Row {$rowNum}: invalid format. Skipped.";
+                $skipped++; continue;
+            }
+
+            $email    = strtolower(trim($d['candidate_email']    ?? ''));
+            $name     = trim($d['candidate_full_name']            ?? '');
+            $ownerEmail = strtolower(trim($d['recruiter_email']   ?? ''));
+            $assDate  = trim($d['assessment_date']                ?? '');
+            $assTime  = trim($d['assessment_time']                ?? '');
+            $role     = trim($d['role']                           ?? '');
+            $company  = trim($d['company_name']                   ?? '');
+            $domain   = trim($d['domain']                         ?? '') ?: null;
+            $website  = trim($d['company_website']                ?? '') ?: null;
+            $typeRaw  = trim($d['type']                           ?? '');
+            $mailDate = trim($d['mail_date']                      ?? '');
+            $mailTime = trim($d['mail_time']                      ?? '');
+            $remark   = trim($d['remark']                         ?? '') ?: null;
+
+            if ($email === '' && $name === '') {
+                $errors[] = "Row {$rowNum}: Candidate Email or Candidate Full Name is required."; $skipped++; continue;
+            }
+            if ($role === '') {
+                $errors[] = "Row {$rowNum}: Role is required."; $skipped++; continue;
+            }
+            if ($company === '') {
+                $errors[] = "Row {$rowNum}: Company Name is required."; $skipped++; continue;
+            }
+
+            $assDateNorm = $this->normalizeDate($assDate);
+            if (!$assDateNorm) {
+                $errors[] = "Row {$rowNum}: Assessment Date '{$assDate}' is invalid or missing.";
+                $skipped++; continue;
+            }
+
+            $assessmentType = $this->normalizeAssessmentType($typeRaw);
+            if (!$assessmentType) {
+                $errors[] = "Row {$rowNum}: Assessment Type '{$typeRaw}' is invalid. Use: technical, screening, ai_interview, questions, virtual_video_interview.";
+                $skipped++; continue;
+            }
+
+            $candidate = ($email !== '' ? ($byEmail[strtolower($email)] ?? null) : null)
+                      ?? ($name  !== '' ? ($byName[strtolower($name)]   ?? null) : null);
+            $candidateLabel = $email ?: $name;
+
+            if (!$candidate) {
+                $errors[] = "Row {$rowNum}: Candidate '{$candidateLabel}' not found.";
+                $skipped++; continue;
+            }
+
+            [$ownerValid, $owner] = $this->resolveImportOwner($ownerEmail, $ownersByEmail);
+            if (!$ownerValid) {
+                $errors[] = "Row {$rowNum}: Recruiter Email '{$ownerEmail}' must match an existing recruiter or manager.";
+                $skipped++; continue;
+            }
+
+            $recordRecruiterId = $owner ? $this->applyImportOwner($candidate, $owner) : auth()->id();
+            $recordCreatorId = $this->importActorId($owner);
+
+            $assessment = Assessment::create([
+                'candidate_id'        => $candidate->id,
+                'recruiter_id'        => $recordRecruiterId,
+                'assessment_date'     => $assDateNorm,
+                'assessment_time'     => $this->normalizeTime($assTime),
+                'role'                => $role,
+                'company_name'        => $company,
+                'domain'              => $domain,
+                'company_website_url' => $website,
+                'assessment_type'     => $assessmentType,
+                'mail_date'           => $this->normalizeDate($mailDate),
+                'mail_time'           => $this->normalizeTime($mailTime),
+                'remark'              => $remark,
+                'created_by'          => $recordCreatorId,
+            ]);
+
+            $dailyLogSummaryService->syncAssessment($assessment, null, $recordCreatorId);
+            $this->restampImportDailyLog($candidate->id, $dailyLogSummaryService->assessmentLogDate($assessment), $recordRecruiterId, $recordCreatorId);
+
+            $imported++;
+        }
+
+        fclose($fh);
+
+        AuditLog::log('imported', 'assessments', "Imported {$imported} assessment(s) from CSV ({$skipped} skipped)", [], [
+            'imported'   => $imported,
+            'skipped'    => $skipped,
+            'has_errors' => count($errors) > 0,
+        ]);
+
+        $message = "Successfully imported {$imported} assessment(s).";
+        if ($skipped > 0) $message .= " {$skipped} row(s) were skipped.";
+
+        return back()->with('success', $message)->with('import_errors', $errors)->with('import_subtab', 'assessments');
+    }
+
+    private function importOwnerEmailMap()
+    {
+        return User::query()
+            ->whereIn('role', ['recruiter', 'manager'])
+            ->get(['id', 'name', 'email', 'role', 'team_manager_id'])
+            ->keyBy(fn ($user) => strtolower(trim((string) $user->email)));
+    }
+
+    private function resolveImportOwner(string $email, $ownersByEmail): array
+    {
+        if ($email === '') {
+            return [true, null];
+        }
+
+        $owner = $ownersByEmail[$email] ?? null;
+
+        return [$owner !== null, $owner];
+    }
+
+    private function applyImportOwner(Candidate $candidate, ?User $owner): ?int
+    {
+        if (!$owner) {
+            return auth()->id();
+        }
+
+        $role = strtolower((string) $owner->role);
+
+        if ($role === 'manager') {
+            if ((int) ($candidate->team_manager_id ?? 0) !== (int) $owner->id || $candidate->recruiter_id !== null) {
+                $candidate->team_manager_id = $owner->id;
+                $candidate->recruiter_id = null;
+                $candidate->save();
+            }
+
+            return $owner->id;
+        }
+
+        $managerId = $owner->team_manager_id ?: null;
+
+        if ((int) ($candidate->recruiter_id ?? 0) !== (int) $owner->id || (int) ($candidate->team_manager_id ?? 0) !== (int) ($managerId ?? 0)) {
+            $candidate->recruiter_id = $owner->id;
+            $candidate->team_manager_id = $managerId;
+            $candidate->save();
+        }
+
+        return $owner->id;
+    }
+
+    private function importActorId(?User $owner): ?int
+    {
+        return $owner?->id ?? auth()->id();
+    }
+
+    private function restampImportDailyLog(int $candidateId, ?string $date, ?int $ownerId, ?int $creatorId): void
+    {
+        if (!$date) {
+            return;
+        }
+
+        DailyLog::where('candidate_id', $candidateId)
+            ->where('log_date', $date)
+            ->update([
+                'recruiter_id' => $ownerId,
+                'created_by' => $creatorId,
+            ]);
+    }
+
+    private function normalizeTime(mixed $value): ?string
+    {
+        $raw = trim((string) ($value ?? ''));
+        if ($raw === '') {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($raw)->format('H:i');
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
+    private function normalizeInterviewType(mixed $value): ?string
+    {
+        $raw = strtolower(trim(str_replace([' ', '-'], '_', (string) ($value ?? ''))));
+
+        return match (true) {
+            in_array($raw, ['phone_call', 'phone', 'phone_screen'], true)                        => 'phone_call',
+            in_array($raw, ['virtual', 'virtual_interview', 'online', 'video'], true)            => 'virtual',
+            in_array($raw, ['on_site', 'onsite', 'in_person', 'on_site_interview'], true)        => 'on_site',
+            default                                                                               => null,
+        };
+    }
+
+    private function normalizeAssessmentType(mixed $value): ?string
+    {
+        $raw = strtolower(trim(str_replace([' ', '-'], '_', (string) ($value ?? ''))));
+
+        return match (true) {
+            in_array($raw, ['technical', 'tech', 'technical_assessment'], true)                                          => 'technical',
+            in_array($raw, ['screening', 'screen'], true)                                                                => 'screening',
+            in_array($raw, ['ai_interview', 'ai', 'ai_screen'], true)                                                   => 'ai_interview',
+            in_array($raw, ['questions', 'question', 'q&a', 'qa'], true)                                                => 'questions',
+            in_array($raw, ['virtual_video_interview', 'virtual_video', 'video_interview', 'hirevue'], true)            => 'virtual_video_interview',
+            default                                                                                                      => null,
+        };
     }
 
     private function normalizeCommaSeparated(?string $value): ?string

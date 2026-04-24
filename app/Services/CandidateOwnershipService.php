@@ -76,7 +76,6 @@ class CandidateOwnershipService
         return CandidateAssignmentHistory::query()
             ->where('changed_by', $user->id)
             ->where('action', 'unassigned')
-            ->orderByDesc('created_at')
             ->distinct()
             ->pluck('candidate_id')
             ->all();

@@ -81,6 +81,15 @@
             <button class="ie-subtab" id="subtab-import-recruiters" onclick="switchIESubTab('import','recruiters')">
                 <i class="bi bi-person-badge-fill"></i> Recruiters
             </button>
+            <button class="ie-subtab" id="subtab-import-interviews" onclick="switchIESubTab('import','interviews')">
+                <i class="bi bi-briefcase-fill"></i> Interviews
+            </button>
+            <button class="ie-subtab" id="subtab-import-assessments" onclick="switchIESubTab('import','assessments')">
+                <i class="bi bi-clipboard-check-fill"></i> Assessments
+            </button>
+            <button class="ie-subtab" id="subtab-import-applications" onclick="switchIESubTab('import','applications')">
+                <i class="bi bi-send-fill"></i> Applications
+            </button>
         </div>
 
         {{-- Import → Candidates --}}
@@ -152,6 +161,127 @@
                             <span id="rec-fn" class="text-sm text-muted"></span>
                         </div>
                         <button type="submit" id="rec-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
+                            <i class="bi bi-upload"></i> Start Import
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- Import → Interviews --}}
+        <div class="ie-tab-panel" id="subpanel-import-interviews">
+            <div class="ie-step">
+                <div class="ie-step-num">1</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Download Template</div>
+                    <div class="ie-step-desc">Get the CSV template for bulk interview records. Columns include Recruiter Email, Application Date/Time, Mail Date/Time, and scheduled interview details.</div>
+                    <a href="{{ route('admin.import-export.interview-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Template
+                    </a>
+                </div>
+            </div>
+
+            <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                <div class="ie-step-num">2</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Upload &amp; Import</div>
+                    <div class="ie-step-desc">Select your filled CSV file to import interview records into the system. Recruiter Email is optional, but when entered it must match an existing recruiter or manager. Use 24-hour time like <code>14:30</code>. Valid interview types: <code>phone_call</code>, <code>virtual</code>, <code>on_site</code>.</div>
+                    <form method="POST" action="{{ route('admin.import-export.import-interviews') }}"
+                          enctype="multipart/form-data" style="margin-top:12px;">
+                        @csrf
+                        <div class="ie-file-row">
+                            <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
+                                <i class="bi bi-cloud-upload"></i> Select File
+                                <input type="file" name="file" accept=".csv,.txt"
+                                       style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                       onchange="document.getElementById('iv-fn').textContent=this.files[0]?.name||''; document.getElementById('iv-sub').style.display='inline-flex';">
+                            </label>
+                            <span id="iv-fn" class="text-sm text-muted"></span>
+                        </div>
+                        <button type="submit" id="iv-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
+                            <i class="bi bi-upload"></i> Start Import
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- Import → Assessments --}}
+        <div class="ie-tab-panel" id="subpanel-import-assessments">
+            <div class="ie-step">
+                <div class="ie-step-num">1</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Download Template</div>
+                    <div class="ie-step-desc">Get the CSV template for bulk assessment records. Columns include Candidate Full Name, Candidate Email, Recruiter Email, Assessment Date/Time, Role, Company, Type, Mail Date/Time, and Remark.</div>
+                    <a href="{{ route('admin.import-export.assessment-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Template
+                    </a>
+                </div>
+            </div>
+
+            <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                <div class="ie-step-num">2</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Upload &amp; Import</div>
+                    <div class="ie-step-desc">Select your filled CSV file to import assessment records. Recruiter Email is optional, but when entered it must match an existing recruiter or manager. Valid types: <code>technical</code>, <code>screening</code>, <code>ai_interview</code>, <code>questions</code>, <code>virtual_video_interview</code>.</div>
+                    <form method="POST" action="{{ route('admin.import-export.import-assessments') }}"
+                          enctype="multipart/form-data" style="margin-top:12px;">
+                        @csrf
+                        <div class="ie-file-row">
+                            <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
+                                <i class="bi bi-cloud-upload"></i> Select File
+                                <input type="file" name="file" accept=".csv,.txt"
+                                       style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                       onchange="document.getElementById('ass-fn').textContent=this.files[0]?.name||''; document.getElementById('ass-sub').style.display='inline-flex';">
+                            </label>
+                            <span id="ass-fn" class="text-sm text-muted"></span>
+                        </div>
+                        <button type="submit" id="ass-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
+                            <i class="bi bi-upload"></i> Start Import
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        {{-- Import → Applications --}}
+        <div class="ie-tab-panel" id="subpanel-import-applications">
+            <div class="alert alert-info mb-16" style="background:var(--blue-light);border:1px solid var(--blue);border-radius:var(--radius-sm);padding:12px 16px;display:flex;gap:10px;align-items:flex-start;">
+                <i class="bi bi-info-circle-fill" style="color:var(--blue);flex-shrink:0;margin-top:1px;"></i>
+                <div class="text-sm" style="color:var(--blue-text);">
+                    <strong>Import order matters:</strong> Import <strong>Interviews</strong> and <strong>Assessments</strong> first. Application logs auto-calculate the interview count from existing interview records on that date.
+                </div>
+            </div>
+
+            <div class="ie-step">
+                <div class="ie-step-num">1</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Download Template</div>
+                    <div class="ie-step-desc">Get the CSV template for bulk application (daily log) records. Columns: Candidate Full Name, Candidate Email, Recruiter Email, Application Date, Application Number, Remark.</div>
+                    <a href="{{ route('admin.import-export.application-template') }}" class="btn btn-outline btn-sm" style="margin-top:10px;">
+                        <i class="bi bi-file-earmark-arrow-down"></i> Download Template
+                    </a>
+                </div>
+            </div>
+
+            <div class="ie-step" style="border-bottom:none;padding-bottom:0;margin-bottom:0;">
+                <div class="ie-step-num">2</div>
+                <div class="ie-step-body">
+                    <div class="ie-step-title">Upload &amp; Import</div>
+                    <div class="ie-step-desc">Select your filled CSV file. Recruiter Email is optional, but when entered it must match an existing recruiter or manager. One application log per candidate per day — duplicates in the file or already in the database will be skipped.</div>
+                    <form method="POST" action="{{ route('admin.import-export.import-applications') }}"
+                          enctype="multipart/form-data" style="margin-top:12px;">
+                        @csrf
+                        <div class="ie-file-row">
+                            <label class="btn btn-primary btn-sm" style="cursor:pointer;position:relative;overflow:hidden;">
+                                <i class="bi bi-cloud-upload"></i> Select File
+                                <input type="file" name="file" accept=".csv,.txt"
+                                       style="position:absolute;inset:0;opacity:0;cursor:pointer;"
+                                       onchange="document.getElementById('app-fn').textContent=this.files[0]?.name||''; document.getElementById('app-sub').style.display='inline-flex';">
+                            </label>
+                            <span id="app-fn" class="text-sm text-muted"></span>
+                        </div>
+                        <button type="submit" id="app-sub" class="btn btn-primary btn-sm" style="margin-top:10px;display:none;">
                             <i class="bi bi-upload"></i> Start Import
                         </button>
                     </form>
@@ -408,14 +538,32 @@ function switchIESubTab(parent, sub) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+    var validImportSubs = ['candidates', 'recruiters', 'interviews', 'assessments', 'applications'];
+    var validExportSubs = ['candidates', 'recruiters'];
+    var flashedImportSub = @json(session('import_subtab'));
+
     @if (session('import_errors') || ($errors->any()) || (session('success') && request()->isMethod('get')))
         var initTab = 'import';
     @else
         var initTab = (function(){ try { return sessionStorage.getItem('ie_tab') || 'import'; } catch(e){ return 'import'; } })();
     @endif
 
-    var initImportSub = (function(){ try { return sessionStorage.getItem('ie_subtab_import') || 'candidates'; } catch(e){ return 'candidates'; } })();
-    var initExportSub = (function(){ try { return sessionStorage.getItem('ie_subtab_export') || 'candidates'; } catch(e){ return 'candidates'; } })();
+    var initImportSub = (function(){
+        if (flashedImportSub && validImportSubs.indexOf(flashedImportSub) !== -1) {
+            return flashedImportSub;
+        }
+
+        try {
+            var s = sessionStorage.getItem('ie_subtab_import') || 'candidates';
+            return validImportSubs.indexOf(s) !== -1 ? s : 'candidates';
+        } catch(e){ return 'candidates'; }
+    })();
+    var initExportSub = (function(){
+        try {
+            var s = sessionStorage.getItem('ie_subtab_export') || 'candidates';
+            return validExportSubs.indexOf(s) !== -1 ? s : 'candidates';
+        } catch(e){ return 'candidates'; }
+    })();
 
     switchIETab(initTab);
     switchIESubTab('import', initImportSub);

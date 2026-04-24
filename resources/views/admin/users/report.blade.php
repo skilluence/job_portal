@@ -146,6 +146,7 @@
     </div>
     {{-- Month selector --}}
     <form method="GET" action="{{ route('admin.users.report', $user) }}" class="rpt-month-form">
+        <input type="hidden" name="tab" id="rptActiveTabInput" value="{{ request('tab', 'apps') }}">
         <label style="font-size:12.5px;font-weight:500;color:var(--text-secondary);white-space:nowrap;">
             <i class="bi bi-calendar3"></i> Month:
         </label>
@@ -206,6 +207,12 @@
         <i class="bi bi-calendar2-check-fill"></i> Interviews
         @if ($interviews->count())
             <span class="badge badge-warning" style="font-size:10px;padding:1px 7px;">{{ $interviews->count() }}</span>
+        @endif
+    </button>
+    <button type="button" class="rpt-tab" id="tabBtnAssessments" onclick="switchRptTab('assessments')">
+        <i class="bi bi-clipboard-check-fill"></i> Assessment
+        @if ($assessments->count())
+            <span class="badge" style="background:var(--purple-light);color:var(--purple-text);font-size:10px;padding:1px 7px;">{{ $assessments->count() }}</span>
         @endif
     </button>
 </div>
@@ -308,13 +315,16 @@
                 <table class="rpt-tbl">
                     <thead>
                         <tr>
-                            <th>Scheduled Date</th>
-                            <th>Time</th>
-                            <th>Candidate</th>
+                            <th>Candidate Name</th>
                             <th>Company</th>
+                            <th>Domain</th>
                             <th>Role</th>
+                            <th>Application At</th>
+                            <th>Mail At</th>
                             <th>Type</th>
                             <th>Status</th>
+                            <th>Scheduled At</th>
+                            <th>Remark</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -322,6 +332,87 @@
                         @php
                             $typeLabels = ['phone_call' => 'Phone Call', 'virtual' => 'Virtual', 'on_site' => 'On Site'];
                             $typeBadges = ['phone_call' => 'badge-info', 'virtual'  => 'badge-primary', 'on_site'  => 'badge-warning'];
+                            $applicationTime = $iv->application_time ? \Carbon\Carbon::parse($iv->application_time)->format('g:i A') : null;
+                            $mailTime = $iv->mail_time ? \Carbon\Carbon::parse($iv->mail_time)->format('g:i A') : null;
+                            $scheduledTime = $iv->scheduled_time ? \Carbon\Carbon::parse($iv->scheduled_time)->format('g:i A') : null;
+                        @endphp
+                        <tr>
+                            <td>
+                                @if ($iv->candidate)
+                                    <a href="{{ route('admin.candidates.show', $iv->candidate) }}" style="color:var(--blue);font-weight:500;">
+                                        {{ $iv->candidate->full_name }}
+                                    </a>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>{{ $iv->company_name }}</td>
+                            <td style="max-width:160px;word-break:break-all;">
+                                @if ($iv->company_domain)
+                                    <a href="{{ $iv->company_domain }}" target="_blank" rel="noopener" style="color:var(--blue);">{{ $iv->company_domain }}</a>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ $iv->role }}">
+                                {{ $iv->role }}
+                            </td>
+                            <td class="text-muted" style="white-space:nowrap;font-size:12px;">
+                                {{ $iv->application_date?->format('M d, Y') ?? '-' }}
+                                @if ($applicationTime)<br><span>{{ $applicationTime }}</span>@endif
+                            </td>
+                            <td class="text-muted" style="white-space:nowrap;font-size:12px;">
+                                {{ $iv->mail_date?->format('M d, Y') ?? '-' }}
+                                @if ($mailTime)<br><span>{{ $mailTime }}</span>@endif
+                            </td>
+                            <td>
+                                <span class="badge {{ $typeBadges[$iv->interview_type] ?? 'badge-neutral' }}" style="font-size:11px;">
+                                    {{ $typeLabels[$iv->interview_type] ?? ucfirst($iv->interview_type) }}
+                                </span>
+                            </td>
+                            <td>
+                                @if ($iv->interview_status)
+                                    <span class="badge {{ $iv->interview_status === 'valid' ? 'badge-success' : 'badge-danger' }}" style="font-size:11px;">
+                                        {{ ucfirst($iv->interview_status) }}
+                                    </span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td class="text-muted" style="white-space:nowrap;font-size:12px;">
+                                {{ $iv->scheduled_date?->format('M d, Y') ?? '-' }}
+                                @if ($scheduledTime)<br><span>{{ $scheduledTime }} {{ $iv->scheduled_timezone }}</span>@endif
+                            </td>
+                            <td style="max-width:220px;font-size:12px;color:var(--text-secondary);">
+                                {{ $iv->remark ?: '-' }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+                <table class="rpt-tbl" style="display:none;">
+                    <thead>
+                        <tr>
+                            <th>Candidate Name</th>
+                            <th>Company</th>
+                            <th>Domain</th>
+                            <th>Role</th>
+                            <th>Application At</th>
+                            <th>Mail At</th>
+                            <th>Type</th>
+                            <th>Status</th>
+                            <th>Scheduled At</th>
+                            <th>Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($interviews as $iv)
+                        @php
+                            $typeLabels = ['phone_call' => 'Phone Call', 'virtual' => 'Virtual', 'on_site' => 'On Site'];
+                            $typeBadges = ['phone_call' => 'badge-info', 'virtual'  => 'badge-primary', 'on_site'  => 'badge-warning'];
+                            $applicationTime = $iv->application_time ? \Carbon\Carbon::parse($iv->application_time)->format('g:i A') : null;
+                            $mailTime = $iv->mail_time ? \Carbon\Carbon::parse($iv->mail_time)->format('g:i A') : null;
+                            $scheduledTime = $iv->scheduled_time ? \Carbon\Carbon::parse($iv->scheduled_time)->format('g:i A') : null;
                         @endphp
                         <tr>
                             <td style="white-space:nowrap;font-weight:500;">
@@ -374,6 +465,87 @@
         @endif
     </div>
 
+    {{-- â•â•â•â• TAB: Assessment â•â•â•â• --}}
+    <div id="tabAssessments" class="rpt-tab-panel">
+        @if ($assessments->isEmpty())
+            <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
+                <i class="bi bi-clipboard-x" style="font-size:36px;margin-bottom:12px;display:block;opacity:.4;"></i>
+                <div style="font-size:14px;font-weight:500;">No assessments recorded</div>
+                <div style="font-size:12.5px;margin-top:4px;">No assessments found for {{ $startDate->format('F Y') }}.</div>
+            </div>
+        @else
+            <div class="table-wrapper" style="margin-top:0;">
+                <table class="rpt-tbl">
+                    <thead>
+                        <tr>
+                            <th>Candidate Name</th>
+                            <th>Company Name</th>
+                            <th>Domain</th>
+                            <th>Role</th>
+                            <th>Assessment Date and Time</th>
+                            <th>Company Website URL</th>
+                            <th>Type</th>
+                            <th>Mail Date and Time</th>
+                            <th>Remark</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach ($assessments as $assessment)
+                        @php
+                            $assessmentTypeLabels = [
+                                'technical' => 'Technical',
+                                'screening' => 'Screening',
+                                'ai_interview' => 'AI Interview',
+                                'questions' => 'Questions',
+                                'virtual_video_interview' => 'Virtual Video Interview',
+                            ];
+                            $assessmentTime = $assessment->assessment_time ? \Carbon\Carbon::parse($assessment->assessment_time)->format('g:i A') : null;
+                            $mailTime = $assessment->mail_time ? \Carbon\Carbon::parse($assessment->mail_time)->format('g:i A') : null;
+                        @endphp
+                        <tr>
+                            <td>
+                                @if ($assessment->candidate)
+                                    <a href="{{ route('admin.candidates.show', $assessment->candidate) }}" style="color:var(--blue);font-weight:500;">
+                                        {{ $assessment->candidate->full_name }}
+                                    </a>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>{{ $assessment->company_name }}</td>
+                            <td>{{ $assessment->domain ?: '-' }}</td>
+                            <td>{{ $assessment->role }}</td>
+                            <td class="text-muted" style="white-space:nowrap;font-size:12px;">
+                                {{ $assessment->assessment_date?->format('M d, Y') ?? '-' }}
+                                @if ($assessmentTime)<br><span>{{ $assessmentTime }}</span>@endif
+                            </td>
+                            <td style="max-width:180px;word-break:break-all;">
+                                @if ($assessment->company_website_url)
+                                    <a href="{{ $assessment->company_website_url }}" target="_blank" rel="noopener" style="color:var(--blue);">{{ $assessment->company_website_url }}</a>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
+                            <td>
+                                <span class="badge badge-info" style="font-size:11px;">
+                                    {{ $assessmentTypeLabels[$assessment->assessment_type] ?? ucfirst(str_replace('_', ' ', $assessment->assessment_type)) }}
+                                </span>
+                            </td>
+                            <td class="text-muted" style="white-space:nowrap;font-size:12px;">
+                                {{ $assessment->mail_date?->format('M d, Y') ?? '-' }}
+                                @if ($mailTime)<br><span>{{ $mailTime }}</span>@endif
+                            </td>
+                            <td style="max-width:220px;font-size:12px;color:var(--text-secondary);">
+                                {{ $assessment->remark ?: '-' }}
+                            </td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+    </div>
+
 </div>{{-- end rpt-tab-body --}}
 
 @push('scripts')
@@ -382,19 +554,25 @@
 (function () {
     /* ── Tab switching ─────────────────────────────────────────── */
     window.switchRptTab = function (tab) {
-        ['apps', 'interviews'].forEach(function (t) {
+        ['apps', 'interviews', 'assessments'].forEach(function (t) {
             var panel = document.getElementById('tabPanel' + t.charAt(0).toUpperCase() + t.slice(1))
                      || document.getElementById('tab' + t.charAt(0).toUpperCase() + t.slice(1));
             var btn   = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
             if (panel) panel.style.display = t === tab ? 'block' : 'none';
             if (btn)   btn.classList.toggle('active', t === tab);
         });
-        // Also handle by id directly
-        document.getElementById('tabApps').style.display        = tab === 'apps'       ? 'block' : 'none';
-        document.getElementById('tabInterviews').style.display  = tab === 'interviews' ? 'block' : 'none';
-        document.getElementById('tabBtnApps').classList.toggle('active',       tab === 'apps');
-        document.getElementById('tabBtnInterviews').classList.toggle('active', tab === 'interviews');
+        var tabInput = document.getElementById('rptActiveTabInput');
+        if (tabInput) tabInput.value = tab;
+        try { localStorage.setItem('rpt.activeTab.{{ $user->id }}', tab); } catch (_) {}
     };
+
+    var requestedTab = @json(request('tab'));
+    var savedTab = null;
+    try { savedTab = localStorage.getItem('rpt.activeTab.{{ $user->id }}'); } catch (_) {}
+    var initialTab = ['apps', 'interviews', 'assessments'].indexOf(requestedTab) !== -1
+        ? requestedTab
+        : (['apps', 'interviews', 'assessments'].indexOf(savedTab) !== -1 ? savedTab : 'apps');
+    window.switchRptTab(initialTab);
 
     /* ── Bar chart ─────────────────────────────────────────────── */
     var ctx = document.getElementById('activityChart');

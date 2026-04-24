@@ -42,6 +42,7 @@
             <label class="form-label">First Name <span style="color:var(--red-text)">*</span></label>
             <input type="text" name="first_name" id="{{ $prefix }}_first_name" class="form-control" required
                 value="{{ old('first_name') }}" placeholder="First name">
+            <span class="sp-field-error" id="{{ $prefix }}_first_name_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Middle Name</label>
@@ -52,6 +53,7 @@
             <label class="form-label">Last Name <span style="color:var(--red-text)">*</span></label>
             <input type="text" name="last_name" id="{{ $prefix }}_last_name" class="form-control" required
                 value="{{ old('last_name') }}" placeholder="Last name">
+            <span class="sp-field-error" id="{{ $prefix }}_last_name_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Date of Birth</label>
@@ -76,11 +78,15 @@
             <label class="form-label">Personal Email <span style="color:var(--red-text)">*</span></label>
             <input type="email" name="email_id" id="{{ $prefix }}_email_id" class="form-control" required
                 placeholder="candidate@email.com">
+            <span class="sp-field-error" id="{{ $prefix }}_email_id_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Phone Number</label>
-            <input type="text" name="phone_number" id="{{ $prefix }}_phone_number" class="form-control"
-                placeholder="+1 (555) 000-0000">
+            <input type="hidden" name="phone_cc" id="{{ $prefix }}_phone_cc" value="+1">
+            <input type="tel" name="phone_number" id="{{ $prefix }}_phone_number"
+                class="form-control js-phone-input" data-cc-target="{{ $prefix }}_phone_cc"
+                placeholder="Enter phone number">
+            <span class="sp-field-error" id="{{ $prefix }}_phone_number_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Domain / Technology</label>
@@ -140,27 +146,32 @@
                 placeholder="Apt 4B">
         </div>
         <div class="form-group">
-            <label class="form-label">City</label>
-            <input type="text" name="city" id="{{ $prefix }}_city" class="form-control" placeholder="City">
+            <label class="form-label">Country</label>
+            <select name="country" id="{{ $prefix }}_country" class="form-control geo-select js-geo-select"
+                data-placeholder="Select Country"
+                onchange="onCandidateCountryChange('{{ $prefix }}')">
+                <option value="">Select Country</option>
+            </select>
         </div>
         <div class="form-group">
-            <label class="form-label">State</label>
-            <select name="state_province" id="{{ $prefix }}_state_province" class="form-control">
-                <option value="">Select State</option>
-                @foreach ($usStates as $code => $name)
-                    <option value="{{ $code }}">{{ $name }}</option>
-                @endforeach
+            <label class="form-label">State / Province</label>
+            <select name="state_province" id="{{ $prefix }}_state_province" class="form-control geo-select js-geo-select"
+                data-placeholder="Select Country First"
+                onchange="onCandidateStateChange('{{ $prefix }}')">
+                <option value="">Select Country First</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label class="form-label">City</label>
+            <select name="city" id="{{ $prefix }}_city" class="form-control geo-select js-geo-select"
+                data-placeholder="Select State First">
+                <option value="">Select State First</option>
             </select>
         </div>
         <div class="form-group">
             <label class="form-label">ZIP Code</label>
             <input type="text" name="zip_code" id="{{ $prefix }}_zip_code" class="form-control"
                 placeholder="10001" maxlength="10">
-        </div>
-        <div class="form-group">
-            <label class="form-label">Country</label>
-            <input type="text" name="country" id="{{ $prefix }}_country" class="form-control"
-                value="{{ old('country', 'United States') }}" readonly>
         </div>
     </div>
 
@@ -199,10 +210,18 @@
                 </label>
             </div>
         </div>
-        <div class="form-group">
-            <label class="form-label">Preferred City <span class="text-muted text-sm">(if not relocating)</span></label>
-            <input type="text" name="preferred_city" id="{{ $prefix }}_preferred_city" class="form-control"
-                placeholder="e.g. New York">
+        <div class="form-group" style="grid-column:span 2;">
+            <label class="form-label">Preferred City
+                <span class="text-muted text-sm" style="font-weight:400;">(type &amp; press Enter to add multiple)</span>
+            </label>
+            <input type="hidden" name="preferred_city" id="{{ $prefix }}_preferred_city">
+            <div class="subdomain-badge-wrap" id="{{ $prefix }}_prefcity_badges"
+                onclick="var i=document.getElementById('{{ $prefix }}_prefcity_input');if(i)i.focus();">
+                <input type="text" id="{{ $prefix }}_prefcity_input"
+                    class="subdomain-text-input"
+                    placeholder="e.g. New York — press Enter to add"
+                    onkeydown="handlePrefCityKey(event,'{{ $prefix }}')">
+            </div>
         </div>
     </div>
 </div>
@@ -213,13 +232,17 @@
     <div class="form-grid form-grid-3">
         <div class="form-group">
             <label class="form-label">Marketing Phone</label>
-            <input type="text" name="marketing_phone" id="{{ $prefix }}_marketing_phone" class="form-control"
-                placeholder="+1 (555) 000-0000">
+            <input type="hidden" name="marketing_phone_cc" id="{{ $prefix }}_marketing_phone_cc" value="+1">
+            <input type="tel" name="marketing_phone" id="{{ $prefix }}_marketing_phone"
+                class="form-control js-phone-input" data-cc-target="{{ $prefix }}_marketing_phone_cc"
+                placeholder="Marketing phone number">
+            <span class="sp-field-error" id="{{ $prefix }}_marketing_phone_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Marketing Email</label>
             <input type="email" name="marketing_email" id="{{ $prefix }}_marketing_email" class="form-control"
                 placeholder="marketing@email.com">
+            <span class="sp-field-error" id="{{ $prefix }}_marketing_email_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Email Password <span class="text-muted text-sm">(encrypted)</span></label>
@@ -228,6 +251,7 @@
                     placeholder="{{ $isEdit ? 'Leave blank to keep current' : 'Email password' }}" autocomplete="new-password">
                 <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
             </div>
+            <span class="sp-field-error" id="{{ $prefix }}_marketing_email_password_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">LinkedIn ID (Marketing)</label>
@@ -241,21 +265,25 @@
                     placeholder="{{ $isEdit ? 'Leave blank to keep current' : 'LinkedIn password' }}" autocomplete="new-password">
                 <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
             </div>
+            <span class="sp-field-error" id="{{ $prefix }}_marketing_linkedin_password_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">GitHub URL</label>
-            <input type="url" name="github_url" id="{{ $prefix }}_github_url" class="form-control"
-                placeholder="https://github.com/username">
+            <input type="text" name="github_url" id="{{ $prefix }}_github_url" class="form-control"
+                placeholder="https://github.com/username or www.github.com/username">
+            <span class="sp-field-error" id="{{ $prefix }}_github_url_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">LinkedIn URL</label>
-            <input type="url" name="linkedin_url" id="{{ $prefix }}_linkedin_url" class="form-control"
+            <input type="text" name="linkedin_url" id="{{ $prefix }}_linkedin_url" class="form-control"
                 placeholder="https://linkedin.com/in/username">
+            <span class="sp-field-error" id="{{ $prefix }}_linkedin_url_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Portfolio URL</label>
-            <input type="url" name="portfolio_url" id="{{ $prefix }}_portfolio_url" class="form-control"
-                placeholder="https://portfolio.example.com">
+            <input type="text" name="portfolio_url" id="{{ $prefix }}_portfolio_url" class="form-control"
+                placeholder="https://portfolio.example.com or www.mysite.com">
+            <span class="sp-field-error" id="{{ $prefix }}_portfolio_url_err"></span>
         </div>
     </div>
 
@@ -286,15 +314,19 @@
         <div class="form-group">
             <label class="form-label">Start Date</label>
             <input type="date" name="masters_start" id="{{ $prefix }}_masters_start" class="form-control">
+            <span class="sp-field-error" id="{{ $prefix }}_masters_start_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">End Date</label>
             <input type="date" name="masters_end" id="{{ $prefix }}_masters_end" class="form-control">
+            <span class="sp-field-error" id="{{ $prefix }}_masters_end_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Country</label>
-            <input type="text" name="masters_country" id="{{ $prefix }}_masters_country" class="form-control"
-                placeholder="e.g. United States">
+            <select name="masters_country" id="{{ $prefix }}_masters_country" class="form-control js-education-country"
+                data-placeholder="Select Country">
+                <option value="">Select Country</option>
+            </select>
         </div>
     </div>
 
@@ -313,15 +345,19 @@
         <div class="form-group">
             <label class="form-label">Start Date</label>
             <input type="date" name="bachelors_start" id="{{ $prefix }}_bachelors_start" class="form-control">
+            <span class="sp-field-error" id="{{ $prefix }}_bachelors_start_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">End Date</label>
             <input type="date" name="bachelors_end" id="{{ $prefix }}_bachelors_end" class="form-control">
+            <span class="sp-field-error" id="{{ $prefix }}_bachelors_end_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">Country</label>
-            <input type="text" name="bachelors_country" id="{{ $prefix }}_bachelors_country" class="form-control"
-                placeholder="e.g. India">
+            <select name="bachelors_country" id="{{ $prefix }}_bachelors_country" class="form-control js-education-country"
+                data-placeholder="Select Country">
+                <option value="">Select Country</option>
+            </select>
         </div>
     </div>
 </div>
@@ -416,6 +452,7 @@
                     <option value="{{ $s }}" @selected(old('status', 'active') === $s)>{{ ucfirst($s) }}</option>
                 @endforeach
             </select>
+            <span class="sp-field-error" id="{{ $prefix }}_status_err"></span>
         </div>
         <div class="form-group">
             <label class="form-label">No. of Applications <span style="color:var(--red-text)">*</span></label>
@@ -439,120 +476,98 @@
     </div>
 
     @if ($isRealAdmin ?? false)
-        {{-- Real Admin: full recruiter + manager dropdowns (optional, select only one if assigning) --}}
-        <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(optional - leave both blank to keep unassigned)</span></div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label class="form-label">Recruiter</label>
-                <div class="ss-wrap" id="{{ $prefix }}_recruiter_wrap">
-                    <button type="button" class="form-control ss-trigger"
-                        onclick="toggleSS('{{ $prefix }}_recruiter_wrap')">
-                        <span class="ss-label" id="{{ $prefix }}_recruiter_label">— None —</span>
-                        <i class="bi bi-chevron-down ss-chevron"></i>
-                    </button>
-                    <div class="ss-dropdown">
-                        <div class="ss-search">
-                            <input type="text" class="ss-search-input" placeholder="Search recruiters..."
-                                oninput="filterSS('{{ $prefix }}_recruiter_wrap', this.value)">
-                        </div>
-                        <div class="ss-options">
-                            <div class="ss-option" data-value=""
-                                onclick="pickSS('{{ $prefix }}','recruiter','','— None —')">— None —</div>
+        {{-- Real Admin: unified single dropdown showing all recruiters + managers --}}
+        <div class="form-section-title" style="margin-top:4px;">Assign To
+            <span class="text-muted text-sm" style="font-weight:400;">(optional — leave blank to keep unassigned)</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">All Recruiters / Managers</label>
+            <div class="ss-wrap" id="{{ $prefix }}_assignee_wrap">
+                <button type="button" class="form-control ss-trigger"
+                    onclick="toggleSS('{{ $prefix }}_assignee_wrap')">
+                    <span class="ss-label" id="{{ $prefix }}_assignee_label">— Unassigned —</span>
+                    <i class="bi bi-chevron-down ss-chevron"></i>
+                </button>
+                <div class="ss-dropdown">
+                    <div class="ss-search">
+                        <input type="text" class="ss-search-input" placeholder="Search by name..."
+                            oninput="filterSS('{{ $prefix }}_assignee_wrap', this.value)">
+                    </div>
+                    <div class="ss-options">
+                        <div class="ss-option" data-value="" data-name=""
+                            onclick="pickAssignee('{{ $prefix }}','','','')">— Unassigned —</div>
+                        @if (count($recruiters) > 0)
+                            <div class="ss-group-label">Recruiters</div>
                             @foreach ($recruiters as $rec)
-                                <div class="ss-option" data-value="{{ $rec->id }}"
-                                    onclick="pickSS('{{ $prefix }}','recruiter','{{ $rec->id }}',{{ json_encode($rec->name) }})">
+                                <div class="ss-option" data-value="rec_{{ $rec->id }}" data-name="{{ $rec->name }}"
+                                    onclick="pickAssignee('{{ $prefix }}','recruiter','{{ $rec->id }}',{{ json_encode($rec->name) }})">
                                     {{ $rec->name }}
+                                    <span class="ss-role-badge">Recruiter</span>
                                 </div>
                             @endforeach
-                        </div>
-                    </div>
-                    <input type="hidden" name="recruiter_id" id="{{ $prefix }}_recruiter_id">
-                </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Team Manager</label>
-                <div class="ss-wrap" id="{{ $prefix }}_manager_wrap">
-                    <button type="button" class="form-control ss-trigger"
-                        onclick="toggleSS('{{ $prefix }}_manager_wrap')">
-                        <span class="ss-label" id="{{ $prefix }}_manager_label">— None —</span>
-                        <i class="bi bi-chevron-down ss-chevron"></i>
-                    </button>
-                    <div class="ss-dropdown">
-                        <div class="ss-search">
-                            <input type="text" class="ss-search-input" placeholder="Search managers..."
-                                oninput="filterSS('{{ $prefix }}_manager_wrap', this.value)">
-                        </div>
-                        <div class="ss-options">
-                            <div class="ss-option" data-value=""
-                                onclick="pickSS('{{ $prefix }}','manager','','— None —')">— None —</div>
+                        @endif
+                        @if (count($managers) > 0)
+                            <div class="ss-group-label">Team Managers</div>
                             @foreach ($managers as $mgr)
-                                <div class="ss-option" data-value="{{ $mgr->id }}"
-                                    onclick="pickSS('{{ $prefix }}','manager','{{ $mgr->id }}',{{ json_encode($mgr->name) }})">
+                                <div class="ss-option" data-value="mgr_{{ $mgr->id }}" data-name="{{ $mgr->name }}"
+                                    onclick="pickAssignee('{{ $prefix }}','manager','{{ $mgr->id }}',{{ json_encode($mgr->name) }})">
                                     {{ $mgr->name }}
+                                    <span class="ss-role-badge">Manager</span>
                                 </div>
                             @endforeach
-                        </div>
+                        @endif
                     </div>
-                    <input type="hidden" name="team_manager_id" id="{{ $prefix }}_team_manager_id">
                 </div>
+                <input type="hidden" name="recruiter_id"    id="{{ $prefix }}_recruiter_id">
+                <input type="hidden" name="team_manager_id" id="{{ $prefix }}_team_manager_id">
             </div>
         </div>
     @elseif ($isManager ?? false)
-        {{-- Manager: pick recruiter from team OR themselves as team manager — mutual exclusion --}}
-        <div class="form-section-title" style="margin-top:4px;">Assign to Recruiter or Manager <span class="text-muted text-sm" style="font-weight:400;">(select one)</span></div>
-        <div class="form-grid">
-            <div class="form-group">
-                <label class="form-label">Recruiter <span class="text-muted text-sm" style="font-weight:400;">(from your team)</span></label>
-                <div class="ss-wrap" id="{{ $prefix }}_recruiter_wrap">
-                    <button type="button" class="form-control ss-trigger"
-                        onclick="toggleSS('{{ $prefix }}_recruiter_wrap')">
-                        <span class="ss-label" id="{{ $prefix }}_recruiter_label">— None —</span>
-                        <i class="bi bi-chevron-down ss-chevron"></i>
-                    </button>
-                    <div class="ss-dropdown">
-                        <div class="ss-search">
-                            <input type="text" class="ss-search-input" placeholder="Search recruiters..."
-                                oninput="filterSS('{{ $prefix }}_recruiter_wrap', this.value)">
-                        </div>
-                        <div class="ss-options">
-                            <div class="ss-option" data-value=""
-                                onclick="pickSS('{{ $prefix }}','recruiter','','— None —')">— None —</div>
+        {{-- Manager: pick recruiter from team OR themselves — single dropdown --}}
+        <div class="form-section-title" style="margin-top:4px;">Assign To
+            <span class="text-muted text-sm" style="font-weight:400;">(select one)</span>
+        </div>
+        <div class="form-group">
+            <label class="form-label">All Recruiters / Managers</label>
+            <div class="ss-wrap" id="{{ $prefix }}_assignee_wrap">
+                <button type="button" class="form-control ss-trigger"
+                    onclick="toggleSS('{{ $prefix }}_assignee_wrap')">
+                    <span class="ss-label" id="{{ $prefix }}_assignee_label">— Unassigned —</span>
+                    <i class="bi bi-chevron-down ss-chevron"></i>
+                </button>
+                <div class="ss-dropdown">
+                    <div class="ss-search">
+                        <input type="text" class="ss-search-input" placeholder="Search by name..."
+                            oninput="filterSS('{{ $prefix }}_assignee_wrap', this.value)">
+                    </div>
+                    <div class="ss-options">
+                        <div class="ss-option" data-value="" data-name=""
+                            onclick="pickAssignee('{{ $prefix }}','','','')">— Unassigned —</div>
+                        @if (count($recruiters) > 0)
+                            <div class="ss-group-label">Your Team Recruiters</div>
                             @foreach ($recruiters as $rec)
-                                <div class="ss-option" data-value="{{ $rec->id }}"
-                                    onclick="pickSS('{{ $prefix }}','recruiter','{{ $rec->id }}',{{ json_encode($rec->name) }})">
+                                <div class="ss-option" data-value="rec_{{ $rec->id }}" data-name="{{ $rec->name }}"
+                                    onclick="pickAssignee('{{ $prefix }}','recruiter','{{ $rec->id }}',{{ json_encode($rec->name) }})">
                                     {{ $rec->name }}
+                                    <span class="ss-role-badge">Recruiter</span>
                                 </div>
                             @endforeach
+                        @endif
+                        <div class="ss-group-label">Assign to Manager</div>
+                        <div class="ss-option" data-value="mgr_{{ $currentUser->id }}" data-name="{{ $currentUser->name }}"
+                            onclick="pickAssignee('{{ $prefix }}','manager','{{ $currentUser->id }}',{{ json_encode($currentUser->name) }})">
+                            <i class="bi bi-person-badge" style="margin-right:4px;color:var(--blue);"></i>
+                            {{ $currentUser->name }}
+                            <span class="ss-role-badge">You (Manager)</span>
                         </div>
                     </div>
-                    <input type="hidden" name="recruiter_id" id="{{ $prefix }}_recruiter_id">
                 </div>
-            </div>
-            <div class="form-group">
-                <label class="form-label">Team Manager <span class="text-muted text-sm" style="font-weight:400;">(select yourself to assign directly)</span></label>
-                <div class="ss-wrap" id="{{ $prefix }}_manager_wrap">
-                    <button type="button" class="form-control ss-trigger"
-                        onclick="toggleSS('{{ $prefix }}_manager_wrap')">
-                        <span class="ss-label" id="{{ $prefix }}_manager_label">— None —</span>
-                        <i class="bi bi-chevron-down ss-chevron"></i>
-                    </button>
-                    <div class="ss-dropdown">
-                        <div class="ss-options">
-                            <div class="ss-option" data-value=""
-                                onclick="pickSS('{{ $prefix }}','manager','','— None —')">— None —</div>
-                            <div class="ss-option" data-value="{{ $currentUser->id }}"
-                                onclick="pickSS('{{ $prefix }}','manager','{{ $currentUser->id }}',{{ json_encode($currentUser->name . ' (You)') }})">
-                                <i class="bi bi-person-badge" style="margin-right:4px;color:var(--blue);"></i>
-                                {{ $currentUser->name }} <span style="color:var(--text-muted);">(You)</span>
-                            </div>
-                        </div>
-                    </div>
-                    <input type="hidden" name="team_manager_id" id="{{ $prefix }}_team_manager_id">
-                </div>
+                <input type="hidden" name="recruiter_id"    id="{{ $prefix }}_recruiter_id">
+                <input type="hidden" name="team_manager_id" id="{{ $prefix }}_team_manager_id">
             </div>
         </div>
     @endif
-    {{-- Recruiter role: Assign section is hidden — assignment is set automatically --}}
+    {{-- Recruiter role: Assign section hidden — assignment is set automatically --}}
 
     <div style="padding-top:12px;border-top:1px solid var(--border-color);margin-top:8px;">
         <p class="text-sm mb-12" style="font-weight:600;color:var(--text-secondary);display:flex;align-items:center;gap:6px;">
@@ -590,19 +605,21 @@
             <div class="form-group mb-0">
                 <label class="form-label">New Login Password <span class="text-muted" style="font-weight:400;">(leave blank to keep current)</span></label>
                 <div class="input-with-icon">
-                    <input type="password" name="login_password" id="edit_login_password" class="form-control"
+                    <input type="password" name="login_password" id="{{ $prefix }}_login_password" class="form-control"
                         placeholder="Enter new password only if you want to change it">
                     <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                 </div>
+                <span class="sp-field-error" id="{{ $prefix }}_login_password_err"></span>
             </div>
         @else
             <div class="form-group mb-0">
                 <label class="form-label">Portal Login Password <span style="color:var(--red-text)">*</span></label>
                 <div class="input-with-icon">
-                    <input type="password" name="login_password" class="form-control"
+                    <input type="password" name="login_password" id="{{ $prefix }}_login_password" class="form-control"
                         placeholder="Set student portal password (min 8 chars)" required minlength="8">
                     <button type="button" class="input-eye-btn password-toggle"><i class="bi bi-eye"></i></button>
                 </div>
+                <span class="sp-field-error" id="{{ $prefix }}_login_password_err"></span>
             </div>
         @endif
     </div>
