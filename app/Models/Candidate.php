@@ -143,6 +143,15 @@ class Candidate extends Model
         return $this->hasOne(CandidateAssignmentHistory::class)->latestOfMany();
     }
 
+    public function activeTemporaryUnassign()
+    {
+        return $this->hasOne(CandidateAssignmentHistory::class)
+            ->where('action', 'temporary_unassigned')
+            ->whereNotNull('temporary_activated_at')
+            ->whereNull('temporary_restored_at')
+            ->latestOfMany();
+    }
+
     public function assessments()
     {
         return $this->hasMany(Assessment::class)->latest();

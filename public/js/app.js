@@ -1912,5 +1912,6 @@
 
     window._initCandidateSelects = initCandidateSelects;
     window._initPhoneInputs = initPhoneInputs;
+    window._setCandidateGeo = setCandidateGeo;
 
 })();

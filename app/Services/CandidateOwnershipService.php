@@ -5,12 +5,17 @@ namespace App\Services;
 use App\Models\Candidate;
 use App\Models\CandidateAssignmentHistory;
 use App\Models\User;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 class CandidateOwnershipService
 {
+    public const TEMPORARY_UNASSIGN_ACTION = 'temporary_unassigned';
+    public const TEMPORARY_TIMEZONE = 'Asia/Kolkata';
+
     public function applyOwnedScope(Builder $query, User $user, ?string $managerScope = null): Builder
     {
         if ($user->isRecruiter()) {
@@ -116,6 +121,118 @@ class CandidateOwnershipService
             'action' => $action,
             'note' => $note,
         ]);
+
+        return true;
+    }
+
+    public function scheduleTemporaryUnassign(
+        Candidate $candidate,
+        CarbonInterface $startsAt,
+        CarbonInterface $endsAt,
+        ?User $actor,
+        ?string $note = null
+    ): bool {
+        $startsAt = Carbon::parse($startsAt)->setTimezone(self::TEMPORARY_TIMEZONE);
+        $endsAt = Carbon::parse($endsAt)->setTimezone(self::TEMPORARY_TIMEZONE);
+
+        if ($endsAt->lessThanOrEqualTo($startsAt)) {
+            throw new InvalidArgumentException('Temporary unassign end time must be after the start time.');
+        }
+
+        if (!$candidate->recruiter_id && !$candidate->team_manager_id) {
+            return false;
+        }
+
+        CandidateAssignmentHistory::create([
+            'candidate_id' => $candidate->id,
+            'from_recruiter_id' => $candidate->recruiter_id,
+            'from_team_manager_id' => $candidate->team_manager_id,
+            'to_recruiter_id' => null,
+            'to_team_manager_id' => null,
+            'changed_by' => $actor?->id,
+            'action' => self::TEMPORARY_UNASSIGN_ACTION,
+            'note' => $note,
+            'temporary_starts_at' => $startsAt,
+            'temporary_ends_at' => $endsAt,
+            'restore_recruiter_id' => $candidate->recruiter_id,
+            'restore_team_manager_id' => $candidate->team_manager_id,
+        ]);
+
+        return true;
+    }
+
+    public function syncTemporaryUnassignments(?CarbonInterface $moment = null): array
+    {
+        $moment = $moment
+            ? Carbon::parse($moment)->setTimezone(self::TEMPORARY_TIMEZONE)
+            : now(self::TEMPORARY_TIMEZONE);
+
+        $activated = 0;
+        $restored = 0;
+
+        CandidateAssignmentHistory::query()
+            ->with('candidate')
+            ->where('action', self::TEMPORARY_UNASSIGN_ACTION)
+            ->whereNull('temporary_activated_at')
+            ->where('temporary_starts_at', '<=', $moment)
+            ->where('temporary_ends_at', '>', $moment)
+            ->get()
+            ->each(function (CandidateAssignmentHistory $history) use ($moment, &$activated) {
+                if ($this->activateTemporaryUnassign($history, $moment)) {
+                    $activated++;
+                }
+            });
+
+        CandidateAssignmentHistory::query()
+            ->with('candidate')
+            ->where('action', self::TEMPORARY_UNASSIGN_ACTION)
+            ->whereNotNull('temporary_activated_at')
+            ->whereNull('temporary_restored_at')
+            ->where('temporary_ends_at', '<=', $moment)
+            ->get()
+            ->each(function (CandidateAssignmentHistory $history) use ($moment, &$restored) {
+                if ($this->restoreTemporaryUnassign($history, $moment)) {
+                    $restored++;
+                }
+            });
+
+        return ['activated' => $activated, 'restored' => $restored];
+    }
+
+    private function activateTemporaryUnassign(CandidateAssignmentHistory $history, CarbonInterface $moment): bool
+    {
+        $candidate = $history->candidate;
+        if (!$candidate || $history->temporary_activated_at) {
+            return false;
+        }
+
+        $candidate->forceFill([
+            'recruiter_id' => null,
+            'team_manager_id' => null,
+        ])->save();
+
+        $history->forceFill([
+            'temporary_activated_at' => Carbon::parse($moment)->setTimezone(self::TEMPORARY_TIMEZONE),
+        ])->save();
+
+        return true;
+    }
+
+    private function restoreTemporaryUnassign(CandidateAssignmentHistory $history, CarbonInterface $moment): bool
+    {
+        $candidate = $history->candidate;
+        if (!$candidate || $history->temporary_restored_at) {
+            return false;
+        }
+
+        $candidate->forceFill([
+            'recruiter_id' => $history->restore_recruiter_id,
+            'team_manager_id' => $history->restore_team_manager_id,
+        ])->save();
+
+        $history->forceFill([
+            'temporary_restored_at' => Carbon::parse($moment)->setTimezone(self::TEMPORARY_TIMEZONE),
+        ])->save();
 
         return true;
     }

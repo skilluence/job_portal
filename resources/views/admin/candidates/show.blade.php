@@ -93,12 +93,23 @@ $totalInterviews = $interviews->count();
 }
 .edit-pencil:hover { color: var(--blue); background: var(--blue-light); }
 .inline-edit-wrap {
-    display: none; width: 100%; gap: 4px; align-items: center; flex-wrap: wrap;
+    display: none; width: 100%; gap: 8px; align-items: stretch; flex-wrap: wrap;
 }
 .inline-edit-wrap.active { display: flex; }
+.preview-inline-editor {
+    margin: 2px 0 10px 128px;
+    width: calc(100% - 128px);
+    align-items: flex-start;
+}
+.preview-inline-editor.active { display: flex; }
+.preview-inline-editor .inline-edit-input,
+.preview-inline-editor .select2-container,
+.preview-inline-editor .iti { flex: 1 1 100%; width: 100% !important; min-width: 0; }
+.preview-inline-actions { display:flex; gap:6px; width:100%; justify-content:flex-end; }
+.preview-badge-wrap { width:100%; min-height:38px; }
 .inline-edit-input {
     flex: 1; min-width: 0;
-    padding: 4px 8px; font-size: 12px;
+    padding: 8px 10px; font-size: 12.5px;
     border: 1px solid var(--input-border); border-radius: var(--radius-sm);
     background: var(--input-bg); color: var(--text-primary);
     outline: none;
@@ -176,6 +187,7 @@ $totalInterviews = $interviews->count();
 @media (max-width: 1000px) {
     .preview-layout { flex-direction: column; }
     .preview-left { position: static; max-height: none; flex: none; width: 100%; }
+    .preview-inline-editor { margin-left:0; width:100%; }
 }
 </style>
 
@@ -277,17 +289,18 @@ $totalInterviews = $interviews->count();
             @include('admin.candidates._preview_field', ['field'=>'date_of_birth','label'=>'Date of Birth','value'=>$candidate->date_of_birth?->format('M d, Y'),'rawValue'=>$candidate->date_of_birth?->format('Y-m-d'),'type'=>'date','editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'gender','label'=>'Gender','value'=>$genderLabels[$candidate->gender] ?? $candidate->gender,'rawValue'=>$candidate->gender,'type'=>'select','selectOptions'=>['male'=>'Male','female'=>'Female','other'=>'Other','prefer_not_to_say'=>'Prefer not to say'],'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'nationality','label'=>'Nationality','value'=>$candidate->nationality,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'phone_number','label'=>'Phone','value'=>$candidate->phone_number,'rawValue'=>$candidate->phone_number,'type'=>'phone','editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'domain','label'=>'Domain','value'=>$candidate->domain,'editable'=>true])
-            @include('admin.candidates._preview_field', ['field'=>'sub_domain','label'=>'Sub Domain','value'=>$candidate->sub_domain,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'sub_domain','label'=>'Sub Domain','value'=>$candidate->sub_domain,'rawValue'=>$candidate->sub_domain,'type'=>'badge','editable'=>true])
 
             {{-- ---- Address ---- --}}
             <div class="profile-section-title">Address</div>
             @include('admin.candidates._preview_field', ['field'=>'street_address','label'=>'Street','value'=>$candidate->street_address,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'apartment_unit','label'=>'Apt / Unit','value'=>$candidate->apartment_unit,'editable'=>true])
-            @include('admin.candidates._preview_field', ['field'=>'city','label'=>'City','value'=>$candidate->city,'editable'=>true])
-            @include('admin.candidates._preview_field', ['field'=>'state_province','label'=>'State','value'=>$candidate->state_province,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'city','label'=>'City','value'=>$candidate->city,'rawValue'=>$candidate->city,'type'=>'geo_city','editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'state_province','label'=>'State','value'=>$candidate->state_province,'rawValue'=>$candidate->state_province,'type'=>'geo_state','editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'zip_code','label'=>'ZIP','value'=>$candidate->zip_code,'editable'=>true])
-            @include('admin.candidates._preview_field', ['field'=>'country','label'=>'Country','value'=>$candidate->country,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'country','label'=>'Country','value'=>$candidate->country,'rawValue'=>$candidate->country,'type'=>'geo_country','editable'=>true])
 
             {{-- ---- Visa ---- --}}
             <div class="profile-section-title">Visa &amp; Work Auth</div>
@@ -301,7 +314,7 @@ $totalInterviews = $interviews->count();
                     ? $prefCities->implode(' · ')
                     : null;
             @endphp
-            @include('admin.candidates._preview_field', ['field'=>'preferred_city','label'=>'Preferred City','value'=>$prefCityDisplay,'rawValue'=>$candidate->preferred_city,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'preferred_city','label'=>'Preferred City','value'=>$prefCityDisplay,'rawValue'=>$candidate->preferred_city,'type'=>'badge','editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'visa_expiry_date','label'=>'Visa Expiry','value'=>$candidate->visa_expiry_date?->format('M d, Y'),'rawValue'=>$candidate->visa_expiry_date?->format('Y-m-d'),'type'=>'date','editable'=>true])
 
             {{-- ---- Salary ---- --}}
@@ -316,7 +329,7 @@ $totalInterviews = $interviews->count();
 
             {{-- ---- Marketing ---- --}}
             <div class="profile-section-title">Marketing</div>
-            @include('admin.candidates._preview_field', ['field'=>'marketing_phone','label'=>'Mkt Phone','value'=>$candidate->marketing_phone,'editable'=>true])
+            @include('admin.candidates._preview_field', ['field'=>'marketing_phone','label'=>'Mkt Phone','value'=>$candidate->marketing_phone,'rawValue'=>$candidate->marketing_phone,'type'=>'phone','editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'marketing_email','label'=>'Mkt Email','value'=>$candidate->marketing_email,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'marketing_linkedin_id','label'=>'LinkedIn ID','value'=>$candidate->marketing_linkedin_id,'editable'=>true])
             @include('admin.candidates._preview_field', ['field'=>'marketing_email_password','label'=>'Email Password','value'=>$candidate->marketing_email_password])
@@ -856,7 +869,7 @@ $totalInterviews = $interviews->count();
 {{-- ===== ADD DAILY LOG MODAL ===== --}}
 <div class="modal-overlay" id="logModal">
     <div class="modal modal-sm">
-        <form method="POST" action="{{ route('admin.candidates.daily-logs.store', $candidate) }}">
+        <form id="dailyLogForm" method="POST" action="{{ route('admin.candidates.daily-logs.store', $candidate) }}">
             @csrf
             <div class="modal-header">
                 <div class="modal-title"><i class="bi bi-plus-circle"></i> Add Daily Log</div>
@@ -874,8 +887,8 @@ $totalInterviews = $interviews->count();
                 </div>
                 <div class="form-group">
                     <label class="form-label">Applications <span style="color:var(--red-text)">*</span></label>
-                    <input type="number" name="applications" class="form-control"
-                        value="0" min="0" max="9999" required>
+                    <input type="number" name="applications" id="logApplications" class="form-control"
+                        value="" min="0" max="9999" placeholder="Enter applications count" required>
                 </div>
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
                     <!-- <div class="form-group mb-0">
@@ -931,7 +944,7 @@ $totalInterviews = $interviews->count();
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Application Date &amp; Time</label>
+                        <label class="form-label">Application Date &amp; Time <span style="color:var(--red-text);">*</span></label>
                         <input type="text" id="iApplicationAtDisplay" class="form-control" placeholder="Select application date and time">
                     </div>
                     <div class="form-group">
@@ -1011,7 +1024,7 @@ $totalInterviews = $interviews->count();
             <div class="modal-body">
                 <div class="form-grid">
                     <div class="form-group">
-                        <label class="form-label">Assessment Date &amp; Time</label>
+                        <label class="form-label">Assessment Date &amp; Time <span style="color:var(--red-text);">*</span></label>
                         <input type="text" id="aAssessmentAtDisplay" class="form-control" placeholder="Select assessment date and time">
                     </div>
                     <div class="form-group">
@@ -1025,8 +1038,8 @@ $totalInterviews = $interviews->count();
                         <input type="text" name="domain" id="aDomain" class="form-control" placeholder="e.g. Java, DevOps, Healthcare" maxlength="200" required>
                     </div>
                     <div class="form-group">
-                        <label class="form-label">Company Website URL</label>
-                        <input type="text" name="company_website_url" id="aCompanyWebsiteUrl" class="form-control" placeholder="https://company.com" maxlength="500">
+                        <label class="form-label">Company Website URL <span style="color:var(--red-text);">*</span></label>
+                        <input type="text" name="company_website_url" id="aCompanyWebsiteUrl" class="form-control" placeholder="https://company.com" maxlength="500" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label">Role <span style="color:var(--red-text);">*</span></label>
@@ -1065,6 +1078,26 @@ $totalInterviews = $interviews->count();
 // ── Inline field patch ──────────────────────────────────────────────
 const PATCH_URL = '{{ route('admin.candidates.patch-field', $candidate) }}';
 const CSRF      = document.querySelector('meta[name="csrf-token"]').content;
+const PREVIEW_GEO_VALUES = {
+    country: @json($candidate->country),
+    state_province: @json($candidate->state_province),
+    city: @json($candidate->city),
+};
+const PREVIEW_BADGE_FIELDS = ['sub_domain', 'preferred_city'];
+const PREVIEW_PHONE_FIELDS = ['phone_number', 'marketing_phone'];
+
+function previewDisplayValue(field, value) {
+    if (PREVIEW_BADGE_FIELDS.includes(field)) {
+        return (value || '').split(',').map(v => v.trim()).filter(Boolean).join(' · ') || '—';
+    }
+
+    const select = document.querySelector('#field-edit-' + field + ' select');
+    if (select && select.selectedOptions.length) {
+        return select.selectedOptions[0].textContent || '—';
+    }
+
+    return value || '—';
+}
 
 function saveInlineField(field, value) {
     fetch(PATCH_URL, {
@@ -1082,7 +1115,7 @@ function saveInlineField(field, value) {
             showToast('Field updated successfully.', 'success');
             // Update displayed value
             const displayEl = document.getElementById('field-display-' + field);
-            if (displayEl) displayEl.textContent = value || '—';
+            if (displayEl) displayEl.textContent = previewDisplayValue(field, value);
             const editWrap = document.getElementById('field-edit-' + field);
             const dispWrap = document.getElementById('field-show-' + field);
             if (editWrap) editWrap.style.display = 'none';
@@ -1108,6 +1141,9 @@ function saveInlineField(field, value) {
             if (field === 'recruiter_notes') {
                 document.getElementById('notesDisplay').textContent = value || '—';
                 cancelNotesEdit();
+            }
+            if (Object.prototype.hasOwnProperty.call(PREVIEW_GEO_VALUES, field)) {
+                PREVIEW_GEO_VALUES[field] = value || '';
             }
         } else {
             showToast(data.message || 'Could not save field.', 'error');
@@ -1145,8 +1181,9 @@ function startFieldEdit(field) {
     const edit = document.getElementById('field-edit-' + field);
     if (show) show.style.display = 'none';
     if (edit) { edit.style.display = 'flex'; edit.classList.add('active'); }
+    initPreviewFieldEditor(field);
     // Focus input
-    const inp = document.querySelector('#field-edit-' + field + ' .inline-edit-input');
+    const inp = document.querySelector('#field-edit-' + field + ' .inline-edit-input, #field-edit-' + field + ' .subdomain-text-input');
     if (inp) inp.focus();
 }
 
@@ -1158,9 +1195,103 @@ function cancelFieldEdit(field) {
 }
 
 function saveFieldEdit(field) {
-    const inp = document.querySelector('#field-edit-' + field + ' .inline-edit-input');
+    flushPreviewBadgeInput(field);
+    const inp = document.getElementById('input-' + field) || document.getElementById('preview_' + field);
     if (!inp) return;
-    saveInlineField(field, inp.value);
+    saveInlineField(field, normalizedPreviewFieldValue(field, inp));
+}
+
+function initPreviewFieldEditor(field) {
+    if (PREVIEW_BADGE_FIELDS.includes(field)) {
+        renderPreviewBadges(field);
+        return;
+    }
+
+    if (PREVIEW_PHONE_FIELDS.includes(field)) {
+        if (window._initPhoneInputs) window._initPhoneInputs(document.getElementById('field-edit-' + field));
+        return;
+    }
+
+    if (['country', 'state_province', 'city'].includes(field)) {
+        if (window._initCandidateSelects) window._initCandidateSelects(document.getElementById('field-edit-' + field));
+        if (window._setCandidateGeo) {
+            window._setCandidateGeo('preview', PREVIEW_GEO_VALUES.country || '', PREVIEW_GEO_VALUES.state_province || '', PREVIEW_GEO_VALUES.city || '');
+        }
+    }
+}
+
+function normalizedPreviewFieldValue(field, input) {
+    if (PREVIEW_PHONE_FIELDS.includes(field)) {
+        const raw = (input.value || '').replace(/\D/g, '');
+        if (!raw) return '';
+        const instance = window.intlTelInputGlobals?.getInstance(input);
+        const dialCode = instance?.getSelectedCountryData()?.dialCode || '';
+        return dialCode && raw.indexOf(dialCode) !== 0 ? '+' + dialCode + raw : (input.value || '');
+    }
+
+    return input.value;
+}
+
+function previewBadgeValues(field) {
+    const hidden = document.getElementById('input-' + field);
+    return hidden && hidden.value
+        ? hidden.value.split(',').map(v => v.trim()).filter(Boolean)
+        : [];
+}
+
+function renderPreviewBadges(field) {
+    const container = document.getElementById('badge-wrap-' + field);
+    const input = document.getElementById('badge-input-' + field);
+    if (!container || !input) return;
+
+    container.querySelectorAll('.subdomain-badge').forEach(el => el.remove());
+    previewBadgeValues(field).forEach(function (value, index) {
+        const badge = document.createElement('span');
+        badge.className = 'subdomain-badge';
+        badge.innerHTML = escapePreviewHtml(value) + '<button type="button" class="subdomain-badge-x" onclick="removePreviewBadge(\'' + field + '\',' + index + ')">&times;</button>';
+        container.insertBefore(badge, input);
+    });
+}
+
+function handlePreviewBadgeKey(event, field) {
+    if (event.key !== 'Enter' && event.key !== ',') return;
+    event.preventDefault();
+
+    const input = document.getElementById('badge-input-' + field);
+    const hidden = document.getElementById('input-' + field);
+    if (!input || !hidden) return;
+
+    const value = input.value.trim().replace(/,/g, '');
+    if (!value) return;
+
+    const values = previewBadgeValues(field);
+    if (!values.includes(value)) {
+        values.push(value);
+        hidden.value = values.join(',');
+    }
+
+    input.value = '';
+    renderPreviewBadges(field);
+}
+
+function flushPreviewBadgeInput(field) {
+    if (!PREVIEW_BADGE_FIELDS.includes(field)) return;
+    handlePreviewBadgeKey({ key: 'Enter', preventDefault: function () {} }, field);
+}
+
+function removePreviewBadge(field, index) {
+    const hidden = document.getElementById('input-' + field);
+    if (!hidden) return;
+    const values = previewBadgeValues(field);
+    values.splice(index, 1);
+    hidden.value = values.join(',');
+    renderPreviewBadges(field);
+}
+
+function escapePreviewHtml(value) {
+    return String(value).replace(/[&<>"']/g, function (char) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
 }
 
 // ── Tab switching ──────────────────────────────────────────────────
@@ -1190,10 +1321,262 @@ function switchTab(name, btn) {
 
 // ── Daily Log Modal ────────────────────────────────────────────────
 function openLogModal() {
+    const form = document.getElementById('dailyLogForm');
+    if (form) form.reset();
+    resetModalValidation(form);
     document.getElementById('logModal').classList.add('open');
 }
 function closeLogModal() {
     document.getElementById('logModal').classList.remove('open');
+}
+
+function registerCandidatePreviewValidationMethods() {
+    if (typeof $ === 'undefined' || typeof $.validator === 'undefined') return;
+
+    if (!$.validator.methods.noSpacesOnly) {
+        $.validator.addMethod('noSpacesOnly', function (value, element) {
+            return this.optional(element) || value.trim().length > 0;
+        }, 'This field cannot be blank spaces only.');
+    }
+
+    if (!$.validator.methods.portalUrlAllowed) {
+        $.validator.addMethod('portalUrlAllowed', function (value, element) {
+            if (this.optional(element)) return true;
+            const rawValue = value.trim();
+            const normalizedValue = /^(https?:\/\/|www\.)/i.test(rawValue)
+                ? rawValue.replace(/^www\./i, 'https://www.')
+                : 'https://' + rawValue;
+
+            try {
+                const parsedUrl = new URL(normalizedValue);
+                return ['http:', 'https:'].includes(parsedUrl.protocol)
+                    && parsedUrl.hostname.includes('.')
+                    && !/\s/.test(rawValue);
+            } catch (e) {
+                return false;
+            }
+        }, 'Please enter a valid URL or domain.');
+    }
+}
+
+function resetModalValidation(form) {
+    if (!form || typeof $ === 'undefined' || typeof $.validator === 'undefined') return;
+
+    const $form = $(form);
+    if ($form.data('validator')) {
+        $form.validate().resetForm();
+    }
+    $form.find('.is-invalid').removeClass('is-invalid');
+    $form.find('label.sp-field-error').remove();
+}
+
+function setupCandidatePreviewFormValidation() {
+    if (typeof $ === 'undefined' || typeof $.validator === 'undefined') return;
+    registerCandidatePreviewValidationMethods();
+
+    const baseOptions = {
+        errorClass: 'sp-field-error',
+        groups: {
+            interviewApplicationAt: 'application_date application_time',
+            assessmentAt: 'assessment_date assessment_time',
+        },
+        ignore: function (i, el) {
+            const $el = $(el);
+            if ($el.prop('disabled')) return true;
+            if ($el.attr('type') !== 'hidden') return false;
+            return !['application_date', 'application_time', 'assessment_date', 'assessment_time'].includes($el.attr('name') || '');
+        },
+        onfocusout: function (element) {
+            this.element(element);
+        },
+        errorPlacement: function (error, element) {
+            const name = element.attr('name') || '';
+            if (['application_date', 'application_time'].includes(name)) {
+                error.insertAfter($('#iApplicationAtDisplay').next('input').length
+                    ? $('#iApplicationAtDisplay').next('input')
+                    : $('#iApplicationAtDisplay'));
+                return;
+            }
+            if (['assessment_date', 'assessment_time'].includes(name)) {
+                error.insertAfter($('#aAssessmentAtDisplay').next('input').length
+                    ? $('#aAssessmentAtDisplay').next('input')
+                    : $('#aAssessmentAtDisplay'));
+                return;
+            }
+            error.insertAfter(element);
+        },
+        highlight: function (element) {
+            const name = element.name || '';
+            if (['application_date', 'application_time'].includes(name)) {
+                ($('#iApplicationAtDisplay').next('input').length
+                    ? $('#iApplicationAtDisplay').next('input')
+                    : $('#iApplicationAtDisplay')).addClass('is-invalid');
+                return;
+            }
+            if (['assessment_date', 'assessment_time'].includes(name)) {
+                ($('#aAssessmentAtDisplay').next('input').length
+                    ? $('#aAssessmentAtDisplay').next('input')
+                    : $('#aAssessmentAtDisplay')).addClass('is-invalid');
+                return;
+            }
+            $(element).addClass('is-invalid');
+        },
+        unhighlight: function (element) {
+            const name = element.name || '';
+            if (['application_date', 'application_time'].includes(name)) {
+                ($('#iApplicationAtDisplay').next('input').length
+                    ? $('#iApplicationAtDisplay').next('input')
+                    : $('#iApplicationAtDisplay')).removeClass('is-invalid');
+                return;
+            }
+            if (['assessment_date', 'assessment_time'].includes(name)) {
+                ($('#aAssessmentAtDisplay').next('input').length
+                    ? $('#aAssessmentAtDisplay').next('input')
+                    : $('#aAssessmentAtDisplay')).removeClass('is-invalid');
+                return;
+            }
+            $(element).removeClass('is-invalid');
+        },
+        invalidHandler: function (event, validator) {
+            if (!validator.errorList || !validator.errorList.length) return;
+            showToast('Please fix the highlighted errors before submitting.', 'error');
+            setTimeout(function () {
+                const firstEl = validator.errorList[0].element;
+                const name = firstEl.name || '';
+                if (['application_date', 'application_time'].includes(name)) {
+                    document.getElementById('iApplicationAtDisplay')._flatpickr?.open();
+                    return;
+                }
+                if (['assessment_date', 'assessment_time'].includes(name)) {
+                    document.getElementById('aAssessmentAtDisplay')._flatpickr?.open();
+                    return;
+                }
+                firstEl.focus();
+            }, 80);
+        },
+    };
+
+    [
+        {
+            selector: '#dailyLogForm',
+            tabName: 'logs',
+            buttonText: '<i class="bi bi-hourglass-split"></i> Saving...',
+            rules: {
+                applications: { required: true, digits: true, min: 0, max: 9999 },
+                remark: { maxlength: 2000 },
+            },
+            messages: {
+                applications: {
+                    required: 'Applications count is required.',
+                    digits: 'Applications must be a whole number.',
+                    min: 'Applications cannot be negative.',
+                    max: 'Applications cannot be more than 9999.',
+                },
+                remark: { maxlength: 'Remark cannot be more than 2000 characters.' },
+            },
+        },
+        {
+            selector: '#interviewForm',
+            tabName: 'interviews',
+            buttonText: '<i class="bi bi-hourglass-split"></i> Saving...',
+            rules: {
+                application_date: { required: true },
+                application_time: { required: true },
+                company_name: { required: true, noSpacesOnly: true, maxlength: 200 },
+                company_domain: { required: true, noSpacesOnly: true, portalUrlAllowed: true, maxlength: 500 },
+                role: { required: true, noSpacesOnly: true, maxlength: 200 },
+                interview_type: { required: true },
+                remark: { maxlength: 2000 },
+                scheduled_timezone: {
+                    required: function () {
+                        const date = document.getElementById('iSchedDate');
+                        const time = document.getElementById('iSchedTime');
+                        return Boolean((date && date.value) || (time && time.value));
+                    },
+                },
+            },
+            messages: {
+                application_date: { required: 'Application date and time is required.' },
+                application_time: { required: 'Application date and time is required.' },
+                company_name: {
+                    required: 'Company name is required.',
+                    noSpacesOnly: 'Company name cannot be blank spaces only.',
+                    maxlength: 'Company name cannot be more than 200 characters.',
+                },
+                company_domain: {
+                    required: 'Company domain or URL is required.',
+                    noSpacesOnly: 'Company domain cannot be blank spaces only.',
+                    portalUrlAllowed: 'Please enter a valid domain or URL.',
+                    maxlength: 'Company domain cannot be more than 500 characters.',
+                },
+                role: {
+                    required: 'Role is required.',
+                    noSpacesOnly: 'Role cannot be blank spaces only.',
+                    maxlength: 'Role cannot be more than 200 characters.',
+                },
+                interview_type: { required: 'Interview type is required.' },
+                remark: { maxlength: 'Remark cannot be more than 2000 characters.' },
+                scheduled_timezone: { required: 'Timezone is required when schedule date/time is selected.' },
+            },
+        },
+        {
+            selector: '#assessmentForm',
+            tabName: 'assessments',
+            buttonText: '<i class="bi bi-hourglass-split"></i> Saving...',
+            rules: {
+                assessment_date: { required: true },
+                assessment_time: { required: true },
+                company_name: { required: true, noSpacesOnly: true, maxlength: 200 },
+                domain: { required: true, noSpacesOnly: true, maxlength: 200 },
+                company_website_url: { required: true, noSpacesOnly: true, portalUrlAllowed: true, maxlength: 500 },
+                role: { required: true, noSpacesOnly: true, maxlength: 200 },
+                assessment_type: { required: true },
+                remark: { maxlength: 2000 },
+            },
+            messages: {
+                assessment_date: { required: 'Assessment date and time is required.' },
+                assessment_time: { required: 'Assessment date and time is required.' },
+                company_name: {
+                    required: 'Company name is required.',
+                    noSpacesOnly: 'Company name cannot be blank spaces only.',
+                    maxlength: 'Company name cannot be more than 200 characters.',
+                },
+                domain: {
+                    required: 'Domain is required.',
+                    noSpacesOnly: 'Domain cannot be blank spaces only.',
+                    maxlength: 'Domain cannot be more than 200 characters.',
+                },
+                company_website_url: {
+                    required: 'Company website URL is required.',
+                    noSpacesOnly: 'Company website URL cannot be blank spaces only.',
+                    portalUrlAllowed: 'Please enter a valid company website URL.',
+                    maxlength: 'Company website URL cannot be more than 500 characters.',
+                },
+                role: {
+                    required: 'Role is required.',
+                    noSpacesOnly: 'Role cannot be blank spaces only.',
+                    maxlength: 'Role cannot be more than 200 characters.',
+                },
+                assessment_type: { required: 'Assessment type is required.' },
+                remark: { maxlength: 'Remark cannot be more than 2000 characters.' },
+            },
+        },
+    ].forEach(function (config) {
+        const $form = $(config.selector);
+        if (!$form.length) return;
+        if ($form.data('validator')) $form.data('validator').destroy();
+
+        $form.validate($.extend(true, {}, baseOptions, {
+            rules: config.rules,
+            messages: config.messages,
+            submitHandler: function (form) {
+                persistActiveTab(config.tabName);
+                const $btn = $(form).find('.modal-footer .btn-primary');
+                $btn.prop('disabled', true).html(config.buttonText);
+                form.submit();
+            },
+        }));
+    });
 }
 
 // ── Daily Log inline edit ──────────────────────────────────────────
@@ -1364,6 +1747,7 @@ function openInterviewModal(data) {
     const btn    = document.getElementById('interviewSubmitBtn');
 
     form.reset();
+    resetModalValidation(form);
     setInterviewDateTimeValue('iApplicationAtDisplay', 'iApplicationDate', 'iApplicationTime', '', '');
     setInterviewDateTimeValue('iMailAtDisplay', 'iMailDate', 'iMailTime', '', '');
     setInterviewDateTimeValue('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime', '', '');
@@ -1497,6 +1881,7 @@ function openAssessmentModal(data) {
     const btn = document.getElementById('assessmentSubmitBtn');
 
     form.reset();
+    resetModalValidation(form);
     setAssessmentDateTimeValue('aAssessmentAtDisplay', 'aAssessmentDate', 'aAssessmentTime', '', '');
     setAssessmentDateTimeValue('aMailAtDisplay', 'aMailDate', 'aMailTime', '', '');
 
@@ -1594,6 +1979,7 @@ window.addEventListener('DOMContentLoaded', () => {
     initInterviewDateTimePicker('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime');
     initAssessmentDateTimePicker('aAssessmentAtDisplay', 'aAssessmentDate', 'aAssessmentTime');
     initAssessmentDateTimePicker('aMailAtDisplay', 'aMailDate', 'aMailTime');
+    setupCandidatePreviewFormValidation();
 
     const logForm = document.querySelector('#logModal form');
     if (logForm) {

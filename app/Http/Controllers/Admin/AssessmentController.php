@@ -120,11 +120,11 @@ class AssessmentController extends Controller
     private function rules(): array
     {
         return [
-            'assessment_date' => ['nullable', 'date'],
-            'assessment_time' => ['nullable', 'date_format:H:i'],
+            'assessment_date' => ['required', 'date'],
+            'assessment_time' => ['required', 'date_format:H:i'],
             'company_name' => ['required', 'string', 'max:200'],
             'domain' => ['required', 'string', 'max:200'],
-            'company_website_url' => ['nullable', 'string', 'max:500'],
+            'company_website_url' => ['required', 'string', 'max:500'],
             'role' => ['required', 'string', 'max:200'],
             'assessment_type' => ['required', Rule::in(self::TYPES)],
             'mail_date' => ['nullable', 'date'],

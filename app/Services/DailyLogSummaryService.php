@@ -50,7 +50,7 @@ class DailyLogSummaryService
             $log->applications = 0;
             $log->remark = null;
             $log->created_by = $actorId;
-        } else {
+        } elseif (!$log->recruiter_id) {
             $log->recruiter_id = $candidate->recruiter_id;
         }
 

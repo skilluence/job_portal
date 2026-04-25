@@ -50,6 +50,109 @@ $workAuthOptions = [
     </div>
 @endif
 
+<style>
+.candidate-offcanvas-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.45);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1100;
+}
+.candidate-offcanvas-backdrop.open { opacity: 1; pointer-events: auto; }
+.candidate-offcanvas {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: min(460px, 100vw);
+    height: 100vh;
+    background: var(--card-bg);
+    border-left: 1px solid var(--border-color);
+    box-shadow: -20px 0 45px rgba(15, 23, 42, 0.18);
+    transform: translateX(100%);
+    transition: transform 0.24s ease;
+    z-index: 1110;
+    display: flex;
+}
+.candidate-offcanvas.open { transform: translateX(0); }
+.candidate-offcanvas form { display:flex; flex-direction:column; width:100%; min-height:0; }
+.candidate-offcanvas-header,
+.candidate-offcanvas-footer {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border-color);
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:12px;
+}
+.candidate-offcanvas-footer { border-top: 1px solid var(--border-color); border-bottom:0; }
+.candidate-offcanvas-title { font-size:18px; font-weight:700; color:var(--text-primary); }
+.candidate-offcanvas-subtitle { font-size:13px; color:var(--text-muted); margin-top:2px; }
+.candidate-offcanvas-body { padding:18px 22px; overflow:auto; display:flex; flex-direction:column; gap:14px; }
+.candidate-action-card {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 14px;
+    background: var(--card-bg);
+}
+.candidate-action-radio { display:flex; gap:10px; align-items:flex-start; cursor:pointer; margin:0; }
+.candidate-action-radio input { margin-top:3px; }
+.candidate-action-radio strong { display:block; color:var(--text-primary); font-size:14px; }
+.candidate-action-radio small { display:block; color:var(--text-muted); font-size:12px; line-height:1.4; margin-top:2px; }
+.candidate-action-fields { margin-top:14px; }
+.candidate-segmented {
+    display:grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap:6px;
+    margin-bottom:12px;
+}
+.candidate-segmented label { margin:0; }
+.candidate-segmented input { display:none; }
+.candidate-segmented span {
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    min-height:38px;
+    border:1px solid var(--border-color);
+    border-radius:7px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text-secondary);
+    cursor:pointer;
+}
+.candidate-segmented input:checked + span {
+    border-color:var(--blue);
+    background:var(--blue-light);
+    color:var(--blue-text);
+}
+.candidate-range-list { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+.candidate-range-row {
+    border:1px solid var(--border-color);
+    border-radius:8px;
+    padding:12px;
+    background:var(--main-bg);
+}
+.candidate-range-row-head {
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:10px;
+    margin-bottom:10px;
+}
+.candidate-range-row-title { font-size:13px; font-weight:700; color:var(--text-primary); }
+.candidate-range-grid {
+    display:grid;
+    grid-template-columns: 1fr 1fr;
+    gap:10px;
+}
+.candidate-range-grid .form-group:first-child { grid-column:1 / -1; }
+@media (max-width: 520px) {
+    .candidate-range-grid { grid-template-columns:1fr; }
+    .candidate-range-grid .form-group:first-child { grid-column:auto; }
+}
+</style>
+
 @if ($isManager ?? false)
 <div class="d-flex gap-12 mb-16" style="flex-wrap:wrap;align-items:stretch;">
     <a href="{{ route('admin.candidates') }}"
@@ -110,60 +213,9 @@ $workAuthOptions = [
             @endif
         </div>
 
-        <form method="POST" action="{{ route('admin.candidates.bulk-ownership') }}" id="candidateBulkOwnershipForm" class="d-flex gap-8" style="flex-wrap:wrap;align-items:flex-end;">
-            @csrf
-
-            @if ($isRealAdmin ?? false)
-                <div class="form-group mb-0">
-                    <label class="form-label">Transfer to Recruiter</label>
-                    <select name="assign_recruiter_id" id="bulkAssignRecruiter" class="form-control" style="min-width:180px;">
-                        <option value="">Select recruiter</option>
-                        @foreach ($recruiters as $recruiter)
-                            <option value="{{ $recruiter->id }}">{{ $recruiter->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <div class="form-group mb-0">
-                    <label class="form-label">Transfer to Team Manager</label>
-                    <select name="assign_team_manager_id" id="bulkAssignManager" class="form-control" style="min-width:180px;">
-                        <option value="">Select team manager</option>
-                        @foreach ($managers as $manager)
-                            <option value="{{ $manager->id }}">{{ $manager->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <button type="submit"
-                        name="bulk_action"
-                        value="assign"
-                        class="btn btn-primary btn-sm"
-                        onclick="return validateCandidateBulkAction('assign');">
-                    <i class="bi bi-arrow-left-right"></i> Assign Selected
-                </button>
-                <button type="submit"
-                        name="bulk_action"
-                        value="unassign"
-                        class="btn btn-outline btn-sm"
-                        onclick="return validateCandidateBulkAction('unassign');">
-                    <i class="bi bi-person-dash"></i> Move to Unassigned
-                </button>
-            @elseif ($ownership === 'reclaim')
-                <button type="submit"
-                        name="bulk_action"
-                        value="take_back"
-                        class="btn btn-primary btn-sm"
-                        onclick="return validateCandidateBulkAction('take_back');">
-                    <i class="bi bi-arrow-counterclockwise"></i> Take Back Selected
-                </button>
-            @else
-                <button type="submit"
-                        name="bulk_action"
-                        value="unassign"
-                        class="btn btn-outline btn-sm"
-                        onclick="return validateCandidateBulkAction('unassign');">
-                    <i class="bi bi-person-dash"></i> Move Selected to Unassigned
-                </button>
-            @endif
-        </form>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openCandidateBulkPanel()">
+            <i class="bi bi-sliders"></i> Candidate Actions
+        </button>
     </div>
 </div>
 
@@ -241,14 +293,18 @@ $workAuthOptions = [
                                 || ((int) ($candidate->recruiter?->team_manager_id ?? 0) === (int) $currentUser->id)
                             ));
                         $canTakeBack = $ownership === 'reclaim' && !$ownsCandidateNow;
+                        $temporaryUnassign = $candidate->activeTemporaryUnassign;
+                        $restoreOwner = $temporaryUnassign?->restoreRecruiter ?: $temporaryUnassign?->restoreTeamManager;
+                        $restoreOwnerRole = $temporaryUnassign?->restoreRecruiter ? 'Recruiter' : ($temporaryUnassign?->restoreTeamManager ? 'Team Manager' : null);
+                        $restoreAt = $temporaryUnassign?->temporary_ends_at
+                            ? $temporaryUnassign->temporary_ends_at->timezone(\App\Services\CandidateOwnershipService::TEMPORARY_TIMEZONE)
+                            : null;
                     @endphp
                     <tr>
                         <td>
                             <input type="checkbox"
                                    class="candidate-row-checkbox"
-                                   name="candidate_ids[]"
-                                   value="{{ $candidate->id }}"
-                                   form="candidateBulkOwnershipForm">
+                                   value="{{ $candidate->id }}">
                         </td>
                         <td class="text-muted text-sm">{{ $candidates->firstItem() + $i }}</td>
                         <td>
@@ -284,9 +340,33 @@ $workAuthOptions = [
                                 @if ($candidate->current_owner_role_label)
                                     <span style="display:block;font-size:11px;color:var(--text-muted);">{{ $candidate->current_owner_role_label }}</span>
                                 @endif
+                                @if ($temporaryUnassign)
+                                    <span class="badge badge-info" style="font-size:10px;margin-top:4px;">Temporary cover</span>
+                                    <span style="display:block;font-size:11px;color:var(--text-muted);margin-top:3px;">
+                                        Returns to {{ $restoreOwner?->name ?? 'previous owner' }}@if ($restoreAt) on {{ $restoreAt->format('M d, Y h:i A') }}@endif
+                                    </span>
+                                @endif
                             @else
-                                <span class="badge badge-warning" style="font-size:11px;">Unassigned</span>
-                                @if ($candidate->latestAssignmentHistory?->changer)
+                                <span class="badge badge-warning" style="font-size:11px;">
+                                    {{ $temporaryUnassign ? 'Temporarily Unassigned' : 'Unassigned' }}
+                                </span>
+                                @if ($temporaryUnassign)
+                                    <span style="display:block;font-size:11px;color:var(--text-muted);margin-top:3px;">
+                                        Original: {{ $restoreOwner?->name ?? 'previous owner' }}@if ($restoreOwnerRole) ({{ $restoreOwnerRole }})@endif
+                                    </span>
+                                    <span style="display:block;font-size:11px;color:var(--text-muted);">
+                                        @if ($restoreAt)
+                                            Restores {{ $restoreAt->format('M d, Y h:i A') }}
+                                        @else
+                                            Restore window pending
+                                        @endif
+                                    </span>
+                                    @if ($temporaryUnassign->changer)
+                                        <span style="display:block;font-size:11px;color:var(--text-muted);">
+                                            Unassigned by {{ $temporaryUnassign->changer->name }}
+                                        </span>
+                                    @endif
+                                @elseif ($candidate->latestAssignmentHistory?->changer)
                                     <span style="display:block;font-size:11px;color:var(--text-muted);">
                                         Last moved by {{ $candidate->latestAssignmentHistory->changer->name }}
                                     </span>
@@ -417,6 +497,127 @@ $workAuthOptions = [
     @endif
 </div>
 
+<div class="candidate-offcanvas-backdrop" id="candidateBulkBackdrop" onclick="closeCandidateBulkPanel()"></div>
+<aside class="candidate-offcanvas" id="candidateBulkPanel" aria-hidden="true">
+    <form method="POST" action="{{ route('admin.candidates.bulk-ownership') }}" id="candidateBulkOwnershipForm">
+        @csrf
+        <div class="candidate-offcanvas-header">
+            <div>
+                <div class="candidate-offcanvas-title">Candidate Actions</div>
+                <div class="candidate-offcanvas-subtitle"><span id="candidateBulkSelectedCount">0</span> selected</div>
+            </div>
+            <button type="button" class="modal-close" onclick="closeCandidateBulkPanel()">&times;</button>
+        </div>
+
+        <div class="candidate-offcanvas-body">
+            <div id="candidateBulkIds"></div>
+
+            @if ($ownership === 'reclaim' && !($isRealAdmin ?? false))
+                <div class="candidate-action-card">
+                    <label class="candidate-action-radio">
+                        <input type="radio" name="bulk_action" value="take_back" checked>
+                        <span>
+                            <strong>Take Back</strong>
+                            <small>Move selected candidates back under your ownership.</small>
+                        </span>
+                    </label>
+                </div>
+            @else
+                @if ($isRealAdmin ?? false)
+                    <div class="candidate-action-card">
+                        <label class="candidate-action-radio">
+                            <input type="radio" name="bulk_action" value="assign" checked onchange="syncCandidateBulkActionPanel()">
+                            <span>
+                                <strong>Transfer Ownership</strong>
+                                <small>Assign selected candidates to one recruiter or team manager. During an active temporary unassign window, this acts as coverage until the original owner is restored.</small>
+                            </span>
+                        </label>
+                        <div class="candidate-action-fields" id="candidateAssignFields">
+                            <label class="form-label">Transfer To</label>
+                            <select name="assign_owner" id="bulkAssignOwner" class="form-control">
+                                <option value="">Select recruiter or team manager</option>
+                                @if ($recruiters->count())
+                                    <optgroup label="Recruiters">
+                                        @foreach ($recruiters as $recruiter)
+                                            <option value="recruiter:{{ $recruiter->id }}">{{ $recruiter->name }} (Recruiter)</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if ($managers->count())
+                                    <optgroup label="Team Managers">
+                                        @foreach ($managers as $manager)
+                                            <option value="manager:{{ $manager->id }}">{{ $manager->name }} (Team Manager)</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                            </select>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="candidate-action-card">
+                    <label class="candidate-action-radio">
+                        <input type="radio" name="bulk_action" value="unassign" @if (!($isRealAdmin ?? false)) checked @endif onchange="syncCandidateBulkActionPanel()">
+                        <span>
+                            <strong>Unassign Temporarily</strong>
+                            <small>Remove ownership for full days or a specific time range, then restore automatically.</small>
+                        </span>
+                    </label>
+
+                    <div class="candidate-action-fields" id="candidateUnassignFields">
+                        <div class="candidate-segmented">
+                            <label>
+                                <input type="radio" name="unassign_type" value="full_day" checked onchange="syncUnassignTypePanel()">
+                                <span>Full Day</span>
+                            </label>
+                            <label>
+                                <input type="radio" name="unassign_type" value="time_range" onchange="syncUnassignTypePanel()">
+                                <span>Time Range</span>
+                            </label>
+                            @if ($isRealAdmin ?? false)
+                                <label>
+                                    <input type="radio" name="unassign_type" value="permanent" onchange="syncUnassignTypePanel()">
+                                    <span>Permanent</span>
+                                </label>
+                            @endif
+                        </div>
+
+                        <div id="unassignFullDayFields">
+                            <label class="form-label">Unassign Date(s)</label>
+                            <input type="text" id="bulkUnassignDatesDisplay" class="form-control" placeholder="Select one or more dates">
+                            <input type="hidden" name="unassign_dates" id="bulkUnassignDates">
+                        </div>
+
+                        <div id="unassignTimeRangeFields" style="display:none;">
+                            <div class="candidate-range-list" id="bulkUnassignRangeList"></div>
+                            <button type="button" class="btn btn-outline btn-sm" onclick="addUnassignRangeRow()">
+                                <i class="bi bi-plus-lg"></i> Add More
+                            </button>
+                            <div class="text-muted text-sm" style="margin-top:8px;">
+                                Add multiple rows for different dates or multiple ranges on the same date.
+                            </div>
+                        </div>
+
+                        @if ($isRealAdmin ?? false)
+                            <div class="alert alert-error mb-0" id="unassignPermanentNotice" style="display:none;padding:10px 12px;">
+                                <i class="bi bi-exclamation-circle-fill"></i>
+                                <div>Permanent unassign removes ownership until an admin transfers the candidate again.</div>
+                            </div>
+                        @endif
+                    </div>
+                </div>
+            @endif
+        </div>
+
+        <div class="candidate-offcanvas-footer">
+            <button type="button" class="btn btn-outline" onclick="closeCandidateBulkPanel()">Cancel</button>
+            <button type="submit" class="btn btn-primary" onclick="return validateCandidateBulkAction();">
+                <i class="bi bi-check-lg"></i> Apply Action
+            </button>
+        </div>
+    </form>
+</aside>
+
 {{-- ============================================================ --}}
 {{-- ADD CANDIDATE MODAL --}}
 {{-- ============================================================ --}}
@@ -456,6 +657,8 @@ $workAuthOptions = [
 @push('scripts')
 <script>
 window.__isManager = {{ $isManager ? 'true' : 'false' }};
+window.__isRealAdmin = {{ ($isRealAdmin ?? false) ? 'true' : 'false' }};
+var bulkUnassignRangeIndex = 0;
 
 function getSelectedCandidateCheckboxes() {
     return Array.from(document.querySelectorAll('.candidate-row-checkbox:checked'));
@@ -467,21 +670,197 @@ function toggleAllCandidateRows(source) {
     });
 }
 
-function validateCandidateBulkAction(action) {
+function selectedBulkAction() {
+    var checked = document.querySelector('input[name="bulk_action"]:checked');
+    return checked ? checked.value : '';
+}
+
+function selectedUnassignType() {
+    var checked = document.querySelector('input[name="unassign_type"]:checked');
+    return checked ? checked.value : 'full_day';
+}
+
+function syncBulkCandidateIds() {
+    var container = document.getElementById('candidateBulkIds');
+    var count = document.getElementById('candidateBulkSelectedCount');
+    var selected = getSelectedCandidateCheckboxes();
+    if (!container) return selected;
+
+    container.innerHTML = '';
+    selected.forEach(function (checkbox) {
+        var input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'candidate_ids[]';
+        input.value = checkbox.value;
+        container.appendChild(input);
+    });
+
+    if (count) count.textContent = selected.length;
+    return selected;
+}
+
+function openCandidateBulkPanel() {
+    var selected = syncBulkCandidateIds();
+    if (!selected.length) {
+        alert('Select at least one candidate first.');
+        return;
+    }
+
+    document.getElementById('candidateBulkBackdrop').classList.add('open');
+    document.getElementById('candidateBulkPanel').classList.add('open');
+    document.getElementById('candidateBulkPanel').setAttribute('aria-hidden', 'false');
+    syncCandidateBulkActionPanel();
+}
+
+function closeCandidateBulkPanel() {
+    document.getElementById('candidateBulkBackdrop').classList.remove('open');
+    document.getElementById('candidateBulkPanel').classList.remove('open');
+    document.getElementById('candidateBulkPanel').setAttribute('aria-hidden', 'true');
+}
+
+function syncCandidateBulkActionPanel() {
+    var action = selectedBulkAction();
+    var assignFields = document.getElementById('candidateAssignFields');
+    var unassignFields = document.getElementById('candidateUnassignFields');
+    if (assignFields) assignFields.style.display = action === 'assign' ? '' : 'none';
+    if (unassignFields) unassignFields.style.display = action === 'unassign' ? '' : 'none';
+    syncUnassignTypePanel();
+}
+
+function syncUnassignTypePanel() {
+    var type = selectedUnassignType();
+    var fullDay = document.getElementById('unassignFullDayFields');
+    var timeRange = document.getElementById('unassignTimeRangeFields');
+    var permanent = document.getElementById('unassignPermanentNotice');
+    if (fullDay) fullDay.style.display = type === 'full_day' ? '' : 'none';
+    if (timeRange) timeRange.style.display = type === 'time_range' ? '' : 'none';
+    if (permanent) permanent.style.display = type === 'permanent' ? '' : 'none';
+
+    if (type === 'time_range' && document.querySelectorAll('.candidate-range-row').length === 0) {
+        addUnassignRangeRow();
+    }
+}
+
+function todayYmd() {
+    var now = new Date();
+    var month = String(now.getMonth() + 1).padStart(2, '0');
+    var day = String(now.getDate()).padStart(2, '0');
+    return now.getFullYear() + '-' + month + '-' + day;
+}
+
+function isPastSelectedTime(dateValue, timeValue) {
+    if (!dateValue || !timeValue) return false;
+    var selected = new Date(dateValue + 'T' + timeValue);
+    return selected.getTime() < Date.now();
+}
+
+function initFlatpickrForRangeRow(row) {
+    if (typeof flatpickr === 'undefined' || !row) return;
+
+    row.querySelectorAll('[data-range-date]').forEach(function (input) {
+        if (input._flatpickr) return;
+        flatpickr(input, {
+            dateFormat: 'Y-m-d',
+            minDate: 'today',
+            allowInput: false,
+        });
+    });
+
+    row.querySelectorAll('[data-range-time]').forEach(function (input) {
+        if (input._flatpickr) return;
+        flatpickr(input, {
+            enableTime: true,
+            noCalendar: true,
+            dateFormat: 'H:i',
+            altInput: true,
+            altFormat: 'h:i K',
+            time_24hr: false,
+            minuteIncrement: 5,
+            allowInput: false,
+        });
+    });
+}
+
+function refreshUnassignRangeTitles() {
+    document.querySelectorAll('.candidate-range-row').forEach(function (row, index) {
+        var title = row.querySelector('.candidate-range-row-title');
+        var removeBtn = row.querySelector('[data-remove-range]');
+        if (title) title.textContent = 'Time Range ' + (index + 1);
+        if (removeBtn) removeBtn.style.display = index === 0 ? 'none' : '';
+    });
+}
+
+function addUnassignRangeRow() {
+    var list = document.getElementById('bulkUnassignRangeList');
+    if (!list) return;
+
+    var index = bulkUnassignRangeIndex++;
+    var row = document.createElement('div');
+    row.className = 'candidate-range-row';
+    row.innerHTML = [
+        '<div class="candidate-range-row-head">',
+            '<div class="candidate-range-row-title">Time Range</div>',
+            '<button type="button" class="btn btn-outline btn-sm" data-remove-range onclick="removeUnassignRangeRow(this)" title="Remove range">',
+                '<i class="bi bi-x-lg"></i>',
+            '</button>',
+        '</div>',
+        '<div class="candidate-range-grid">',
+            '<div class="form-group mb-0">',
+                '<label class="form-label">Date</label>',
+                '<input type="text" name="unassign_ranges[' + index + '][date]" class="form-control" data-range-date placeholder="Select date">',
+            '</div>',
+            '<div class="form-group mb-0">',
+                '<label class="form-label">Start Time</label>',
+                '<input type="text" name="unassign_ranges[' + index + '][start_time]" class="form-control" data-range-time placeholder="Select start time">',
+            '</div>',
+            '<div class="form-group mb-0">',
+                '<label class="form-label">End Time</label>',
+                '<input type="text" name="unassign_ranges[' + index + '][end_time]" class="form-control" data-range-time placeholder="Select end time">',
+            '</div>',
+        '</div>',
+    ].join('');
+
+    list.appendChild(row);
+    initFlatpickrForRangeRow(row);
+    refreshUnassignRangeTitles();
+}
+
+function removeUnassignRangeRow(button) {
+    var row = button.closest('.candidate-range-row');
+    if (!row) return;
+    row.remove();
+    if (document.querySelectorAll('.candidate-range-row').length === 0) {
+        addUnassignRangeRow();
+    }
+    refreshUnassignRangeTitles();
+}
+
+function getUnassignRangeRows() {
+    return Array.from(document.querySelectorAll('.candidate-range-row')).map(function (row) {
+        return {
+            row: row,
+            date: row.querySelector('[data-range-date]'),
+            start: row.querySelector('[name$="[start_time]"]'),
+            end: row.querySelector('[name$="[end_time]"]'),
+        };
+    });
+}
+
+function validateCandidateBulkAction() {
+    syncBulkCandidateIds();
     var selected = getSelectedCandidateCheckboxes();
     if (!selected.length) {
         alert('Select at least one candidate first.');
         return false;
     }
 
-    if (action === 'assign') {
-        var recruiterSelect = document.getElementById('bulkAssignRecruiter');
-        var managerSelect = document.getElementById('bulkAssignManager');
-        var recruiterId = recruiterSelect ? recruiterSelect.value : '';
-        var managerId = managerSelect ? managerSelect.value : '';
+    var action = selectedBulkAction();
 
-        if ((!recruiterId && !managerId) || (recruiterId && managerId)) {
-            alert('Select either one recruiter or one team manager for the transfer.');
+    if (action === 'assign') {
+        var ownerSelect = document.getElementById('bulkAssignOwner');
+
+        if (!ownerSelect || !ownerSelect.value) {
+            alert('Select one recruiter or team manager for the transfer.');
             return false;
         }
 
@@ -492,26 +871,78 @@ function validateCandidateBulkAction(action) {
         return confirm('Take the selected candidates back under your ownership?');
     }
 
-    return confirm('Move the selected candidates to unassigned?');
+    if (action === 'unassign') {
+        var type = selectedUnassignType();
+
+        if (type === 'permanent') {
+            if (!window.__isRealAdmin) {
+                alert('Only admin can permanently unassign candidates.');
+                return false;
+            }
+
+            return confirm('Permanently move the selected candidates to unassigned?');
+        }
+
+        if (type === 'full_day') {
+            var dates = document.getElementById('bulkUnassignDates');
+            if (!dates || !dates.value) {
+                alert('Select at least one unassign date.');
+                return false;
+            }
+
+            return confirm('Temporarily unassign selected candidates for the selected full day(s)?');
+        }
+
+        var rows = getUnassignRangeRows();
+        if (!rows.length) {
+            alert('Add at least one time range.');
+            return false;
+        }
+
+        for (var i = 0; i < rows.length; i++) {
+            var range = rows[i];
+            if (!range.date.value || !range.start.value || !range.end.value) {
+                alert('Select date, start time, and end time for Time Range ' + (i + 1) + '.');
+                return false;
+            }
+            if (range.end.value <= range.start.value) {
+                alert('End time must be after start time for Time Range ' + (i + 1) + '.');
+                return false;
+            }
+            if (isPastSelectedTime(range.date.value, range.start.value)) {
+                alert('Past time cannot be selected for Time Range ' + (i + 1) + '.');
+                return false;
+            }
+        }
+
+        return confirm('Temporarily unassign selected candidates for the configured time range(s)?');
+    }
+
+    alert('Select an action first.');
+    return false;
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    var recruiterSelect = document.getElementById('bulkAssignRecruiter');
-    var managerSelect = document.getElementById('bulkAssignManager');
-
-    if (recruiterSelect && managerSelect) {
-        recruiterSelect.addEventListener('change', function () {
-            if (this.value) {
-                managerSelect.value = '';
-            }
-        });
-
-        managerSelect.addEventListener('change', function () {
-            if (this.value) {
-                recruiterSelect.value = '';
-            }
-        });
+    if (typeof flatpickr !== 'undefined') {
+        var display = document.getElementById('bulkUnassignDatesDisplay');
+        var hidden = document.getElementById('bulkUnassignDates');
+        if (display && hidden) {
+            flatpickr(display, {
+                mode: 'multiple',
+                dateFormat: 'Y-m-d',
+                minDate: 'today',
+                onChange: function (selectedDates, dateStr) {
+                    hidden.value = dateStr.replace(/, /g, ',');
+                },
+            });
+        }
     }
+
+    document.querySelectorAll('input[name="bulk_action"]').forEach(function (input) {
+        input.addEventListener('change', syncCandidateBulkActionPanel);
+    });
+
+    syncCandidateBulkActionPanel();
 });
 </script>
 @endpush

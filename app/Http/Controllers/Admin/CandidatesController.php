@@ -10,6 +10,7 @@ use App\Models\DailyLog;
 use App\Models\Interview;
 use App\Models\User;
 use App\Services\CandidateOwnershipService;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +18,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class CandidatesController extends Controller
 {
@@ -73,7 +75,15 @@ class CandidatesController extends Controller
             ? $this->reclaimableCandidatesQuery($user, $candidateOwnershipService)->count()
             : 0;
 
-        $candidatesQuery = Candidate::with(['recruiter', 'teamManager', 'resumes', 'latestAssignmentHistory.changer']);
+        $candidatesQuery = Candidate::with([
+            'recruiter',
+            'teamManager',
+            'resumes',
+            'latestAssignmentHistory.changer',
+            'activeTemporaryUnassign.changer',
+            'activeTemporaryUnassign.restoreRecruiter',
+            'activeTemporaryUnassign.restoreTeamManager',
+        ]);
 
         if ($ownership === 'unassigned') {
             $candidatesQuery->whereNull('recruiter_id')->whereNull('team_manager_id');
@@ -379,9 +389,21 @@ class CandidatesController extends Controller
             'candidate_ids' => ['required', 'array', 'min:1'],
             'candidate_ids.*' => ['integer', 'exists:candidates,id'],
             'bulk_action' => ['required', Rule::in(['unassign', 'assign', 'take_back'])],
+            'assign_owner' => ['nullable', 'string'],
             'assign_recruiter_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'recruiter'))],
             'assign_team_manager_id' => ['nullable', Rule::exists('users', 'id')->where(fn ($q) => $q->where('role', 'manager'))],
+            'unassign_type' => ['nullable', Rule::in(['full_day', 'time_range', 'permanent'])],
+            'unassign_dates' => ['nullable', 'string'],
+            'unassign_date' => ['nullable', 'date'],
+            'unassign_start_time' => ['nullable', 'date_format:H:i'],
+            'unassign_end_time' => ['nullable', 'date_format:H:i'],
+            'unassign_ranges' => ['nullable', 'array'],
+            'unassign_ranges.*.date' => ['nullable', 'date'],
+            'unassign_ranges.*.start_time' => ['nullable', 'date_format:H:i'],
+            'unassign_ranges.*.end_time' => ['nullable', 'date_format:H:i'],
         ]);
+
+        $candidateOwnershipService->syncTemporaryUnassignments();
 
         $candidateIds = array_values(array_unique(array_map('intval', $validated['candidate_ids'])));
         $bulkAction = (string) $validated['bulk_action'];
@@ -403,12 +425,11 @@ class CandidatesController extends Controller
                 abort(403, 'Only admin can bulk assign candidates.');
             }
 
-            $toRecruiterId = $validated['assign_recruiter_id'] ? (int) $validated['assign_recruiter_id'] : null;
-            $toTeamManagerId = $validated['assign_team_manager_id'] ? (int) $validated['assign_team_manager_id'] : null;
+            [$toRecruiterId, $toTeamManagerId] = $this->resolveBulkOwnerSelection($validated);
 
             if (($toRecruiterId && $toTeamManagerId) || (!$toRecruiterId && !$toTeamManagerId)) {
                 return back()->withErrors([
-                    'assign_recruiter_id' => 'Select either one recruiter or one team manager for the bulk transfer.',
+                    'assign_owner' => 'Select one recruiter or team manager for the transfer.',
                 ]);
             }
 
@@ -441,17 +462,42 @@ class CandidatesController extends Controller
                 }
             }
 
+            $unassignType = $validated['unassign_type'] ?? 'full_day';
+            if ($unassignType === 'permanent' && !$user->isAdmin()) {
+                abort(403, 'Only admin can permanently unassign candidates.');
+            }
+
             $actionLabel = 'unassigned';
         }
 
-        $changedCount = $candidateOwnershipService->bulkChangeOwnership(
-            $candidates,
-            $toRecruiterId,
-            $toTeamManagerId,
-            $user,
-            $actionLabel,
-            'Updated from bulk ownership action'
-        );
+        if ($bulkAction === 'unassign' && (($validated['unassign_type'] ?? 'full_day') !== 'permanent')) {
+            $windows = $this->temporaryUnassignWindows($validated);
+            $changedCount = 0;
+
+            foreach ($candidates as $candidate) {
+                foreach ($windows as $window) {
+                    if ($candidateOwnershipService->scheduleTemporaryUnassign(
+                        $candidate,
+                        $window['starts_at'],
+                        $window['ends_at'],
+                        $user,
+                        $window['note']
+                    )) {
+                        $changedCount++;
+                    }
+                }
+            }
+            $candidateOwnershipService->syncTemporaryUnassignments();
+        } else {
+            $changedCount = $candidateOwnershipService->bulkChangeOwnership(
+                $candidates,
+                $toRecruiterId,
+                $toTeamManagerId,
+                $user,
+                $actionLabel,
+                'Updated from bulk ownership action'
+            );
+        }
 
         AuditLog::log(
             'updated',
@@ -463,13 +509,16 @@ class CandidatesController extends Controller
                 'changed_count' => $changedCount,
                 'to_recruiter_id' => $toRecruiterId,
                 'to_team_manager_id' => $toTeamManagerId,
+                'unassign_type' => $validated['unassign_type'] ?? null,
             ]
         );
 
         $successMessage = match ($actionLabel) {
             'assigned' => $changedCount . ' candidate(s) reassigned successfully.',
             'taken_back' => $changedCount . ' candidate(s) taken back successfully.',
-            default => $changedCount . ' candidate(s) moved to unassigned successfully.',
+            default => (($bulkAction === 'unassign' && (($validated['unassign_type'] ?? 'full_day') !== 'permanent'))
+                ? $changedCount . ' temporary unassign window(s) scheduled successfully.'
+                : $changedCount . ' candidate(s) moved to unassigned successfully.'),
         };
 
         return back()->with('success', $successMessage);
@@ -745,7 +794,7 @@ class CandidatesController extends Controller
         }
 
         $candidate->$field = $value ?: null;
-        if ($field === 'first_name' || $field === 'last_name') {
+        if (in_array($field, ['first_name', 'middle_name', 'last_name'], true)) {
             $candidate->full_name = trim(($candidate->first_name ?? '') . ' ' . ($candidate->middle_name ?? '') . ' ' . ($candidate->last_name ?? ''));
         }
         $candidate->save();
@@ -797,6 +846,139 @@ class CandidatesController extends Controller
     private function hasDualOwnerSelection(array $data): bool
     {
         return !empty($data['recruiter_id']) && !empty($data['team_manager_id']);
+    }
+
+    private function resolveBulkOwnerSelection(array $validated): array
+    {
+        $owner = (string) ($validated['assign_owner'] ?? '');
+        if ($owner !== '') {
+            [$type, $id] = array_pad(explode(':', $owner, 2), 2, null);
+            $id = (int) $id;
+
+            if ($type === 'recruiter' && $id > 0) {
+                $exists = User::query()->where('role', 'recruiter')->whereKey($id)->exists();
+                if (!$exists) {
+                    throw ValidationException::withMessages(['assign_owner' => 'Selected recruiter was not found.']);
+                }
+
+                return [$id, null];
+            }
+
+            if ($type === 'manager' && $id > 0) {
+                $exists = User::query()->where('role', 'manager')->whereKey($id)->exists();
+                if (!$exists) {
+                    throw ValidationException::withMessages(['assign_owner' => 'Selected team manager was not found.']);
+                }
+
+                return [null, $id];
+            }
+        }
+
+        return [
+            !empty($validated['assign_recruiter_id']) ? (int) $validated['assign_recruiter_id'] : null,
+            !empty($validated['assign_team_manager_id']) ? (int) $validated['assign_team_manager_id'] : null,
+        ];
+    }
+
+    private function temporaryUnassignWindows(array $validated): array
+    {
+        $type = $validated['unassign_type'] ?? 'full_day';
+        $now = now(CandidateOwnershipService::TEMPORARY_TIMEZONE);
+
+        if ($type === 'time_range') {
+            $ranges = collect($validated['unassign_ranges'] ?? [])
+                ->filter(fn ($range) => !empty($range['date']) || !empty($range['start_time']) || !empty($range['end_time']))
+                ->values();
+
+            if ($ranges->isEmpty() && !empty($validated['unassign_date'])) {
+                $ranges = collect([[
+                    'date' => $validated['unassign_date'] ?? null,
+                    'start_time' => $validated['unassign_start_time'] ?? null,
+                    'end_time' => $validated['unassign_end_time'] ?? null,
+                ]]);
+            }
+
+            if ($ranges->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'unassign_ranges' => 'Add at least one date and time range.',
+                ]);
+            }
+
+            return $ranges->map(function (array $range, int $index) use ($now) {
+                $date = $range['date'] ?? null;
+                $startTime = $range['start_time'] ?? null;
+                $endTime = $range['end_time'] ?? null;
+                $label = 'Time Range ' . ($index + 1);
+
+                if (!$date || !$startTime || !$endTime) {
+                    throw ValidationException::withMessages([
+                        'unassign_ranges' => "Select date, start time, and end time for {$label}.",
+                    ]);
+                }
+
+                $startsAt = Carbon::createFromFormat(
+                    'Y-m-d H:i',
+                    $date . ' ' . $startTime,
+                    CandidateOwnershipService::TEMPORARY_TIMEZONE
+                );
+                $endsAt = Carbon::createFromFormat(
+                    'Y-m-d H:i',
+                    $date . ' ' . $endTime,
+                    CandidateOwnershipService::TEMPORARY_TIMEZONE
+                );
+
+                if ($endsAt->lessThanOrEqualTo($startsAt)) {
+                    throw ValidationException::withMessages([
+                        'unassign_ranges' => "End time must be after start time for {$label}.",
+                    ]);
+                }
+
+                if ($startsAt->lessThan($now)) {
+                    throw ValidationException::withMessages([
+                        'unassign_ranges' => "Past time cannot be selected for {$label}.",
+                    ]);
+                }
+
+                return [
+                    'starts_at' => $startsAt,
+                    'ends_at' => $endsAt,
+                    'note' => 'Temporary unassign for selected time range',
+                ];
+            })->all();
+        }
+
+        $dates = collect(explode(',', (string) ($validated['unassign_dates'] ?? '')))
+            ->map(fn ($date) => trim($date))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($dates->isEmpty()) {
+            throw ValidationException::withMessages([
+                'unassign_dates' => 'Select at least one unassign date.',
+            ]);
+        }
+
+        return $dates->map(function (string $date) use ($now) {
+            $startsAt = Carbon::createFromFormat(
+                'Y-m-d H:i:s',
+                $date . ' 00:00:00',
+                CandidateOwnershipService::TEMPORARY_TIMEZONE
+            );
+            $endsAt = $startsAt->copy()->endOfDay();
+
+            if ($endsAt->lessThan($now)) {
+                throw ValidationException::withMessages([
+                    'unassign_dates' => 'Past dates cannot be selected.',
+                ]);
+            }
+
+            return [
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'note' => 'Temporary full-day unassign',
+            ];
+        })->all();
     }
 
     private function reclaimableCandidatesQuery(

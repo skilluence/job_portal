@@ -15,6 +15,19 @@ class CandidateAssignmentHistory extends Model
         'changed_by',
         'action',
         'note',
+        'temporary_starts_at',
+        'temporary_ends_at',
+        'temporary_activated_at',
+        'temporary_restored_at',
+        'restore_recruiter_id',
+        'restore_team_manager_id',
+    ];
+
+    protected $casts = [
+        'temporary_starts_at' => 'datetime',
+        'temporary_ends_at' => 'datetime',
+        'temporary_activated_at' => 'datetime',
+        'temporary_restored_at' => 'datetime',
     ];
 
     public function candidate()
@@ -45,5 +58,15 @@ class CandidateAssignmentHistory extends Model
     public function toTeamManager()
     {
         return $this->belongsTo(User::class, 'to_team_manager_id');
+    }
+
+    public function restoreRecruiter()
+    {
+        return $this->belongsTo(User::class, 'restore_recruiter_id');
+    }
+
+    public function restoreTeamManager()
+    {
+        return $this->belongsTo(User::class, 'restore_team_manager_id');
     }
 }

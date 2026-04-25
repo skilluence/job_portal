@@ -33,8 +33,8 @@ class InterviewController extends Controller
         }
 
         $data = $request->validate([
-            'application_date'   => ['nullable', 'date'],
-            'application_time'   => ['nullable', 'date_format:H:i'],
+            'application_date'   => ['required', 'date'],
+            'application_time'   => ['required', 'date_format:H:i'],
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
             'company_domain'     => ['required', 'string', 'max:500'],
@@ -97,8 +97,8 @@ class InterviewController extends Controller
         $previousDate = $dailyLogSummaryService->interviewLogDate($interview);
 
         $data = $request->validate([
-            'application_date'   => ['nullable', 'date'],
-            'application_time'   => ['nullable', 'date_format:H:i'],
+            'application_date'   => ['required', 'date'],
+            'application_time'   => ['required', 'date_format:H:i'],
             'role'               => ['required', 'string', 'max:200'],
             'company_name'       => ['required', 'string', 'max:200'],
             'company_domain'     => ['required', 'string', 'max:500'],

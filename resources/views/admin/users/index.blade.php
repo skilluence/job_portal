@@ -354,10 +354,6 @@
                                 <i class="bi bi-eye"></i>
                             </button>
                         </div>
-                        <div style="font-size:11.5px;margin-top:4px;color:var(--text-muted,#888);">
-                            <i class="bi bi-shield-lock" style="font-size:11px;"></i>
-                            Stored encrypted for admin reference. If this is blank, reset the password below.
-                        </div>
                     </div>
                     @endif
 
