@@ -222,7 +222,7 @@
     {{-- ════ TAB: Applications & Assessment ════ --}}
     <div id="tabApps" class="rpt-tab-panel active">
 
-        @if ($totals['applications'] === 0 && $totals['assessment'] === 0)
+        @if ($totals['applications'] === 0 && $totals['assessment'] === 0 && $totals['log_interviews'] === 0)
             <div style="text-align:center;padding:48px 0;color:var(--text-muted);">
                 <i class="bi bi-bar-chart" style="font-size:36px;margin-bottom:12px;display:block;opacity:.4;"></i>
                 <div style="font-size:14px;font-weight:500;">No activity recorded</div>
@@ -501,6 +501,9 @@
                             ];
                             $assessmentTime = $assessment->assessment_time ? \Carbon\Carbon::parse($assessment->assessment_time)->format('g:i A') : null;
                             $mailTime = $assessment->mail_time ? \Carbon\Carbon::parse($assessment->mail_time)->format('g:i A') : null;
+                            $assessmentWebsiteHref = $assessment->company_website_url
+                                ? (preg_match('/^https?:\/\//i', $assessment->company_website_url) ? $assessment->company_website_url : 'https://' . $assessment->company_website_url)
+                                : null;
                         @endphp
                         <tr>
                             <td>
@@ -521,7 +524,7 @@
                             </td>
                             <td style="max-width:180px;word-break:break-all;">
                                 @if ($assessment->company_website_url)
-                                    <a href="{{ $assessment->company_website_url }}" target="_blank" rel="noopener" style="color:var(--blue);">{{ $assessment->company_website_url }}</a>
+                                    <a href="{{ $assessmentWebsiteHref }}" target="_blank" rel="noopener" style="color:var(--blue);">{{ $assessment->company_website_url }}</a>
                                 @else
                                     <span class="text-muted">-</span>
                                 @endif
@@ -602,6 +605,15 @@
                     data: @json($chartAssessment),
                     backgroundColor: 'rgba(139,92,246,0.75)',
                     borderColor: '#8b5cf6',
+                    borderWidth: 0,
+                    borderRadius: barRadius,
+                    borderSkipped: 'bottom',
+                },
+                {
+                    label: 'Interviews',
+                    data: @json($chartInterviews),
+                    backgroundColor: 'rgba(22,163,74,0.72)',
+                    borderColor: '#16a34a',
                     borderWidth: 0,
                     borderRadius: barRadius,
                     borderSkipped: 'bottom',

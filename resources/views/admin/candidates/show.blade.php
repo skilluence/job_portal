@@ -41,11 +41,11 @@ $totalInterviews = $interviews->count();
 <style>
 .preview-layout {
     display: flex;
-    gap: 20px;
+    gap: 18px;
     align-items: flex-start;
 }
 .preview-left {
-    flex: 0 0 340px;
+    flex: 0 0 360px;
     position: sticky;
     top: 84px;
     max-height: calc(100vh - 104px);
@@ -57,6 +57,32 @@ $totalInterviews = $interviews->count();
     flex: 1;
     min-width: 0;
 }
+.preview-left .card {
+    border-radius: 8px;
+    padding: 18px !important;
+}
+.preview-profile-head {
+    display:flex;
+    align-items:center;
+    gap:14px;
+    margin-bottom:16px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--border-color);
+}
+.preview-profile-name {
+    font-size:17px;
+    font-weight:800;
+    color:var(--text-primary);
+    line-height:1.2;
+}
+.preview-profile-meta {
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+    margin-top:5px;
+    color:var(--text-muted);
+    font-size:12px;
+}
 .candidate-avatar-xl {
     width: 68px; height: 68px; border-radius: 50%;
     background: linear-gradient(135deg, var(--blue), #3b82f6);
@@ -66,24 +92,30 @@ $totalInterviews = $interviews->count();
     box-shadow: 0 4px 14px rgba(37,99,235,0.28);
 }
 .profile-section-title {
-    font-size: 10.5px; font-weight: 700; color: var(--text-muted);
+    font-size: 10.5px; font-weight: 800; color: var(--text-secondary);
     text-transform: uppercase; letter-spacing: 0.07em;
-    margin: 16px 0 10px; padding-bottom: 6px;
+    margin: 18px 0 10px; padding-bottom: 7px;
     border-bottom: 1px solid var(--border-color);
 }
 .detail-row {
-    display: flex; align-items: flex-start;
-    padding: 5px 0; gap: 8px; position: relative;
-    min-height: 28px;
+    display: grid;
+    grid-template-columns: 118px minmax(0, 1fr) 22px;
+    align-items: flex-start;
+    padding: 7px 0;
+    gap: 8px;
+    position: relative;
+    min-height: 32px;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.14);
 }
+.detail-row:last-child { border-bottom: none; }
 .detail-row:hover .edit-pencil { opacity: 1; }
 .detail-label {
-    flex: 0 0 120px; font-size: 12px; color: var(--text-muted);
-    font-weight: 500; padding-top: 2px; flex-shrink: 0;
+    font-size: 11.5px; color: var(--text-muted);
+    font-weight: 700; padding-top: 2px;
 }
 .detail-value {
-    flex: 1; font-size: 12.5px; color: var(--text-primary);
-    font-weight: 400; min-width: 0; word-break: break-word;
+    font-size: 12.5px; color: var(--text-primary);
+    font-weight: 600; min-width: 0; word-break: break-word;
 }
 .edit-pencil {
     opacity: 0; cursor: pointer; color: var(--text-muted);
@@ -148,11 +180,105 @@ $totalInterviews = $interviews->count();
 }
 .summary-stat {
     background: var(--card-bg); border: 1px solid var(--border-color);
-    border-radius: var(--radius-sm); padding: 10px 18px;
-    text-align: center; flex: 1; min-width: 80px;
+    border-radius: 8px; padding: 12px 16px;
+    text-align: left; flex: 1; min-width: 120px;
 }
 .summary-stat-val { font-size: 22px; font-weight: 700; color: var(--text-primary); }
-.summary-stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.summary-stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; }
+
+.assessment-preview-list {
+    display:grid;
+    gap:12px;
+    padding:14px;
+}
+.assessment-preview-card {
+    display:grid;
+    grid-template-columns:minmax(0, 1.4fr) minmax(0, 1fr) auto;
+    gap:14px;
+    align-items:start;
+    padding:14px;
+    border:1px solid var(--border-color);
+    border-radius:8px;
+    background:var(--card-bg);
+}
+.assessment-preview-main {
+    min-width:0;
+}
+.assessment-preview-title {
+    font-size:14px;
+    font-weight:800;
+    color:var(--text-primary);
+    line-height:1.3;
+}
+.assessment-preview-sub {
+    margin-top:4px;
+    font-size:12px;
+    color:var(--text-muted);
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px 12px;
+}
+.assessment-preview-meta {
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    min-width:0;
+}
+.preview-kv {
+    min-width:0;
+}
+.preview-kv-label {
+    font-size:10.5px;
+    font-weight:800;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+    color:var(--text-muted);
+}
+.preview-kv-value {
+    margin-top:2px;
+    font-size:12.5px;
+    color:var(--text-primary);
+    font-weight:600;
+    overflow-wrap:anywhere;
+}
+.assessment-preview-actions {
+    display:flex;
+    gap:6px;
+    justify-content:flex-end;
+}
+#tab-assessments .table-wrapper {
+    border: 0;
+    box-shadow: none;
+    padding: 14px;
+}
+#tab-assessments table {
+    min-width: 980px;
+    border-collapse: separate;
+    border-spacing: 0 10px;
+}
+#tab-assessments thead th {
+    background: transparent;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0 12px 10px;
+}
+#tab-assessments tbody tr {
+    border: 1px solid var(--border-color);
+    box-shadow: 0 1px 4px rgba(15, 23, 42, 0.04);
+}
+#tab-assessments tbody td {
+    background: var(--card-bg);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+    padding: 14px 12px;
+}
+#tab-assessments tbody td:first-child {
+    border-left: 1px solid var(--border-color);
+    border-radius: 8px 0 0 8px;
+}
+#tab-assessments tbody td:last-child {
+    border-right: 1px solid var(--border-color);
+    border-radius: 0 8px 8px 0;
+}
 
 /* Interview type badges */
 .type-phone  { background: var(--blue-light);   color: var(--blue-text); }
@@ -189,6 +315,11 @@ $totalInterviews = $interviews->count();
     .preview-left { position: static; max-height: none; flex: none; width: 100%; }
     .preview-inline-editor { margin-left:0; width:100%; }
 }
+@media (max-width: 760px) {
+    .assessment-preview-card { grid-template-columns:1fr; }
+    .assessment-preview-meta { grid-template-columns:1fr; }
+    .assessment-preview-actions { justify-content:flex-start; }
+}
 </style>
 
 {{-- Flash messages --}}
@@ -216,22 +347,20 @@ $totalInterviews = $interviews->count();
 
         <div class="card" style="padding:20px;">
             {{-- Profile header --}}
-            <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid var(--border-color);">
+            <div class="preview-profile-head">
                 <div class="candidate-avatar-xl">
                     {{ $candidate->initials }}
                 </div>
                 <div style="flex:1;min-width:0;">
-                    <div style="font-size:16px;font-weight:700;color:var(--text-primary);line-height:1.2;" id="displayFullName">
+                    <div class="preview-profile-name" id="displayFullName">
                         {{ $candidate->full_name }}
                     </div>
-                    <div style="font-size:12px;color:var(--text-secondary);margin-top:3px;">
-                        {{ $candidate->email_id }}
+                    <div class="preview-profile-meta">
+                        <span><i class="bi bi-envelope"></i> {{ $candidate->email_id }}</span>
+                        @if ($candidate->phone_number)
+                            <span><i class="bi bi-telephone"></i> {{ $candidate->phone_number }}</span>
+                        @endif
                     </div>
-                    @if ($candidate->phone_number)
-                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
-                        <i class="bi bi-telephone" style="font-size:11px;"></i> {{ $candidate->phone_number }}
-                    </div>
-                    @endif
                 </div>
             </div>
 
@@ -671,6 +800,9 @@ $totalInterviews = $interviews->count();
                                 $assessmentMailTime = $assessment->mail_time
                                     ? \Illuminate\Support\Carbon::parse($assessment->mail_time)->format('h:i A')
                                     : null;
+                                $assessmentWebsiteHref = $assessment->company_website_url
+                                    ? (preg_match('/^https?:\/\//i', $assessment->company_website_url) ? $assessment->company_website_url : 'https://' . $assessment->company_website_url)
+                                    : null;
                             @endphp
                             <tr>
                                 <td class="text-muted text-sm">{{ $i + 1 }}</td>
@@ -685,7 +817,7 @@ $totalInterviews = $interviews->count();
                                 <td class="text-sm font-600" style="max-width:180px;">
                                     <div>{{ $assessment->company_name }}</div>
                                     @if ($assessment->company_website_url)
-                                        <a href="{{ $assessment->company_website_url }}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue-text);word-break:break-all;">
+                                        <a href="{{ $assessmentWebsiteHref }}" target="_blank" rel="noopener" style="font-size:11px;color:var(--blue-text);word-break:break-all;">
                                             {{ $assessment->company_website_url }}
                                         </a>
                                     @endif

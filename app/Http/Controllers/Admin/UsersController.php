@@ -135,6 +135,7 @@ class UsersController extends Controller
         $chartLabels    = [];
         $chartApps      = [];
         $chartAssessment = [];
+        $chartInterviews = [];
         $detailRows     = [];
 
         for ($day = 1; $day <= $daysInMonth; $day++) {
@@ -144,6 +145,7 @@ class UsersController extends Controller
             $chartLabels[]    = $day;
             $chartApps[]      = $log ? (int) $log->applications    : 0;
             $chartAssessment[] = $assessmentCount;
+            $chartInterviews[] = $interviewCount;
             if (($log && $log->applications > 0) || $assessmentCount > 0 || $interviewCount > 0) {
                 $date = Carbon::createFromDate((int) $year, (int) $mon, $day);
                 $detailRows[] = [
@@ -213,6 +215,7 @@ class UsersController extends Controller
             'chartLabels'   => $chartLabels,
             'chartApps'     => $chartApps,
             'chartAssessment'=> $chartAssessment,
+            'chartInterviews'=> $chartInterviews,
             'detailRows'    => $detailRows,
             'totals'        => $totals,
             'interviews'    => $interviews,
