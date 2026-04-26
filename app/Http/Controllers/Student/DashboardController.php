@@ -26,28 +26,41 @@ class DashboardController extends Controller
             ->orderBy('log_date', 'desc')
             ->get(['log_date', 'applications', 'assistant_count']);
 
-        // Tab 2: Interview list sorted by actual scheduled timestamp,
-        // then rendered in candidate timezone.
+        // Tab 2: Interview list sorted by actual scheduled timestamp.
+        // The student panel displays the schedule exactly as selected.
         $interviews = Interview::where('candidate_id', $candidateId)
             ->orderByDesc('created_at')
             ->get()
             ->map(function (Interview $interview) use ($candidateTimezone) {
                 $scheduledAtUtc = $this->interviewUtcTimestamp($interview);
+                $hasStatus = !empty($interview->interview_status);
 
                 if ($scheduledAtUtc) {
-                    $candidateMoment = $scheduledAtUtc->copy()->setTimezone($candidateTimezone);
-                    $interview->candidate_display_date = $candidateMoment->format('M d, Y');
-                    $interview->candidate_display_date_key = $candidateMoment->format('Y-m-d');
-                    $interview->candidate_display_time = $candidateMoment->format('h:i A');
-                    $interview->candidate_display_timezone = $candidateMoment->format('T');
+                    $sourceTime = substr((string) $interview->scheduled_time, 0, 5);
+                    $interview->candidate_display_date = $interview->scheduled_date?->format('M d, Y');
+                    $interview->candidate_display_date_key = $interview->scheduled_date?->format('Y-m-d');
+                    $interview->candidate_display_time = $sourceTime ? Carbon::createFromFormat('H:i', $sourceTime)->format('h:i A') : null;
+                    $interview->candidate_display_timezone = $interview->scheduled_timezone;
                     $interview->candidate_sort_ts = $scheduledAtUtc->getTimestamp();
+                    $interview->scheduled_at_ms = $scheduledAtUtc->getTimestamp() * 1000;
+                    $interview->schedule_has_passed = $scheduledAtUtc->lte(now('UTC'));
                 } else {
                     $interview->candidate_display_date = null;
                     $interview->candidate_display_date_key = null;
                     $interview->candidate_display_time = null;
                     $interview->candidate_display_timezone = null;
                     $interview->candidate_sort_ts = null;
+                    $interview->scheduled_at_ms = null;
+                    $interview->schedule_has_passed = false;
                 }
+
+                $interview->can_update_schedule = !$interview->schedule_has_passed;
+                $interview->can_update_status = $interview->schedule_has_passed && !$hasStatus;
+                $interview->status_lock_reason = $hasStatus
+                    ? 'Status already submitted.'
+                    : ($scheduledAtUtc
+                        ? ($interview->schedule_has_passed ? '' : 'Status unlocks after the scheduled time.')
+                        : 'Set the schedule before updating status.');
 
                 return $interview;
             });
@@ -119,6 +132,22 @@ class DashboardController extends Controller
     private function resolveCandidateTimezone(Candidate $candidate): string
     {
         $state = strtoupper((string) ($candidate->state_province ?? ''));
+        $stateNames = [
+            'ALABAMA' => 'AL', 'ALASKA' => 'AK', 'ARIZONA' => 'AZ', 'ARKANSAS' => 'AR',
+            'CALIFORNIA' => 'CA', 'COLORADO' => 'CO', 'CONNECTICUT' => 'CT', 'DELAWARE' => 'DE',
+            'DISTRICT OF COLUMBIA' => 'DC', 'FLORIDA' => 'FL', 'GEORGIA' => 'GA', 'HAWAII' => 'HI',
+            'IDAHO' => 'ID', 'ILLINOIS' => 'IL', 'INDIANA' => 'IN', 'IOWA' => 'IA',
+            'KANSAS' => 'KS', 'KENTUCKY' => 'KY', 'LOUISIANA' => 'LA', 'MAINE' => 'ME',
+            'MARYLAND' => 'MD', 'MASSACHUSETTS' => 'MA', 'MICHIGAN' => 'MI', 'MINNESOTA' => 'MN',
+            'MISSISSIPPI' => 'MS', 'MISSOURI' => 'MO', 'MONTANA' => 'MT', 'NEBRASKA' => 'NE',
+            'NEVADA' => 'NV', 'NEW HAMPSHIRE' => 'NH', 'NEW JERSEY' => 'NJ', 'NEW MEXICO' => 'NM',
+            'NEW YORK' => 'NY', 'NORTH CAROLINA' => 'NC', 'NORTH DAKOTA' => 'ND', 'OHIO' => 'OH',
+            'OKLAHOMA' => 'OK', 'OREGON' => 'OR', 'PENNSYLVANIA' => 'PA', 'RHODE ISLAND' => 'RI',
+            'SOUTH CAROLINA' => 'SC', 'SOUTH DAKOTA' => 'SD', 'TENNESSEE' => 'TN', 'TEXAS' => 'TX',
+            'UTAH' => 'UT', 'VERMONT' => 'VT', 'VIRGINIA' => 'VA', 'WASHINGTON' => 'WA',
+            'WEST VIRGINIA' => 'WV', 'WISCONSIN' => 'WI', 'WYOMING' => 'WY',
+        ];
+        $state = $stateNames[$state] ?? $state;
 
         $stateToTimezone = [
             'CT' => 'America/New_York', 'DE' => 'America/New_York', 'DC' => 'America/New_York',
@@ -153,12 +182,16 @@ class DashboardController extends Controller
     private function timezoneAbbreviationToIana(?string $abbr): string
     {
         return match (strtoupper((string) $abbr)) {
-            'EST', 'EDT' => 'America/New_York',
-            'CST', 'CDT' => 'America/Chicago',
-            'MST', 'MDT' => 'America/Denver',
-            'PST', 'PDT' => 'America/Los_Angeles',
-            'AKST'       => 'America/Anchorage',
-            'HST'        => 'Pacific/Honolulu',
+            'EST'        => '-05:00',
+            'EDT'        => '-04:00',
+            'CST'        => '-06:00',
+            'CDT'        => '-05:00',
+            'MST'        => '-07:00',
+            'MDT'        => '-06:00',
+            'PST'        => '-08:00',
+            'PDT'        => '-07:00',
+            'AKST'       => '-09:00',
+            'HST'        => '-10:00',
             default      => config('app.timezone', 'UTC'),
         };
     }

@@ -100,21 +100,41 @@ class ImportExportController extends Controller
         $dateFrom    = $request->input('date_from');
         $dateTo      = $request->input('date_to');
         $status      = $request->input('status');
-        $recruiterId = $request->integer('recruiter_id') ?: null;
-        $teamManagerId = $request->integer('team_manager_id') ?: null;
+        $owner       = (string) $request->input('owner', '');
+        $ownerType   = null;
+        $ownerId     = null;
+        $recruiterId = null;
+        $teamManagerId = null;
 
-        if ($recruiterId) {
-            $teamManagerId = null;
-        } elseif ($teamManagerId) {
-            $recruiterId = null;
+        if (preg_match('/^(recruiter|manager):(\d+)$/', $owner, $matches)) {
+            $ownerType = $matches[1];
+            $ownerId = (int) $matches[2];
+
+            if ($ownerType === 'recruiter') {
+                $recruiterId = $ownerId;
+            } else {
+                $teamManagerId = $ownerId;
+            }
+        } else {
+            $recruiterId = $request->integer('recruiter_id') ?: null;
+            $teamManagerId = $request->integer('team_manager_id') ?: null;
+
+            if ($recruiterId) {
+                $teamManagerId = null;
+                $ownerType = 'recruiter';
+                $ownerId = $recruiterId;
+            } elseif ($teamManagerId) {
+                $recruiterId = null;
+                $ownerType = 'manager';
+                $ownerId = $teamManagerId;
+            }
         }
 
         $parts = array_filter([
             $dateFrom    ? "from:{$dateFrom}"         : null,
             $dateTo      ? "to:{$dateTo}"             : null,
             $status      ? "status:{$status}"         : null,
-            $recruiterId ? "recruiter:{$recruiterId}" : null,
-            $teamManagerId ? "team_manager:{$teamManagerId}" : null,
+            $ownerType && $ownerId ? "owner:{$ownerType}:{$ownerId}" : null,
         ]);
         $desc = 'Exported candidates as CSV' . ($parts ? ' [' . implode(', ', $parts) . ']' : '');
 

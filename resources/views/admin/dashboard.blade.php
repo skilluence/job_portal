@@ -9,7 +9,7 @@
 @endphp
 
 <style>
-.dw-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px; }
+.dw-grid-2 { display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:20px; margin-bottom:20px; }
 .dw-grid-1 { margin-bottom:20px; }
 .dw-card-fill { height:100%; }
 
@@ -17,7 +17,16 @@
     display:grid;
     gap:16px;
     margin-bottom:20px;
-    grid-template-columns:repeat(4, 1fr);
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+}
+
+.dw-grid-1,
+.dw-grid-2,
+.dw-grid-2 > .card,
+.dw-grid-1 > .card,
+.dw-stat-card,
+.dw-scope-card {
+    min-width:0;
 }
 
 .dw-stat-card {
@@ -64,6 +73,8 @@
     gap:8px;
 }
 
+.dw-head > div { min-width:0; }
+
 .dw-title {
     font-size:15px;
     font-weight:700;
@@ -74,7 +85,7 @@
 }
 
 .dw-title i { font-size:17px; }
-.dw-sub { font-size:12px; color:var(--text-muted); margin-top:1px; }
+.dw-sub { font-size:12px; color:var(--text-muted); margin-top:1px; line-height:1.4; }
 
 .dw-day-tabs,
 .dw-leave-tabs {
@@ -133,7 +144,12 @@
     padding:4px 9px;
 }
 
-.dw-table { width:100%; border-collapse:collapse; font-size:13px; }
+.dw-table {
+    width:100%;
+    min-width:0 !important;
+    border-collapse:collapse;
+    font-size:13px;
+}
 
 .dw-table th {
     padding:8px 10px;
@@ -151,6 +167,12 @@
     padding:9px 10px;
     border-bottom:1px solid var(--border-color);
     vertical-align:middle;
+    overflow-wrap:anywhere;
+}
+
+.dw-table th,
+.dw-table td {
+    max-width:240px;
 }
 
 .dw-table tr:last-child td { border-bottom:none; }
@@ -207,7 +229,7 @@
 .dw-rank.silver { background:#f1f5f9; color:#475569; border-color:#e2e8f0; }
 .dw-rank.bronze { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
 
-.dw-filter-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.dw-filter-bar { display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap; min-width:0; }
 .dw-filter-bar .form-control { height:32px; font-size:13px; padding:4px 10px; }
 .dw-filter-sep { color:var(--text-muted); font-size:12px; }
 
@@ -265,24 +287,32 @@
 }
 
 @media (max-width:1100px) {
-    .dw-stats-row { grid-template-columns:repeat(3, 1fr) !important; }
+    .dw-stats-row { grid-template-columns:repeat(3, minmax(0, 1fr)) !important; }
 }
 
 @media (max-width:900px) {
-    .dw-stats-row { grid-template-columns:repeat(2, 1fr) !important; }
+    .dw-stats-row { grid-template-columns:repeat(2, minmax(0, 1fr)) !important; }
 }
 
 @media (max-width:768px) {
     .dw-grid-2 { grid-template-columns:1fr; }
     .dw-manager-header { grid-template-columns:1fr; }
+    .dw-filter-bar {
+        width:100%;
+        justify-content:flex-start;
+    }
+    .dw-filter-bar .form-control {
+        flex:1 1 140px;
+        width:auto !important;
+    }
 }
 
 @media (max-width:480px) {
-    .dw-stats-row { grid-template-columns:1fr 1fr !important; }
+    .dw-stats-row { grid-template-columns:1fr !important; }
 }
 </style>
 
-<div class="dw-stats-row" style="grid-template-columns:repeat(5,1fr);">
+<div class="dw-stats-row" style="grid-template-columns:repeat(5,minmax(0,1fr));">
     <div class="dw-stat-card">
         <div class="dw-stat-icon" style="background:#eff6ff;color:#2563eb;">
             <i class="bi bi-calendar2-event-fill"></i>

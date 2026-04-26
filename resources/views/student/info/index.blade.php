@@ -20,19 +20,6 @@ $workAuthOptions = [
     'not_applied'      => 'Not Applied yet',
     'already_obtained' => 'Already obtained / active',
 ];
-$usStates = [
-    'AL'=>'Alabama','AK'=>'Alaska','AZ'=>'Arizona','AR'=>'Arkansas','CA'=>'California',
-    'CO'=>'Colorado','CT'=>'Connecticut','DE'=>'Delaware','FL'=>'Florida','GA'=>'Georgia',
-    'HI'=>'Hawaii','ID'=>'Idaho','IL'=>'Illinois','IN'=>'Indiana','IA'=>'Iowa','KS'=>'Kansas',
-    'KY'=>'Kentucky','LA'=>'Louisiana','ME'=>'Maine','MD'=>'Maryland','MA'=>'Massachusetts',
-    'MI'=>'Michigan','MN'=>'Minnesota','MS'=>'Mississippi','MO'=>'Missouri','MT'=>'Montana',
-    'NE'=>'Nebraska','NV'=>'Nevada','NH'=>'New Hampshire','NJ'=>'New Jersey','NM'=>'New Mexico',
-    'NY'=>'New York','NC'=>'North Carolina','ND'=>'North Dakota','OH'=>'Ohio','OK'=>'Oklahoma',
-    'OR'=>'Oregon','PA'=>'Pennsylvania','RI'=>'Rhode Island','SC'=>'South Carolina',
-    'SD'=>'South Dakota','TN'=>'Tennessee','TX'=>'Texas','UT'=>'Utah','VT'=>'Vermont',
-    'VA'=>'Virginia','WA'=>'Washington','WV'=>'West Virginia','WI'=>'Wisconsin','WY'=>'Wyoming',
-    'DC'=>'District of Columbia',
-];
 @endphp
 
 <style>
@@ -44,6 +31,41 @@ $usStates = [
 }
 .stp-section-title:first-of-type { margin-top: 0; }
 .stp-form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px 16px; margin-bottom: 4px; }
+.stp-field-error { min-height: 15px; color: #dc2626; font-size: 11.5px; line-height: 1.3; }
+.stp-input.is-invalid,
+.subdomain-badge-wrap.is-invalid {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .10) !important;
+}
+.stp-help-text { color: #94a3b8; font-size: 11px; font-weight: 400; }
+.stp-badge-input {
+    border-color: #e2e8f0;
+    background: #f8fafc;
+    min-height: 44px;
+}
+.stp-badge-input .subdomain-text-input { color: #1e293b; }
+.stp-select-loading { opacity: .7; cursor: wait; }
+.stp-geo-message { color: #dc2626; font-size: 11.5px; margin-top: 4px; display: none; }
+.select2-container--default .select2-selection--single.stp-select2-selection {
+    min-height: 42px;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    background: #f8fafc;
+}
+.select2-container--default .stp-select2-selection .select2-selection__rendered {
+    line-height: 40px !important;
+    color: #1e293b;
+    font-size: 13.5px;
+    padding-left: 12px;
+}
+.select2-container--default .stp-select2-selection .select2-selection__arrow { height: 40px !important; }
+.stp-phone-field .iti { width: 100%; display: block; }
+.stp-phone-field .iti__tel-input { width: 100%; }
+.stp-phone-field .iti__selected-country {
+    border-radius: 8px 0 0 8px;
+    background: #eef4ff;
+    border-right: 1px solid #dbe4f0;
+}
 @media (max-width: 860px) { .stp-form-grid-3 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 520px)  { .stp-form-grid-3 { grid-template-columns: 1fr; } }
 </style>
@@ -79,7 +101,7 @@ $usStates = [
         <div class="stp-card-title"><i class="bi bi-pencil-square"></i> Personal Details</div>
         <div class="stp-card-hint">Fields you can update yourself</div>
     </div>
-    <form method="POST" action="{{ route('student.info.update') }}">
+    <form method="POST" action="{{ route('student.info.update') }}" id="studentProfileForm" novalidate>
         @csrf
 
         {{-- ── Name ─────────────────────────────────────── --}}
@@ -110,9 +132,11 @@ $usStates = [
                 <input type="email" name="email_id" class="stp-input"
                     value="{{ old('email_id', $candidate->email_id) }}" required>
             </div>
-            <div class="stp-form-group">
+            <div class="stp-form-group stp-phone-field">
                 <label class="stp-label">Phone Number</label>
-                <input type="text" name="phone_number" class="stp-input"
+                <input type="hidden" name="phone_cc" id="student_phone_cc" value="+1">
+                <input type="tel" name="phone_number" id="student_phone_number"
+                    class="stp-input js-phone-input" data-cc-target="student_phone_cc"
                     value="{{ old('phone_number', $candidate->phone_number) }}" placeholder="+1 (555) 000-0000">
             </div>
             <div class="stp-form-group">
@@ -127,7 +151,7 @@ $usStates = [
         <div class="stp-form-grid-3">
             <div class="stp-form-group">
                 <label class="stp-label">Date of Birth</label>
-                <input type="date" name="date_of_birth" class="stp-input"
+                <input type="text" name="date_of_birth" class="stp-input js-stp-date"
                     value="{{ old('date_of_birth', $candidate->date_of_birth?->format('Y-m-d')) }}">
             </div>
             <div class="stp-form-group">
@@ -157,14 +181,19 @@ $usStates = [
             </div>
             <div class="stp-form-group" style="grid-column:span 2;">
                 <label class="stp-label">Sub-Domain / Skills
-                    <span style="font-weight:400;color:#94a3b8;font-size:11px;">(comma-separated)</span>
+                    <span class="stp-help-text">(type and press Enter)</span>
                 </label>
-                <input type="text" name="sub_domain" class="stp-input"
-                    value="{{ old('sub_domain', $candidate->sub_domain) }}" placeholder="e.g. Spring Boot, Hibernate, REST APIs">
+                <input type="hidden" name="sub_domain" id="student_sub_domain"
+                    value="{{ old('sub_domain', $candidate->sub_domain) }}">
+                <div class="subdomain-badge-wrap stp-badge-input" id="student_subdomain_badges"
+                    onclick="document.getElementById('student_subdomain_input').focus();">
+                    <input type="text" id="student_subdomain_input" class="subdomain-text-input"
+                        placeholder="e.g. Spring Boot">
+                </div>
             </div>
             <div class="stp-form-group">
                 <label class="stp-label">Date of Arrival in USA</label>
-                <input type="date" name="date_of_arrival_usa" class="stp-input"
+                <input type="text" name="date_of_arrival_usa" class="stp-input js-stp-date"
                     value="{{ old('date_of_arrival_usa', $candidate->date_of_arrival_usa?->format('Y-m-d')) }}">
             </div>
             <div class="stp-form-group">
@@ -193,28 +222,33 @@ $usStates = [
                     value="{{ old('apartment_unit', $candidate->apartment_unit) }}" placeholder="Apt 4B">
             </div>
             <div class="stp-form-group">
-                <label class="stp-label">City</label>
-                <input type="text" name="city" class="stp-input"
-                    value="{{ old('city', $candidate->city) }}" placeholder="Your city">
+                <label class="stp-label">Country</label>
+                <select name="country" id="student_country" class="stp-input"
+                    data-selected="{{ old('country', $candidate->country ?? 'United States') }}">
+                    <option value="">Select Country</option>
+                </select>
+                <div class="stp-geo-message" id="student_country_msg"></div>
             </div>
             <div class="stp-form-group">
-                <label class="stp-label">State</label>
-                <select name="state_province" class="stp-input">
-                    <option value="">Select State</option>
-                    @foreach ($usStates as $code => $name)
-                        <option value="{{ $code }}" @selected(old('state_province', $candidate->state_province) === $code)>{{ $name }}</option>
-                    @endforeach
+                <label class="stp-label">State / Province</label>
+                <select name="state_province" id="student_state" class="stp-input"
+                    data-selected="{{ old('state_province', $candidate->state_province) }}">
+                    <option value="">Select Country First</option>
                 </select>
+                <div class="stp-geo-message" id="student_state_msg"></div>
+            </div>
+            <div class="stp-form-group">
+                <label class="stp-label">City</label>
+                <select name="city" id="student_city" class="stp-input"
+                    data-selected="{{ old('city', $candidate->city) }}">
+                    <option value="">Select State First</option>
+                </select>
+                <div class="stp-geo-message" id="student_city_msg"></div>
             </div>
             <div class="stp-form-group">
                 <label class="stp-label">ZIP Code</label>
                 <input type="text" name="zip_code" class="stp-input" maxlength="10"
                     value="{{ old('zip_code', $candidate->zip_code) }}" placeholder="10001">
-            </div>
-            <div class="stp-form-group" style="grid-column:span 2;">
-                <label class="stp-label">Country</label>
-                <input type="text" name="country" class="stp-input"
-                    value="{{ old('country', $candidate->country ?? 'United States') }}" placeholder="United States">
             </div>
         </div>
 
@@ -241,7 +275,7 @@ $usStates = [
             </div>
             <div class="stp-form-group">
                 <label class="stp-label">Visa Expiry Date</label>
-                <input type="date" name="visa_expiry_date" class="stp-input"
+                <input type="text" name="visa_expiry_date" class="stp-input js-stp-date"
                     value="{{ old('visa_expiry_date', $candidate->visa_expiry_date?->format('Y-m-d')) }}">
             </div>
             @php
@@ -264,9 +298,14 @@ $usStates = [
                 </div>
             </div>
             <div class="stp-form-group" style="grid-column:span 2;">
-                <label class="stp-label">Preferred City <span style="font-weight:400;color:#94a3b8;font-size:11px;">(if not relocating)</span></label>
-                <input type="text" name="preferred_city" class="stp-input"
-                    value="{{ old('preferred_city', $candidate->preferred_city) }}" placeholder="e.g. New York">
+                <label class="stp-label">Preferred City <span class="stp-help-text">(type and press Enter)</span></label>
+                <input type="hidden" name="preferred_city" id="student_preferred_city"
+                    value="{{ old('preferred_city', $candidate->preferred_city) }}">
+                <div class="subdomain-badge-wrap stp-badge-input" id="student_prefcity_badges"
+                    onclick="document.getElementById('student_prefcity_input').focus();">
+                    <input type="text" id="student_prefcity_input" class="subdomain-text-input"
+                        placeholder="e.g. New York">
+                </div>
             </div>
         </div>
 
@@ -403,5 +442,457 @@ $usStates = [
         </div>
     </div>
 </div>
+
+<script>
+const studentGeoBase = 'https://countriesnow.space/api/v0.1';
+const studentGeoCache = { countries: null, states: {}, cities: {} };
+
+function stpEsc(value) {
+    return String(value || '').replace(/[&<>"']/g, function (char) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' })[char];
+    });
+}
+
+function stpSplitCsv(value) {
+    return String(value || '').split(',').map(function (item) {
+        return item.trim();
+    }).filter(Boolean);
+}
+
+function stpSetCsv(hidden, values) {
+    hidden.value = values.map(function (value) {
+        return value.replace(/,/g, '').trim();
+    }).filter(Boolean).join(',');
+}
+
+function stpCreateBadgeInput(config) {
+    var hidden = document.getElementById(config.hiddenId);
+    var wrap = document.getElementById(config.wrapId);
+    var input = document.getElementById(config.inputId);
+    if (!hidden || !wrap || !input) return;
+
+    function values() {
+        return stpSplitCsv(hidden.value);
+    }
+
+    function render() {
+        wrap.querySelectorAll('.subdomain-badge').forEach(function (badge) { badge.remove(); });
+        values().forEach(function (value, index) {
+            var badge = document.createElement('span');
+            badge.className = 'subdomain-badge';
+            badge.innerHTML = stpEsc(value) +
+                '<button type="button" class="subdomain-badge-x" aria-label="Remove ' + stpEsc(value) + '">&times;</button>';
+            badge.querySelector('button').addEventListener('click', function () {
+                var next = values();
+                next.splice(index, 1);
+                stpSetCsv(hidden, next);
+                render();
+            });
+            wrap.insertBefore(badge, input);
+        });
+    }
+
+    function addPending() {
+        var value = input.value.replace(/,/g, '').trim();
+        if (!value) return;
+        var next = values();
+        if (!next.some(function (item) { return item.toLowerCase() === value.toLowerCase(); })) {
+            next.push(value);
+            stpSetCsv(hidden, next);
+            render();
+        }
+        input.value = '';
+    }
+
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Enter' || event.key === ',') {
+            event.preventDefault();
+            addPending();
+        }
+        if (event.key === 'Backspace' && !input.value) {
+            var next = values();
+            next.pop();
+            stpSetCsv(hidden, next);
+            render();
+        }
+    });
+
+    input.addEventListener('blur', addPending);
+    hidden._flushBadgeInput = addPending;
+    render();
+}
+
+function stpSetOptions(select, items, placeholder, selectedValue) {
+    if (!select) return;
+    select.innerHTML = '<option value="">' + stpEsc(placeholder) + '</option>';
+    items.forEach(function (item) {
+        var option = document.createElement('option');
+        option.value = item.v;
+        option.textContent = item.l;
+        select.appendChild(option);
+    });
+    if (selectedValue && !Array.from(select.options).some(function (option) { return option.value === selectedValue; })) {
+        var custom = document.createElement('option');
+        custom.value = selectedValue;
+        custom.textContent = selectedValue;
+        select.appendChild(custom);
+    }
+    if (selectedValue) select.value = selectedValue;
+    stpRefreshSelect2(select);
+}
+
+function stpSetSelectLoading(select, loading) {
+    if (!select) return;
+    select.classList.toggle('stp-select-loading', loading);
+    select.disabled = !!loading;
+    select.setAttribute('aria-busy', loading ? 'true' : 'false');
+    stpRefreshSelect2(select);
+}
+
+function stpSetGeoMessage(id, message) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = message || '';
+    el.style.display = message ? 'block' : 'none';
+}
+
+function stpRefreshSelect2(select) {
+    if (window.jQuery && jQuery(select).data('select2')) {
+        jQuery(select).trigger('change.select2');
+    }
+}
+
+function stpInitSelect2() {
+    if (!window.jQuery || !jQuery.fn.select2) return;
+    jQuery('#student_country,#student_state,#student_city').each(function () {
+        var $select = jQuery(this);
+        if ($select.data('select2')) return;
+        $select.select2({
+            width: '100%',
+            placeholder: $select.find('option:first').text() || 'Select',
+            allowClear: true,
+            selectionCssClass: 'stp-select2-selection',
+            dropdownCssClass: 'candidate-select2-dropdown',
+            language: {
+                noResults: function () {
+                    return $select.hasClass('stp-select-loading') ? 'Loading...' : 'No results found';
+                }
+            }
+        });
+    });
+}
+
+function stpLoadCountries() {
+    if (studentGeoCache.countries) return Promise.resolve(studentGeoCache.countries);
+
+    return fetch(studentGeoBase + '/countries/positions')
+        .then(function (response) { return response.json(); })
+        .then(function (payload) {
+            var countries = (payload.data || []).map(function (country) {
+                return { v: country.name, l: country.name };
+            }).sort(function (a, b) { return a.l.localeCompare(b.l); });
+            studentGeoCache.countries = countries;
+            return countries;
+        })
+        .catch(function () {
+            stpSetGeoMessage('student_country_msg', 'Country list could not load. Please check connection and try again.');
+            return [];
+        });
+}
+
+function stpLoadStates(country) {
+    if (!country) return Promise.resolve([]);
+    if (studentGeoCache.states[country]) return Promise.resolve(studentGeoCache.states[country]);
+
+    return fetch(studentGeoBase + '/countries/states', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: country })
+    }).then(function (response) { return response.json(); })
+        .then(function (payload) {
+            var states = ((payload.data && payload.data.states) || []).map(function (state) {
+                return { v: state.name, l: state.name };
+            }).sort(function (a, b) { return a.l.localeCompare(b.l); });
+            studentGeoCache.states[country] = states;
+            return states;
+        })
+        .catch(function () {
+            stpSetGeoMessage('student_state_msg', 'State list could not load. Please try again.');
+            return [];
+        });
+}
+
+function stpLoadCities(country, state) {
+    if (!country || !state) return Promise.resolve([]);
+    var key = country + '|' + state;
+    if (studentGeoCache.cities[key]) return Promise.resolve(studentGeoCache.cities[key]);
+
+    return fetch(studentGeoBase + '/countries/state/cities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ country: country, state: state })
+    }).then(function (response) { return response.json(); })
+        .then(function (payload) {
+            var cities = (payload.data || []).map(function (city) {
+                return { v: city, l: city };
+            });
+            studentGeoCache.cities[key] = cities;
+            return cities;
+        })
+        .catch(function () {
+            stpSetGeoMessage('student_city_msg', 'City list could not load. Please try again.');
+            return [];
+        });
+}
+
+function stpNormalizeStateValue(value) {
+    return value || '';
+}
+
+function stpInitGeoSelects() {
+    var country = document.getElementById('student_country');
+    var state = document.getElementById('student_state');
+    var city = document.getElementById('student_city');
+    if (!country || !state || !city) return;
+    stpInitSelect2();
+
+    var selectedCountry = country.dataset.selected || 'United States';
+    var selectedState = stpNormalizeStateValue(state.dataset.selected || '');
+    var selectedCity = city.dataset.selected || '';
+
+    stpSetOptions(country, selectedCountry ? [{ v: selectedCountry, l: selectedCountry }] : [], 'Select Country', selectedCountry);
+    stpSetOptions(state, selectedState ? [{ v: selectedState, l: selectedState }] : [], 'Select Country First', selectedState);
+    stpSetOptions(city, selectedCity ? [{ v: selectedCity, l: selectedCity }] : [], 'Select State First', selectedCity);
+
+    stpSetSelectLoading(country, true);
+    stpSetGeoMessage('student_country_msg', '');
+    stpLoadCountries().then(function (countries) {
+        stpSetOptions(country, countries, 'Select Country', selectedCountry);
+        stpSetSelectLoading(country, false);
+        return stpRefreshStates(selectedState, selectedCity);
+    });
+
+    var handleCountryChange = function () {
+        stpRefreshStates('', '');
+    };
+    var handleStateChange = function () {
+        stpRefreshCities('');
+    };
+
+    country.addEventListener('change', handleCountryChange);
+    state.addEventListener('change', handleStateChange);
+    if (window.jQuery) {
+        jQuery(country).on('change.select2-student-geo', handleCountryChange);
+        jQuery(state).on('change.select2-student-geo', handleStateChange);
+    }
+}
+
+function stpRefreshStates(selectedState, selectedCity) {
+    var country = document.getElementById('student_country');
+    var state = document.getElementById('student_state');
+    var city = document.getElementById('student_city');
+    var countryValue = country ? country.value : '';
+
+    stpSetGeoMessage('student_state_msg', '');
+    stpSetOptions(city, [], 'Select State First', '');
+    if (!countryValue) {
+        stpSetOptions(state, [], 'Select Country First', '');
+        return Promise.resolve();
+    }
+
+    stpSetOptions(state, [], 'Loading states...', '');
+    stpSetSelectLoading(state, true);
+    return stpLoadStates(countryValue).then(function (states) {
+        stpSetOptions(state, states, states.length ? 'Select State / Province' : 'No states found', selectedState || '');
+        stpSetSelectLoading(state, false);
+        return stpRefreshCities(selectedCity || '');
+    });
+}
+
+function stpRefreshCities(selectedCity) {
+    var country = document.getElementById('student_country');
+    var state = document.getElementById('student_state');
+    var city = document.getElementById('student_city');
+    var countryValue = country ? country.value : '';
+    var stateValue = state ? state.value : '';
+
+    stpSetGeoMessage('student_city_msg', '');
+    if (!countryValue || !stateValue) {
+        stpSetOptions(city, [], 'Select State First', '');
+        return Promise.resolve();
+    }
+
+    stpSetOptions(city, [], 'Loading cities...', '');
+    stpSetSelectLoading(city, true);
+    return stpLoadCities(countryValue, stateValue).then(function (cities) {
+        stpSetOptions(city, cities, cities.length ? 'Select City' : 'No cities found', selectedCity || '');
+        stpSetSelectLoading(city, false);
+    });
+}
+
+function stpFieldErrorTarget(field) {
+    if (!field) return null;
+    var group = field.closest('.stp-form-group');
+    if (!group) return null;
+    var error = group.querySelector('.stp-field-error');
+    if (!error) {
+        error = document.createElement('div');
+        error.className = 'stp-field-error';
+        group.appendChild(error);
+    }
+    return error;
+}
+
+function stpSetFieldError(field, message) {
+    var target = stpFieldErrorTarget(field);
+    var invalidTarget = field && field.classList && field.classList.contains('subdomain-badge-wrap')
+        ? field
+        : field;
+    if (invalidTarget) invalidTarget.classList.toggle('is-invalid', !!message);
+    if (target) target.textContent = message || '';
+}
+
+function stpFormValue(form, name) {
+    var field = form.elements[name];
+    return field ? String(field.value || '').trim() : '';
+}
+
+function stpValidDate(value) {
+    if (!value) return true;
+    var time = Date.parse(value + 'T00:00:00');
+    return !Number.isNaN(time);
+}
+
+function stpValidUrl(value) {
+    if (!value) return true;
+    try {
+        var parsed = new URL(value);
+        return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+    } catch (_) {
+        return false;
+    }
+}
+
+function stpValidateProfileForm(event) {
+    var form = event.target;
+    if (!form || form.id !== 'studentProfileForm') return;
+
+    ['student_sub_domain', 'student_preferred_city'].forEach(function (id) {
+        var hidden = document.getElementById(id);
+        if (hidden && hidden._flushBadgeInput) hidden._flushBadgeInput();
+    });
+
+    var checks = [
+        ['first_name', stpFormValue(form, 'first_name') ? '' : 'First name is required.'],
+        ['middle_name', stpFormValue(form, 'middle_name').length <= 100 ? '' : 'Middle name must be 100 characters or fewer.'],
+        ['last_name', stpFormValue(form, 'last_name') ? '' : 'Last name is required.'],
+        ['email_id', stpFormValue(form, 'email_id') ? '' : 'Personal email is required.'],
+        ['phone_number', stpFormValue(form, 'phone_number').length <= 30 ? '' : 'Phone number must be 30 characters or fewer.'],
+        ['linkedin_url', stpValidUrl(stpFormValue(form, 'linkedin_url')) ? '' : 'LinkedIn URL must start with http:// or https://.'],
+        ['date_of_birth', stpValidDate(stpFormValue(form, 'date_of_birth')) ? '' : 'Enter a valid date of birth.'],
+        ['nationality', stpFormValue(form, 'nationality').length <= 100 ? '' : 'Nationality must be 100 characters or fewer.'],
+        ['domain', stpFormValue(form, 'domain').length <= 100 ? '' : 'Domain must be 100 characters or fewer.'],
+        ['sub_domain', stpFormValue(form, 'sub_domain').length <= 500 ? '' : 'Sub-domain skills must be 500 characters or fewer.'],
+        ['date_of_arrival_usa', stpValidDate(stpFormValue(form, 'date_of_arrival_usa')) ? '' : 'Enter a valid arrival date.'],
+        ['current_salary', Number(stpFormValue(form, 'current_salary') || 0) >= 0 ? '' : 'Current salary cannot be negative.'],
+        ['expected_salary', Number(stpFormValue(form, 'expected_salary') || 0) >= 0 ? '' : 'Expected salary cannot be negative.'],
+        ['street_address', stpFormValue(form, 'street_address').length <= 255 ? '' : 'Street address must be 255 characters or fewer.'],
+        ['apartment_unit', stpFormValue(form, 'apartment_unit').length <= 50 ? '' : 'APT / Unit must be 50 characters or fewer.'],
+        ['city', stpFormValue(form, 'city').length <= 100 ? '' : 'City must be 100 characters or fewer.'],
+        ['state_province', stpFormValue(form, 'state_province').length <= 100 ? '' : 'State must be 100 characters or fewer.'],
+        ['zip_code', stpFormValue(form, 'zip_code').length <= 20 ? '' : 'ZIP code must be 20 characters or fewer.'],
+        ['country', stpFormValue(form, 'country').length <= 100 ? '' : 'Country must be 100 characters or fewer.'],
+        ['visa_expiry_date', stpValidDate(stpFormValue(form, 'visa_expiry_date')) ? '' : 'Enter a valid visa expiry date.'],
+        ['preferred_city', stpFormValue(form, 'preferred_city').length <= 500 ? '' : 'Preferred cities must be 500 characters or fewer.'],
+    ];
+
+    var firstInvalid = null;
+    checks.forEach(function (check) {
+        var field = form.elements[check[0]];
+        if (field && field.type === 'hidden') {
+            var wrapId = check[0] === 'sub_domain' ? 'student_subdomain_badges' : 'student_prefcity_badges';
+            field = document.getElementById(wrapId) || field;
+        }
+        stpSetFieldError(field, check[1]);
+        if (check[1] && !firstInvalid) firstInvalid = field;
+    });
+
+    var email = form.elements.email_id;
+    if (email && !firstInvalid && !email.validity.valid) {
+        stpSetFieldError(email, 'Please enter a valid email address.');
+        firstInvalid = email;
+    }
+
+    if (firstInvalid) {
+        event.preventDefault();
+        firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (firstInvalid.focus) setTimeout(function () { firstInvalid.focus(); }, 250);
+        return;
+    }
+
+    stpNormalizeStudentPhone(form);
+}
+
+function stpNormalizeStudentPhone(form) {
+    var input = document.getElementById('student_phone_number');
+    if (!input) return;
+    var raw = String(input.value || '').trim();
+    if (!raw) return;
+
+    var iti = window.intlTelInputGlobals && window.intlTelInputGlobals.getInstance
+        ? window.intlTelInputGlobals.getInstance(input)
+        : null;
+    var dialCode = '';
+    if (iti && iti.getSelectedCountryData) {
+        var countryData = iti.getSelectedCountryData();
+        dialCode = countryData && countryData.dialCode ? countryData.dialCode : '';
+    }
+
+    var digits = raw.replace(/\D/g, '');
+    if (!digits) return;
+    if (dialCode && digits.indexOf(dialCode) === 0) {
+        digits = digits.slice(dialCode.length);
+    }
+    input.value = dialCode ? '+' + dialCode + digits : raw;
+    if (form && form.elements.phone_cc) {
+        form.elements.phone_cc.value = dialCode ? '+' + dialCode : '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    if (typeof flatpickr !== 'undefined') {
+        flatpickr('.js-stp-date', {
+            dateFormat: 'Y-m-d',
+            altInput: true,
+            altFormat: 'd-m-Y',
+            allowInput: true
+        });
+    }
+
+    stpCreateBadgeInput({
+        hiddenId: 'student_sub_domain',
+        wrapId: 'student_subdomain_badges',
+        inputId: 'student_subdomain_input'
+    });
+    stpCreateBadgeInput({
+        hiddenId: 'student_preferred_city',
+        wrapId: 'student_prefcity_badges',
+        inputId: 'student_prefcity_input'
+    });
+    stpInitGeoSelects();
+    if (window._initPhoneInputs) {
+        window._initPhoneInputs(document.getElementById('studentProfileForm') || document);
+    }
+
+    var form = document.getElementById('studentProfileForm');
+    if (form) {
+        form.addEventListener('submit', stpValidateProfileForm);
+        form.querySelectorAll('.stp-input').forEach(function (field) {
+            field.addEventListener('input', function () { stpSetFieldError(field, ''); });
+            field.addEventListener('change', function () { stpSetFieldError(field, ''); });
+        });
+    }
+});
+</script>
 
 @endsection

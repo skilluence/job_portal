@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\Candidate;
 use App\Models\Interview;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -56,14 +57,14 @@ class StudentInfoController extends Controller
             'street_address'          => ['nullable', 'string', 'max:255'],
             'apartment_unit'          => ['nullable', 'string', 'max:50'],
             'city'                    => ['nullable', 'string', 'max:100'],
-            'state_province'          => ['nullable', 'string', 'max:5'],
+            'state_province'          => ['nullable', 'string', 'max:100'],
             'zip_code'                => ['nullable', 'string', 'max:20'],
             'country'                 => ['nullable', 'string', 'max:100'],
             'visa_immigration_status' => ['nullable', 'string', Rule::in(['us_citizen', 'green_card', 'h1b', 'h4_ead', 'opt_f1', 'stem_opt', 'cpt', 'l1', 'tn_visa', 'other', ''])],
             'work_auth_status'        => ['nullable', 'string', Rule::in(['applied_pending', 'not_applied', 'already_obtained', ''])],
             'visa_expiry_date'        => ['nullable', 'date'],
             'open_to_relocation'      => ['nullable', 'boolean'],
-            'preferred_city'          => ['nullable', 'string', 'max:100'],
+            'preferred_city'          => ['nullable', 'string', 'max:500'],
         ]);
 
         // Build full_name from all three name parts
@@ -164,6 +165,37 @@ class StudentInfoController extends Controller
             if ($val === '') $data[$key] = null;
         }
 
+        $existingSchedule = $this->interviewUtcTimestamp($interview);
+        if ($existingSchedule && $existingSchedule->lte(now('UTC'))) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Schedule cannot be changed after the scheduled time has passed.'], 422)
+                : back()->withErrors(['scheduled_date' => 'Schedule cannot be changed after the scheduled time has passed.']);
+        }
+
+        $hasAnySchedulePart = !empty($data['scheduled_date']) || !empty($data['scheduled_time']) || !empty($data['scheduled_timezone']);
+        if (!$hasAnySchedulePart) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Date, time, and timezone are required for interview schedule.'], 422)
+                : back()->withErrors(['scheduled_date' => 'Date, time, and timezone are required for interview schedule.']);
+        }
+
+        if ($hasAnySchedulePart && (empty($data['scheduled_date']) || empty($data['scheduled_time']) || empty($data['scheduled_timezone']))) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Date, time, and timezone are required for interview schedule.'], 422)
+                : back()->withErrors(['scheduled_date' => 'Date, time, and timezone are required for interview schedule.']);
+        }
+
+        $newSchedule = $this->interviewUtcTimestampFromValues(
+            $data['scheduled_date'] ?? null,
+            $data['scheduled_time'] ?? null,
+            $data['scheduled_timezone'] ?? null
+        );
+        if ($newSchedule && $newSchedule->lte(now('UTC'))) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Please select a future schedule time.'], 422)
+                : back()->withErrors(['scheduled_date' => 'Please select a future schedule time.']);
+        }
+
         $old = $interview->only(['scheduled_date', 'scheduled_time', 'scheduled_timezone']);
         $interview->update($data);
 
@@ -176,9 +208,10 @@ class StudentInfoController extends Controller
         );
 
         if ($request->wantsJson()) {
+            $interview->refresh();
             [$displayDate, $displayTime, $displayTimezone] = $this->candidateDisplaySchedule($candidate, $interview);
 
-            return response()->json([
+            return response()->json(array_merge([
                 'success'            => true,
                 'scheduled_date'     => $displayDate,
                 'scheduled_date_raw' => $interview->scheduled_date?->format('Y-m-d'),
@@ -186,7 +219,7 @@ class StudentInfoController extends Controller
                 'scheduled_time_fmt' => $displayTime,
                 'scheduled_timezone' => $displayTimezone,
                 'source_timezone'    => $interview->scheduled_timezone,
-            ]);
+            ], $this->interviewUiState($interview)));
         }
 
         return back()->with('success', 'Interview schedule updated.');
@@ -206,6 +239,25 @@ class StudentInfoController extends Controller
             'interview_status' => ['required', Rule::in(['valid', 'invalid'])],
         ]);
 
+        $scheduledAt = $this->interviewUtcTimestamp($interview);
+        if (!$scheduledAt) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Set the interview schedule before updating status.'], 422)
+                : back()->withErrors(['interview_status' => 'Set the interview schedule before updating status.']);
+        }
+
+        if ($scheduledAt->gt(now('UTC'))) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Status can be updated only after the scheduled time has passed.'], 422)
+                : back()->withErrors(['interview_status' => 'Status can be updated only after the scheduled time has passed.']);
+        }
+
+        if (!empty($interview->interview_status)) {
+            return $request->wantsJson()
+                ? response()->json(['success' => false, 'message' => 'Interview status has already been submitted and cannot be changed.'], 422)
+                : back()->withErrors(['interview_status' => 'Interview status has already been submitted and cannot be changed.']);
+        }
+
         $old = $interview->interview_status;
         $interview->update(['interview_status' => $data['interview_status']]);
 
@@ -218,7 +270,12 @@ class StudentInfoController extends Controller
         );
 
         if ($request->wantsJson()) {
-            return response()->json(['success' => true, 'interview_status' => $data['interview_status']]);
+            $interview->refresh();
+
+            return response()->json(array_merge([
+                'success' => true,
+                'interview_status' => $data['interview_status'],
+            ], $this->interviewUiState($interview)));
         }
 
         return back()->with('success', 'Interview status updated.');
@@ -230,18 +287,13 @@ class StudentInfoController extends Controller
             return [null, null, null];
         }
 
-        $candidateTimezone = $this->resolveCandidateTimezone($candidate);
-        $sourceTimezone = $this->timezoneAbbreviationToIana($interview->scheduled_timezone);
-        $scheduledString = $interview->scheduled_date->format('Y-m-d') . ' ' . substr((string) $interview->scheduled_time, 0, 5);
-
         try {
-            $candidateMoment = \Carbon\Carbon::createFromFormat('Y-m-d H:i', $scheduledString, $sourceTimezone)
-                ->setTimezone($candidateTimezone);
+            $sourceTime = substr((string) $interview->scheduled_time, 0, 5);
 
             return [
-                $candidateMoment->format('M d, Y'),
-                $candidateMoment->format('h:i A'),
-                $candidateMoment->format('T'),
+                $interview->scheduled_date->format('M d, Y'),
+                $sourceTime ? Carbon::createFromFormat('H:i', $sourceTime)->format('h:i A') : null,
+                $interview->scheduled_timezone,
             ];
         } catch (\Throwable) {
             return [
@@ -252,9 +304,68 @@ class StudentInfoController extends Controller
         }
     }
 
+    private function interviewUtcTimestamp(Interview $interview): ?Carbon
+    {
+        return $this->interviewUtcTimestampFromValues(
+            $interview->scheduled_date?->format('Y-m-d'),
+            $interview->scheduled_time,
+            $interview->scheduled_timezone
+        );
+    }
+
+    private function interviewUiState(Interview $interview): array
+    {
+        $scheduledAt = $this->interviewUtcTimestamp($interview);
+        $hasStatus = !empty($interview->interview_status);
+        $hasPassed = $scheduledAt ? $scheduledAt->lte(now('UTC')) : false;
+
+        return [
+            'scheduled_at_ms' => $scheduledAt ? $scheduledAt->getTimestamp() * 1000 : null,
+            'schedule_has_passed' => $hasPassed,
+            'can_update_schedule' => !$hasPassed,
+            'can_update_status' => $hasPassed && !$hasStatus,
+            'status_lock_reason' => $hasStatus
+                ? 'Status already submitted.'
+                : ($scheduledAt ? ($hasPassed ? '' : 'Status unlocks after the scheduled time.') : 'Set the schedule before updating status.'),
+        ];
+    }
+
+    private function interviewUtcTimestampFromValues($date, $time, ?string $timezone): ?Carbon
+    {
+        if (!$date || !$time) {
+            return null;
+        }
+
+        $datePart = $date instanceof Carbon ? $date->format('Y-m-d') : (string) $date;
+        $timePart = substr((string) $time, 0, 5);
+        $sourceTimezone = $this->timezoneAbbreviationToIana($timezone);
+
+        try {
+            return Carbon::createFromFormat('Y-m-d H:i', $datePart . ' ' . $timePart, $sourceTimezone)->utc();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function resolveCandidateTimezone(Candidate $candidate): string
     {
         $state = strtoupper((string) ($candidate->state_province ?? ''));
+        $stateNames = [
+            'ALABAMA' => 'AL', 'ALASKA' => 'AK', 'ARIZONA' => 'AZ', 'ARKANSAS' => 'AR',
+            'CALIFORNIA' => 'CA', 'COLORADO' => 'CO', 'CONNECTICUT' => 'CT', 'DELAWARE' => 'DE',
+            'DISTRICT OF COLUMBIA' => 'DC', 'FLORIDA' => 'FL', 'GEORGIA' => 'GA', 'HAWAII' => 'HI',
+            'IDAHO' => 'ID', 'ILLINOIS' => 'IL', 'INDIANA' => 'IN', 'IOWA' => 'IA',
+            'KANSAS' => 'KS', 'KENTUCKY' => 'KY', 'LOUISIANA' => 'LA', 'MAINE' => 'ME',
+            'MARYLAND' => 'MD', 'MASSACHUSETTS' => 'MA', 'MICHIGAN' => 'MI', 'MINNESOTA' => 'MN',
+            'MISSISSIPPI' => 'MS', 'MISSOURI' => 'MO', 'MONTANA' => 'MT', 'NEBRASKA' => 'NE',
+            'NEVADA' => 'NV', 'NEW HAMPSHIRE' => 'NH', 'NEW JERSEY' => 'NJ', 'NEW MEXICO' => 'NM',
+            'NEW YORK' => 'NY', 'NORTH CAROLINA' => 'NC', 'NORTH DAKOTA' => 'ND', 'OHIO' => 'OH',
+            'OKLAHOMA' => 'OK', 'OREGON' => 'OR', 'PENNSYLVANIA' => 'PA', 'RHODE ISLAND' => 'RI',
+            'SOUTH CAROLINA' => 'SC', 'SOUTH DAKOTA' => 'SD', 'TENNESSEE' => 'TN', 'TEXAS' => 'TX',
+            'UTAH' => 'UT', 'VERMONT' => 'VT', 'VIRGINIA' => 'VA', 'WASHINGTON' => 'WA',
+            'WEST VIRGINIA' => 'WV', 'WISCONSIN' => 'WI', 'WYOMING' => 'WY',
+        ];
+        $state = $stateNames[$state] ?? $state;
 
         $stateToTimezone = [
             'CT' => 'America/New_York', 'DE' => 'America/New_York', 'DC' => 'America/New_York',
@@ -289,12 +400,16 @@ class StudentInfoController extends Controller
     private function timezoneAbbreviationToIana(?string $abbr): string
     {
         return match (strtoupper((string) $abbr)) {
-            'EST', 'EDT' => 'America/New_York',
-            'CST', 'CDT' => 'America/Chicago',
-            'MST', 'MDT' => 'America/Denver',
-            'PST', 'PDT' => 'America/Los_Angeles',
-            'AKST'       => 'America/Anchorage',
-            'HST'        => 'Pacific/Honolulu',
+            'EST'        => '-05:00',
+            'EDT'        => '-04:00',
+            'CST'        => '-06:00',
+            'CDT'        => '-05:00',
+            'MST'        => '-07:00',
+            'MDT'        => '-06:00',
+            'PST'        => '-08:00',
+            'PDT'        => '-07:00',
+            'AKST'       => '-09:00',
+            'HST'        => '-10:00',
             default      => config('app.timezone', 'UTC'),
         };
     }

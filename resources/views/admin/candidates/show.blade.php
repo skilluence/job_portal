@@ -598,6 +598,7 @@ $totalInterviews = $interviews->count();
                                                 'scheduled_date'     => $interview->scheduled_date?->format('Y-m-d'),
                                                 'scheduled_time'     => $interview->scheduled_time ? substr((string) $interview->scheduled_time, 0, 5) : null,
                                                 'scheduled_timezone' => $interview->scheduled_timezone,
+                                                'interview_status'   => $interview->interview_status,
                                                 'update_url'         => route('admin.candidates.interviews.update', [$candidate, $interview]),
                                             ]) }})">
                                             <i class="bi bi-pencil"></i>
@@ -982,6 +983,14 @@ $totalInterviews = $interviews->count();
                     </div>
                     @if ($isAdmin)
                     <div class="form-group">
+                        <label class="form-label">Interview Status <span class="text-muted text-sm">(admin only)</span></label>
+                        <select name="interview_status" id="iInterviewStatus" class="form-control">
+                            <option value="">Not marked</option>
+                            <option value="valid">Valid</option>
+                            <option value="invalid">Invalid</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <label class="form-label">Interview Schedule Date &amp; Time <span class="text-muted text-sm">(admin only)</span></label>
                         <input type="text" id="iScheduledAtDisplay" class="form-control" placeholder="Select schedule date and time">
                     </div>
@@ -1001,6 +1010,7 @@ $totalInterviews = $interviews->count();
                     <input type="hidden" name="scheduled_date"     id="iSchedDate">
                     <input type="hidden" name="scheduled_time"     id="iSchedTime">
                     <input type="hidden" name="scheduled_timezone" id="iTimezone">
+                    <input type="hidden" name="interview_status"   id="iInterviewStatus">
                     @endif
                 </div>
             </div>
@@ -1486,6 +1496,7 @@ function setupCandidatePreviewFormValidation() {
                 company_domain: { required: true, noSpacesOnly: true, portalUrlAllowed: true, maxlength: 500 },
                 role: { required: true, noSpacesOnly: true, maxlength: 200 },
                 interview_type: { required: true },
+                interview_status: { pattern: /^(valid|invalid)?$/ },
                 remark: { maxlength: 2000 },
                 scheduled_timezone: {
                     required: function () {
@@ -1515,6 +1526,7 @@ function setupCandidatePreviewFormValidation() {
                     maxlength: 'Role cannot be more than 200 characters.',
                 },
                 interview_type: { required: 'Interview type is required.' },
+                interview_status: { pattern: 'Interview status must be Valid or Invalid.' },
                 remark: { maxlength: 'Remark cannot be more than 2000 characters.' },
                 scheduled_timezone: { required: 'Timezone is required when schedule date/time is selected.' },
             },
@@ -1751,6 +1763,8 @@ function openInterviewModal(data) {
     setInterviewDateTimeValue('iApplicationAtDisplay', 'iApplicationDate', 'iApplicationTime', '', '');
     setInterviewDateTimeValue('iMailAtDisplay', 'iMailDate', 'iMailTime', '', '');
     setInterviewDateTimeValue('iScheduledAtDisplay', 'iSchedDate', 'iSchedTime', '', '');
+    const statusInput = document.getElementById('iInterviewStatus');
+    if (statusInput) statusInput.value = '';
 
     const existingMethod = form.querySelector('input[name="_method"]');
     if (existingMethod) existingMethod.remove();
@@ -1774,6 +1788,7 @@ function openInterviewModal(data) {
         document.getElementById('iCompanyDomain').value = data.company_domain || '';
         document.getElementById('iType').value          = data.interview_type || '';
         document.getElementById('iTimezone').value      = data.scheduled_timezone || '';
+        if (statusInput) statusInput.value              = data.interview_status || '';
         document.getElementById('iRemark').value        = data.remark || '';
     } else {
         title.innerHTML = '<i class="bi bi-briefcase"></i> Add Interview';

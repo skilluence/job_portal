@@ -722,8 +722,14 @@ function syncCandidateBulkActionPanel() {
     var action = selectedBulkAction();
     var assignFields = document.getElementById('candidateAssignFields');
     var unassignFields = document.getElementById('candidateUnassignFields');
-    if (assignFields) assignFields.style.display = action === 'assign' ? '' : 'none';
-    if (unassignFields) unassignFields.style.display = action === 'unassign' ? '' : 'none';
+    if (assignFields) {
+        if (window.smoothToggleElement) window.smoothToggleElement(assignFields, action === 'assign');
+        else assignFields.style.display = action === 'assign' ? '' : 'none';
+    }
+    if (unassignFields) {
+        if (window.smoothToggleElement) window.smoothToggleElement(unassignFields, action === 'unassign');
+        else unassignFields.style.display = action === 'unassign' ? '' : 'none';
+    }
     syncUnassignTypePanel();
 }
 
@@ -732,9 +738,18 @@ function syncUnassignTypePanel() {
     var fullDay = document.getElementById('unassignFullDayFields');
     var timeRange = document.getElementById('unassignTimeRangeFields');
     var permanent = document.getElementById('unassignPermanentNotice');
-    if (fullDay) fullDay.style.display = type === 'full_day' ? '' : 'none';
-    if (timeRange) timeRange.style.display = type === 'time_range' ? '' : 'none';
-    if (permanent) permanent.style.display = type === 'permanent' ? '' : 'none';
+    if (fullDay) {
+        if (window.smoothToggleElement) window.smoothToggleElement(fullDay, type === 'full_day');
+        else fullDay.style.display = type === 'full_day' ? '' : 'none';
+    }
+    if (timeRange) {
+        if (window.smoothToggleElement) window.smoothToggleElement(timeRange, type === 'time_range');
+        else timeRange.style.display = type === 'time_range' ? '' : 'none';
+    }
+    if (permanent) {
+        if (window.smoothToggleElement) window.smoothToggleElement(permanent, type === 'permanent');
+        else permanent.style.display = type === 'permanent' ? '' : 'none';
+    }
 
     if (type === 'time_range' && document.querySelectorAll('.candidate-range-row').length === 0) {
         addUnassignRangeRow();

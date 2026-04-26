@@ -395,6 +395,76 @@
         if (id === 'editCandidateModal') resetCandidatePasswordReveal();
     };
 
+    window.smoothToggleElement = function (element, shouldShow, displayValue) {
+        if (!element) return;
+
+        var reduceMotion = window.matchMedia &&
+            window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+        if (element._smoothToggleTimer) {
+            window.clearTimeout(element._smoothToggleTimer);
+            element._smoothToggleTimer = null;
+        }
+
+        if (reduceMotion) {
+            element.style.display = shouldShow ? (displayValue || 'block') : 'none';
+            element.style.maxHeight = '';
+            element.style.opacity = '';
+            element.style.transform = '';
+            element.style.overflow = '';
+            element.classList.remove('is-smooth-toggling');
+            return;
+        }
+
+        element.classList.add('is-smooth-toggling');
+        element.style.overflow = 'hidden';
+        element.style.transition = 'max-height 220ms ease, opacity 180ms ease, transform 220ms ease';
+
+        if (shouldShow) {
+            element.style.display = displayValue || 'block';
+            element.style.maxHeight = '0px';
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(-4px)';
+
+            window.requestAnimationFrame(function () {
+                element.style.maxHeight = element.scrollHeight + 'px';
+                element.style.opacity = '1';
+                element.style.transform = 'translateY(0)';
+            });
+
+            element._smoothToggleTimer = window.setTimeout(function () {
+                element.style.maxHeight = '';
+                element.style.opacity = '';
+                element.style.transform = '';
+                element.style.overflow = '';
+                element.style.transition = '';
+                element.classList.remove('is-smooth-toggling');
+            }, 240);
+            return;
+        }
+
+        element.style.maxHeight = element.scrollHeight + 'px';
+        element.style.opacity = '1';
+        element.style.transform = 'translateY(0)';
+
+        window.requestAnimationFrame(function () {
+            element.style.maxHeight = '0px';
+            element.style.opacity = '0';
+            element.style.transform = 'translateY(-4px)';
+        });
+
+        element._smoothToggleTimer = window.setTimeout(function () {
+            element.style.display = 'none';
+            element.style.maxHeight = '';
+            element.style.opacity = '';
+            element.style.transform = '';
+            element.style.overflow = '';
+            element.style.transition = '';
+            element.classList.remove('is-smooth-toggling');
+        }, 240);
+    };
+    var smoothToggleElement = window.smoothToggleElement;
+
     document.addEventListener('click', function (event) {
         if (event.target.classList.contains('modal-overlay')) {
             if (event.target.id === 'editCandidateModal') resetCandidatePasswordReveal();
@@ -969,8 +1039,8 @@
 
         if (roleSelect) {
             if (isLockedAdmin) {
-                if (emailGroup) emailGroup.style.display = 'none';
-                if (emailLockedGroup) emailLockedGroup.style.display = 'block';
+                if (emailGroup) smoothToggleElement(emailGroup, false);
+                if (emailLockedGroup) smoothToggleElement(emailLockedGroup, true);
                 if (emailInput) {
                     emailInput.disabled = true;
                     emailInput.required = false;
@@ -981,29 +1051,29 @@
                 roleSelect.disabled = true;
                 roleSelect.required = false;
                 roleSelect.name = '';
-                if (roleSelectGroup) roleSelectGroup.style.display = 'none';
-                if (roleLockedGroup) roleLockedGroup.style.display = 'block';
+                if (roleSelectGroup) smoothToggleElement(roleSelectGroup, false);
+                if (roleLockedGroup) smoothToggleElement(roleLockedGroup, true);
                 if (roleHiddenInput) {
                     roleHiddenInput.name = 'role';
                     roleHiddenInput.value = 'admin';
                 }
 
-                if (statusGroup) statusGroup.style.display = 'none';
-                if (statusLockedGroup) statusLockedGroup.style.display = 'block';
+                if (statusGroup) smoothToggleElement(statusGroup, false);
+                if (statusLockedGroup) smoothToggleElement(statusLockedGroup, true);
                 if (statusSelect) {
                     statusSelect.disabled = true;
                     statusSelect.required = false;
                     statusSelect.name = '';
                 }
 
-                if (teamManagerGroup) teamManagerGroup.style.display = 'none';
+                if (teamManagerGroup) smoothToggleElement(teamManagerGroup, false);
                 if (teamManagerSelect) {
                     teamManagerSelect.required = false;
                     teamManagerSelect.value = '';
                 }
             } else {
-                if (emailGroup) emailGroup.style.display = 'block';
-                if (emailLockedGroup) emailLockedGroup.style.display = 'none';
+                if (emailGroup) smoothToggleElement(emailGroup, true);
+                if (emailLockedGroup) smoothToggleElement(emailLockedGroup, false);
                 if (emailInput) {
                     emailInput.disabled = false;
                     emailInput.required = true;
@@ -1014,15 +1084,15 @@
                 roleSelect.required = true;
                 roleSelect.name = 'role';
                 setVal('edit_user_role', user.role || 'recruiter');
-                if (roleSelectGroup) roleSelectGroup.style.display = 'block';
-                if (roleLockedGroup) roleLockedGroup.style.display = 'none';
+                if (roleSelectGroup) smoothToggleElement(roleSelectGroup, true);
+                if (roleLockedGroup) smoothToggleElement(roleLockedGroup, false);
                 if (roleHiddenInput) {
                     roleHiddenInput.name = '';
                     roleHiddenInput.value = '';
                 }
 
-                if (statusGroup) statusGroup.style.display = 'block';
-                if (statusLockedGroup) statusLockedGroup.style.display = 'none';
+                if (statusGroup) smoothToggleElement(statusGroup, true);
+                if (statusLockedGroup) smoothToggleElement(statusLockedGroup, false);
                 if (statusSelect) {
                     statusSelect.disabled = false;
                     statusSelect.required = true;
@@ -1036,7 +1106,7 @@
         // ── Current password display (admin editing non-admin only) ──
         var currentPwGroup = document.getElementById('edit_current_pw_group');
         if (currentPwGroup) {
-            currentPwGroup.style.display = (!isLockedAdmin) ? 'block' : 'none';
+            smoothToggleElement(currentPwGroup, !isLockedAdmin);
         }
         var currentPwDisplay = document.getElementById('edit_current_pw_display');
         if (currentPwDisplay) {

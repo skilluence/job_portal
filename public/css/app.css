@@ -1358,6 +1358,19 @@ textarea.form-control { resize: vertical; min-height: 90px; }
     box-sizing: border-box;
 }
 .stp-input:focus  { outline: none; border-color: #2563eb; background: #fff; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.select2-container--default .select2-selection--single.stp-select2-selection {
+    min-height: 42px;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 8px !important;
+    background: #f8fafc;
+}
+.select2-container--default .stp-select2-selection .select2-selection__rendered {
+    line-height: 40px !important;
+    color: #1e293b;
+    font-size: 13.5px;
+    padding-left: 12px;
+}
+.select2-container--default .stp-select2-selection .select2-selection__arrow { height: 40px !important; }
 .stp-textarea     { resize: vertical; min-height: 70px; line-height: 1.5; }
 .stp-file-input   { padding: 6px 10px; cursor: pointer; }
 .stp-file-hint    { font-size: 11.5px; color: #94a3b8; margin-top: 4px; }
@@ -2749,4 +2762,430 @@ html[data-theme="dark"] body.admin-theme .form-control {
 }
 html[data-theme="dark"] body.admin-theme .modal {
     border-color: #2d4059;
+}
+
+/* ============================================================
+   ADMIN CLARITY + MOTION PASS
+   Scoped to the admin shell so student/candidate portal pages keep
+   their existing visual language.
+   ============================================================ */
+body.admin-theme {
+    --admin-page-gutter: clamp(14px, 1.7vw, 28px);
+    --admin-soft-shadow: 0 8px 26px rgba(15, 23, 42, 0.06);
+    --admin-focus-ring: 0 0 0 4px rgba(29, 78, 216, 0.12);
+    --radius: 8px;
+    --radius-sm: 7px;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+body.admin-theme * {
+    scrollbar-width: thin;
+    scrollbar-color: #b8c7d9 transparent;
+}
+
+body.admin-theme *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+body.admin-theme *::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+body.admin-theme *::-webkit-scrollbar-thumb {
+    background: #c8d4e3;
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background-clip: content-box;
+}
+
+body.admin-theme *::-webkit-scrollbar-thumb:hover {
+    background-color: #aabbd0;
+}
+
+body.admin-theme .main-content {
+    max-width: none;
+    padding: var(--admin-page-gutter);
+}
+
+body.admin-theme .main-header {
+    min-height: 68px;
+    height: auto;
+    padding: 12px var(--admin-page-gutter);
+}
+
+body.admin-theme .header-actions {
+    gap: 10px;
+}
+
+body.admin-theme .header-user-chip,
+body.admin-theme .theme-toggle,
+body.admin-theme .header-logout-btn {
+    min-height: 40px;
+    border-radius: 8px;
+    transition: background 180ms ease, border-color 180ms ease, color 180ms ease, transform 180ms ease;
+}
+
+body.admin-theme .header-user-chip:hover,
+body.admin-theme .theme-toggle:hover,
+body.admin-theme .header-logout-btn:hover,
+body.admin-theme .btn:hover {
+    transform: translateY(-1px);
+}
+
+body.admin-theme .card,
+body.admin-theme .stat-card,
+body.admin-theme .dw-stat-card {
+    border-radius: 8px;
+    box-shadow: var(--admin-soft-shadow);
+}
+
+body.admin-theme .card {
+    padding: clamp(16px, 1.5vw, 24px);
+}
+
+body.admin-theme .card + .card {
+    margin-top: 18px;
+}
+
+body.admin-theme .card-header {
+    margin: -2px 0 18px;
+    padding: 0 0 16px;
+    align-items: center;
+    gap: 16px;
+}
+
+body.admin-theme .card-title {
+    font-size: 16px;
+    line-height: 1.25;
+}
+
+body.admin-theme .card-subtitle {
+    margin-top: 4px;
+    line-height: 1.4;
+}
+
+body.admin-theme .table-wrapper {
+    border-radius: 8px;
+    overflow: auto;
+    max-height: calc(100vh - 275px);
+}
+
+body.admin-theme table {
+    min-width: 980px;
+}
+
+body.admin-theme thead th {
+    top: 0;
+    padding: 12px 18px;
+    box-shadow: 0 1px 0 #dfe7f2;
+}
+
+body.admin-theme tbody td {
+    padding: 14px 18px;
+    line-height: 1.35;
+}
+
+body.admin-theme tbody tr {
+    transition: background 160ms ease, box-shadow 160ms ease;
+}
+
+body.admin-theme tbody tr:hover td {
+    background: #f2f7ff;
+}
+
+body.admin-theme .avatar-row {
+    gap: 10px;
+    min-width: 0;
+}
+
+body.admin-theme .avatar-sm,
+body.admin-theme .user-avatar,
+body.admin-theme .header-avatar {
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+body.admin-theme .avatar-name {
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+body.admin-theme .avatar-sub {
+    line-height: 1.25;
+    color: #6f849d;
+}
+
+body.admin-theme .form-grid {
+    gap: 4px 18px;
+}
+
+body.admin-theme .form-group {
+    margin-bottom: 16px;
+}
+
+body.admin-theme .form-label {
+    margin-bottom: 7px;
+}
+
+body.admin-theme .form-control,
+body.admin-theme .select2-container--default .select2-selection--single {
+    min-height: 42px;
+    border-radius: 8px !important;
+    transition: border-color 170ms ease, box-shadow 170ms ease, background 170ms ease;
+}
+
+body.admin-theme .form-control:focus,
+body.admin-theme .select2-container--default.select2-container--focus .select2-selection--single,
+body.admin-theme .select2-container--default.select2-container--open .select2-selection--single {
+    box-shadow: var(--admin-focus-ring);
+}
+
+body.admin-theme .btn {
+    min-height: 38px;
+    border-radius: 8px;
+    transition: background 170ms ease, border-color 170ms ease, color 170ms ease, transform 170ms ease, box-shadow 170ms ease;
+}
+
+body.admin-theme .btn-sm {
+    min-height: 34px;
+}
+
+body.admin-theme .tbl-actions {
+    gap: 8px;
+}
+
+body.admin-theme .tbl-actions .btn {
+    border-radius: 8px;
+}
+
+body.admin-theme .badge {
+    min-height: 24px;
+    padding: 4px 10px;
+}
+
+body.admin-theme .modal-overlay {
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(6px);
+    transition: opacity 220ms ease;
+}
+
+body.admin-theme .modal {
+    border-radius: 8px;
+    max-height: min(90vh, 860px);
+    transform: translateY(16px) scale(0.985);
+    transition: transform 240ms ease, opacity 220ms ease, background var(--transition), border-color var(--transition);
+    opacity: 0;
+}
+
+body.admin-theme .modal-overlay.open .modal {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+}
+
+body.admin-theme .modal-header,
+body.admin-theme .modal-footer {
+    padding: 16px 22px;
+}
+
+body.admin-theme .modal-body {
+    padding: 22px;
+    scroll-behavior: smooth;
+}
+
+body.admin-theme .modal-xl {
+    max-width: min(1120px, 96vw);
+}
+
+body.admin-theme .modal-tabs {
+    padding: 8px 10px 0;
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+}
+
+body.admin-theme .modal-tab-btn {
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    border-radius: 8px 8px 0 0;
+    padding: 10px 14px;
+    transition: background 170ms ease, border-color 170ms ease, color 170ms ease;
+}
+
+body.admin-theme .modal-tab-btn:hover {
+    background: #f4f8fe;
+}
+
+body.admin-theme .modal-tab-btn.active {
+    background: #ffffff;
+    border-color: #dfe7f2;
+    border-bottom-color: var(--blue);
+}
+
+body.admin-theme .modal-tab-panel.active {
+    animation: adminPanelIn 180ms ease both;
+}
+
+@keyframes adminPanelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+body.admin-theme .form-section-title {
+    padding: 16px 0 9px;
+    margin-bottom: 16px;
+    color: #536b86;
+}
+
+body.admin-theme .page-empty {
+    border-radius: 8px;
+    background: #f8fbff;
+}
+
+body.admin-theme .candidate-offcanvas-backdrop {
+    background: rgba(15, 23, 42, 0.42);
+    backdrop-filter: blur(4px);
+    transition: opacity 220ms ease;
+}
+
+body.admin-theme .candidate-offcanvas {
+    width: min(500px, 100vw);
+    border-left-color: #dbe4ef;
+    box-shadow: -24px 0 60px rgba(15, 23, 42, 0.18);
+    transition: transform 260ms ease;
+}
+
+body.admin-theme .candidate-offcanvas-header,
+body.admin-theme .candidate-offcanvas-footer {
+    padding: 18px 24px;
+}
+
+body.admin-theme .candidate-offcanvas-body {
+    padding: 20px 24px;
+    gap: 16px;
+    scroll-behavior: smooth;
+}
+
+body.admin-theme .candidate-action-card,
+body.admin-theme .candidate-range-row,
+body.admin-theme .resume-entry-block {
+    border-radius: 8px;
+    border-color: #dce6f2;
+    background: #fbfdff;
+}
+
+body.admin-theme .candidate-segmented span {
+    border-radius: 8px;
+    transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+body.admin-theme .ss-dropdown,
+body.admin-theme .select2-dropdown,
+body.admin-theme .flatpickr-calendar {
+    border-radius: 8px !important;
+    box-shadow: 0 18px 44px rgba(15, 23, 42, 0.16) !important;
+}
+
+body.admin-theme .dropzone-wrap,
+body.admin-theme .subdomain-badge-wrap {
+    border-radius: 8px;
+}
+
+body.admin-theme .is-smooth-toggling {
+    will-change: max-height, opacity, transform;
+}
+
+@media (max-width: 1100px) {
+    body.admin-theme .card-header > .d-flex,
+    body.admin-theme .card-header form {
+        width: 100%;
+    }
+
+    body.admin-theme .card-header input.form-control,
+    body.admin-theme .card-header select.form-control {
+        flex: 1 1 220px;
+        width: auto !important;
+    }
+}
+
+@media (max-width: 768px) {
+    body.admin-theme .main-header {
+        padding: 12px 14px;
+    }
+
+    body.admin-theme .header-info {
+        width: 100%;
+    }
+
+    body.admin-theme .header-actions {
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 2px;
+    }
+
+    body.admin-theme .main-content {
+        padding: 14px;
+    }
+
+    body.admin-theme .card {
+        padding: 14px;
+    }
+
+    body.admin-theme .modal-overlay {
+        align-items: flex-end;
+        padding: 10px;
+    }
+
+    body.admin-theme .modal {
+        width: 100%;
+        max-height: 92vh;
+    }
+
+    body.admin-theme .modal-header,
+    body.admin-theme .modal-footer,
+    body.admin-theme .modal-body {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+
+    body.admin-theme .modal-footer {
+        flex-wrap: wrap;
+    }
+
+    body.admin-theme .modal-footer .btn {
+        flex: 1 1 auto;
+        justify-content: center;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    body.admin-theme *,
+    body.admin-theme *::before,
+    body.admin-theme *::after {
+        animation-duration: 1ms !important;
+        transition-duration: 1ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+html[data-theme="dark"] body.admin-theme * {
+    scrollbar-color: #41546f transparent;
+}
+
+html[data-theme="dark"] body.admin-theme *::-webkit-scrollbar-thumb {
+    background-color: #40536d;
+}
+
+html[data-theme="dark"] body.admin-theme tbody tr:hover td,
+html[data-theme="dark"] body.admin-theme .modal-tab-btn:hover,
+html[data-theme="dark"] body.admin-theme .page-empty,
+html[data-theme="dark"] body.admin-theme .candidate-action-card,
+html[data-theme="dark"] body.admin-theme .candidate-range-row,
+html[data-theme="dark"] body.admin-theme .resume-entry-block {
+    background: #14243b;
+}
+
+html[data-theme="dark"] body.admin-theme .modal-tab-btn.active {
+    background: #111b2f;
+    border-color: #2b3d56;
+    border-bottom-color: var(--blue);
 }

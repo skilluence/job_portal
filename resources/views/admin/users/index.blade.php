@@ -399,10 +399,16 @@ function handleAddRoleChange(select) {
     var tmSelect = document.getElementById('add_team_manager_id');
 
     if (role === 'recruiter') {
-        if (tmGroup) tmGroup.style.display = 'block';
+        if (tmGroup) {
+            if (window.smoothToggleElement) window.smoothToggleElement(tmGroup, true);
+            else tmGroup.style.display = 'block';
+        }
         if (tmSelect) tmSelect.required = true;
     } else {
-        if (tmGroup) tmGroup.style.display = 'none';
+        if (tmGroup) {
+            if (window.smoothToggleElement) window.smoothToggleElement(tmGroup, false);
+            else tmGroup.style.display = 'none';
+        }
         if (tmSelect) { tmSelect.required = false; tmSelect.value = ''; }
     }
 }
@@ -415,10 +421,16 @@ function handleEditRoleChange() {
     var tmSelect = document.getElementById('edit_user_team_manager');
 
     if (role === 'recruiter') {
-        if (tmGroup) tmGroup.style.display = 'block';
+        if (tmGroup) {
+            if (window.smoothToggleElement) window.smoothToggleElement(tmGroup, true);
+            else tmGroup.style.display = 'block';
+        }
         if (tmSelect) tmSelect.required = true;
     } else {
-        if (tmGroup) tmGroup.style.display = 'none';
+        if (tmGroup) {
+            if (window.smoothToggleElement) window.smoothToggleElement(tmGroup, false);
+            else tmGroup.style.display = 'none';
+        }
         if (tmSelect) { tmSelect.required = false; }
     }
 }

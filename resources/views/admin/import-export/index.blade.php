@@ -332,22 +332,24 @@
                                 <option value="inactive">Inactive</option>
                             </select>
                         </div>
-                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
-                            <label class="form-label">Recruiter</label>
-                            <select name="recruiter_id" id="candidateExportRecruiter" class="form-control">
-                                <option value="">All Recruiters</option>
-                                @foreach ($recruiters as $rec)
-                                    <option value="{{ $rec->id }}">{{ $rec->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="form-group mb-0" style="flex:1;min-width:140px;">
-                            <label class="form-label">Team Manager</label>
-                            <select name="team_manager_id" id="candidateExportManager" class="form-control">
-                                <option value="">All Team Managers</option>
-                                @foreach ($managers as $manager)
-                                    <option value="{{ $manager->id }}">{{ $manager->name }}</option>
-                                @endforeach
+                        <div class="form-group mb-0" style="flex:1.25;min-width:180px;">
+                            <label class="form-label">Recruiter / Team Manager</label>
+                            <select name="owner" class="form-control">
+                                <option value="">All Recruiters &amp; Team Managers</option>
+                                @if ($managers->isNotEmpty())
+                                    <optgroup label="Team Managers">
+                                        @foreach ($managers as $manager)
+                                            <option value="manager:{{ $manager->id }}">{{ $manager->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
+                                @if ($recruiters->isNotEmpty())
+                                    <optgroup label="Recruiters">
+                                        @foreach ($recruiters as $rec)
+                                            <option value="recruiter:{{ $rec->id }}">{{ $rec->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endif
                             </select>
                         </div>
                         <div class="form-group mb-0" style="flex-shrink:0;">
@@ -568,23 +570,6 @@ document.addEventListener('DOMContentLoaded', function () {
     switchIETab(initTab);
     switchIESubTab('import', initImportSub);
     switchIESubTab('export', initExportSub);
-
-    var recruiterSelect = document.getElementById('candidateExportRecruiter');
-    var managerSelect = document.getElementById('candidateExportManager');
-
-    if (recruiterSelect && managerSelect) {
-        recruiterSelect.addEventListener('change', function () {
-            if (this.value) {
-                managerSelect.value = '';
-            }
-        });
-
-        managerSelect.addEventListener('change', function () {
-            if (this.value) {
-                recruiterSelect.value = '';
-            }
-        });
-    }
 });
 </script>
 

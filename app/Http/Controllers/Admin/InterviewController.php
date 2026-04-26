@@ -45,6 +45,7 @@ class InterviewController extends Controller
             'scheduled_date'     => ['nullable', 'date'],
             'scheduled_time'     => ['nullable', 'date_format:H:i'],
             'scheduled_timezone' => ['nullable', Rule::in(self::TIMEZONES)],
+            'interview_status'   => ['nullable', Rule::in(['valid', 'invalid', ''])],
         ]);
 
         // Normalise company_domain — prepend https:// if no scheme given
@@ -57,7 +58,10 @@ class InterviewController extends Controller
         $data['candidate_id']     = $candidate->id;
         $data['recruiter_id']     = $candidate->recruiter_id; // always the candidate's assigned recruiter
         $data['created_by']       = $user->id;
-        $data['interview_status'] = null; // blank by default; updated by admin or candidate
+        $data['interview_status'] = $isAdmin ? ($data['interview_status'] ?? null) : null;
+        if ($data['interview_status'] === '') {
+            $data['interview_status'] = null;
+        }
 
         // Non-admin (recruiter/manager) cannot set scheduled fields — only admin/candidate may
         if (!$isAdmin) {
@@ -109,6 +113,7 @@ class InterviewController extends Controller
             'scheduled_date'     => ['nullable', 'date'],
             'scheduled_time'     => ['nullable', 'date_format:H:i'],
             'scheduled_timezone' => ['nullable', Rule::in(self::TIMEZONES)],
+            'interview_status'   => ['nullable', Rule::in(['valid', 'invalid', ''])],
         ]);
 
         // Normalise company_domain — prepend https:// if no scheme given
@@ -117,6 +122,9 @@ class InterviewController extends Controller
         }
 
         $data = $this->normalizeInterviewDateTimes($data);
+        if (($data['interview_status'] ?? null) === '') {
+            $data['interview_status'] = null;
+        }
 
         $interview->update($data);
         $interview->refresh();
